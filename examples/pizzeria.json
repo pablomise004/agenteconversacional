@@ -1,0 +1,2137 @@
+{
+  "id": "pizzeria",
+  "name": "Pizzería (ejemplo)",
+  "description": "Agente de ejemplo: pedidos de pizza, reservas, carta, horarios. Muestra entidades, contextos, parámetros obligatorios y respuestas rápidas.",
+  "language": "es",
+  "timezone": "Europe/Madrid",
+  "settings": {
+    "threshold": 0.3,
+    "defaultLifespan": 5,
+    "spellCorrection": true,
+    "normalization": {},
+    "webhook": {
+      "url": "",
+      "headers": {},
+      "timeout": 5
+    },
+    "apiKey": ""
+  },
+  "entities": [
+    {
+      "id": "e001",
+      "name": "pizza",
+      "kind": "map",
+      "fuzzy": true,
+      "autoExpand": false,
+      "entries": [
+        {
+          "value": "margarita",
+          "synonyms": [
+            "margarita",
+            "margherita",
+            "de tomate y queso"
+          ]
+        },
+        {
+          "value": "barbacoa",
+          "synonyms": [
+            "barbacoa",
+            "bbq",
+            "barbacoa de pollo"
+          ]
+        },
+        {
+          "value": "cuatro quesos",
+          "synonyms": [
+            "cuatro quesos",
+            "4 quesos",
+            "quattro formaggi",
+            "de quesos"
+          ]
+        },
+        {
+          "value": "hawaiana",
+          "synonyms": [
+            "hawaiana",
+            "hawaii",
+            "con piña",
+            "de piña"
+          ]
+        },
+        {
+          "value": "carbonara",
+          "synonyms": [
+            "carbonara"
+          ]
+        },
+        {
+          "value": "pepperoni",
+          "synonyms": [
+            "pepperoni",
+            "peperoni",
+            "de salami picante"
+          ]
+        },
+        {
+          "value": "vegetal",
+          "synonyms": [
+            "vegetal",
+            "vegetariana",
+            "de verduras",
+            "vegana"
+          ]
+        },
+        {
+          "value": "jamón y queso",
+          "synonyms": [
+            "jamón y queso",
+            "york",
+            "jamón york",
+            "prosciutto"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e002",
+      "name": "tamano",
+      "kind": "map",
+      "fuzzy": true,
+      "autoExpand": false,
+      "entries": [
+        {
+          "value": "pequeña",
+          "synonyms": [
+            "pequeña",
+            "individual",
+            "chica",
+            "small"
+          ]
+        },
+        {
+          "value": "mediana",
+          "synonyms": [
+            "mediana",
+            "normal",
+            "mediano"
+          ]
+        },
+        {
+          "value": "familiar",
+          "synonyms": [
+            "familiar",
+            "grande",
+            "XL",
+            "enorme",
+            "extra grande"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e003",
+      "name": "bebida",
+      "kind": "map",
+      "fuzzy": true,
+      "autoExpand": false,
+      "entries": [
+        {
+          "value": "agua",
+          "synonyms": [
+            "agua",
+            "agua mineral",
+            "botella de agua"
+          ]
+        },
+        {
+          "value": "coca-cola",
+          "synonyms": [
+            "coca-cola",
+            "coca cola",
+            "cocacola",
+            "coca",
+            "coca cola zero"
+          ]
+        },
+        {
+          "value": "cerveza",
+          "synonyms": [
+            "cerveza",
+            "birra",
+            "caña",
+            "cervezas"
+          ]
+        },
+        {
+          "value": "refresco de naranja",
+          "synonyms": [
+            "fanta",
+            "fanta de naranja",
+            "refresco de naranja",
+            "naranjada"
+          ]
+        },
+        {
+          "value": "refresco de limón",
+          "synonyms": [
+            "fanta de limón",
+            "refresco de limón",
+            "limonada"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e004",
+      "name": "entrega",
+      "kind": "map",
+      "fuzzy": true,
+      "autoExpand": false,
+      "entries": [
+        {
+          "value": "domicilio",
+          "synonyms": [
+            "a domicilio",
+            "domicilio",
+            "envío",
+            "a casa",
+            "que me la traigan",
+            "que me lo traigan",
+            "delivery",
+            "a mi casa"
+          ]
+        },
+        {
+          "value": "recoger",
+          "synonyms": [
+            "recoger",
+            "para recoger",
+            "recogida",
+            "para llevar",
+            "paso a buscarla",
+            "la recojo",
+            "en el local",
+            "paso yo"
+          ]
+        }
+      ]
+    }
+  ],
+  "intents": [
+    {
+      "id": "i005",
+      "name": "Bienvenida",
+      "isFallback": false,
+      "events": [
+        "WELCOME"
+      ],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "input.welcome",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p006",
+          "text": "hola",
+          "annotations": []
+        },
+        {
+          "id": "p007",
+          "text": "buenas",
+          "annotations": []
+        },
+        {
+          "id": "p008",
+          "text": "buenos días",
+          "annotations": []
+        },
+        {
+          "id": "p009",
+          "text": "buenas tardes",
+          "annotations": []
+        },
+        {
+          "id": "p010",
+          "text": "buenas noches",
+          "annotations": []
+        },
+        {
+          "id": "p011",
+          "text": "hola qué tal",
+          "annotations": []
+        },
+        {
+          "id": "p012",
+          "text": "hey",
+          "annotations": []
+        },
+        {
+          "id": "p013",
+          "text": "saludos",
+          "annotations": []
+        },
+        {
+          "id": "p014",
+          "text": "holi",
+          "annotations": []
+        },
+        {
+          "id": "p015",
+          "text": "ey qué tal",
+          "annotations": []
+        },
+        {
+          "id": "p016",
+          "text": "hola buenas",
+          "annotations": []
+        },
+        {
+          "id": "p017",
+          "text": "qué pasa",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "¡Hola! 👋 Soy el asistente de la Pizzería Napoli. Puedo tomar tu pedido, reservarte mesa o contarte horarios y precios. ¿Qué te apetece?",
+            "¡Buenas! 🍕 ¿Te apetece pedir una pizza, reservar mesa o necesitas información?"
+          ]
+        },
+        {
+          "type": "quickReplies",
+          "items": [
+            "Pedir una pizza",
+            "Reservar mesa",
+            "Ver la carta",
+            "Horario"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i018",
+      "name": "Fallback",
+      "isFallback": true,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "input.unknown",
+      "parameters": [],
+      "trainingPhrases": [],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Perdona, no te he entendido. Puedo ayudarte con pedidos, reservas, la carta, precios u horarios.",
+            "Vaya, eso no lo he pillado. ¿Quieres pedir una pizza, reservar mesa o saber el horario?"
+          ]
+        },
+        {
+          "type": "quickReplies",
+          "items": [
+            "Pedir una pizza",
+            "Reservar mesa",
+            "Horario"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i019",
+      "name": "pedido.pizza",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [
+        {
+          "name": "pedido",
+          "lifespan": 5
+        },
+        {
+          "name": "pedido-entrega",
+          "lifespan": 2
+        }
+      ],
+      "resetContexts": false,
+      "action": "pedido.crear",
+      "parameters": [
+        {
+          "name": "cantidad",
+          "entity": "@sys.number",
+          "required": false,
+          "isList": false,
+          "prompts": [],
+          "defaultValue": "1",
+          "id": "a020"
+        },
+        {
+          "name": "pizza",
+          "entity": "@pizza",
+          "required": true,
+          "isList": false,
+          "prompts": [
+            "¿Qué pizza te apetece? Tenemos margarita, barbacoa, cuatro quesos, hawaiana, carbonara, pepperoni, vegetal y jamón y queso."
+          ],
+          "defaultValue": "",
+          "id": "a021"
+        },
+        {
+          "name": "tamano",
+          "entity": "@tamano",
+          "required": true,
+          "isList": false,
+          "prompts": [
+            "¿De qué tamaño la quieres: pequeña, mediana o familiar?",
+            "¿Pequeña, mediana o familiar?"
+          ],
+          "defaultValue": "",
+          "id": "a022"
+        }
+      ],
+      "trainingPhrases": [
+        {
+          "id": "p023",
+          "text": "quiero una pizza",
+          "annotations": []
+        },
+        {
+          "id": "p024",
+          "text": "quiero pedir una pizza",
+          "annotations": []
+        },
+        {
+          "id": "p025",
+          "text": "quiero hacer un pedido",
+          "annotations": []
+        },
+        {
+          "id": "p026",
+          "text": "hacer un pedido",
+          "annotations": []
+        },
+        {
+          "id": "p027",
+          "text": "quiero pedir una barbacoa",
+          "annotations": [
+            {
+              "start": 17,
+              "end": 25,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        },
+        {
+          "id": "p028",
+          "text": "me pones una margarita familiar",
+          "annotations": [
+            {
+              "start": 13,
+              "end": 22,
+              "entity": "@pizza",
+              "param": "pizza"
+            },
+            {
+              "start": 23,
+              "end": 31,
+              "entity": "@tamano",
+              "param": "tamano"
+            }
+          ]
+        },
+        {
+          "id": "p029",
+          "text": "una cuatro quesos mediana por favor",
+          "annotations": [
+            {
+              "start": 4,
+              "end": 17,
+              "entity": "@pizza",
+              "param": "pizza"
+            },
+            {
+              "start": 18,
+              "end": 25,
+              "entity": "@tamano",
+              "param": "tamano"
+            }
+          ]
+        },
+        {
+          "id": "p030",
+          "text": "querría encargar dos pizzas hawaianas",
+          "annotations": [
+            {
+              "start": 17,
+              "end": 20,
+              "entity": "@sys.number",
+              "param": "cantidad"
+            },
+            {
+              "start": 28,
+              "end": 37,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        },
+        {
+          "id": "p031",
+          "text": "me apetece una pizza de pepperoni grande",
+          "annotations": [
+            {
+              "start": 21,
+              "end": 33,
+              "entity": "@pizza",
+              "param": "pizza"
+            },
+            {
+              "start": 34,
+              "end": 40,
+              "entity": "@tamano",
+              "param": "tamano"
+            }
+          ]
+        },
+        {
+          "id": "p032",
+          "text": "tráeme una carbonara pequeña",
+          "annotations": [
+            {
+              "start": 11,
+              "end": 20,
+              "entity": "@pizza",
+              "param": "pizza"
+            },
+            {
+              "start": 21,
+              "end": 28,
+              "entity": "@tamano",
+              "param": "tamano"
+            }
+          ]
+        },
+        {
+          "id": "p033",
+          "text": "voy a querer 3 pizzas vegetales medianas",
+          "annotations": [
+            {
+              "start": 13,
+              "end": 14,
+              "entity": "@sys.number",
+              "param": "cantidad"
+            },
+            {
+              "start": 22,
+              "end": 31,
+              "entity": "@pizza",
+              "param": "pizza"
+            },
+            {
+              "start": 32,
+              "end": 40,
+              "entity": "@tamano",
+              "param": "tamano"
+            }
+          ]
+        },
+        {
+          "id": "p034",
+          "text": "¿me preparas una barbacoa?",
+          "annotations": [
+            {
+              "start": 17,
+              "end": 25,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        },
+        {
+          "id": "p035",
+          "text": "quiero pizza",
+          "annotations": []
+        },
+        {
+          "id": "p036",
+          "text": "pedir pizza",
+          "annotations": []
+        },
+        {
+          "id": "p037",
+          "text": "ponme una familiar de quesos",
+          "annotations": [
+            {
+              "start": 10,
+              "end": 18,
+              "entity": "@tamano",
+              "param": "tamano"
+            },
+            {
+              "start": 19,
+              "end": 28,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        },
+        {
+          "id": "p038",
+          "text": "quisiera una pizza hawaiana",
+          "annotations": [
+            {
+              "start": 19,
+              "end": 27,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        },
+        {
+          "id": "p039",
+          "text": "para mí una margarita",
+          "annotations": [
+            {
+              "start": 12,
+              "end": 21,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        },
+        {
+          "id": "p040",
+          "text": "pedir comida",
+          "annotations": []
+        },
+        {
+          "id": "p041",
+          "text": "quiero encargar comida",
+          "annotations": []
+        },
+        {
+          "id": "p042",
+          "text": "me gustaría pedir dos pepperoni",
+          "annotations": [
+            {
+              "start": 18,
+              "end": 21,
+              "entity": "@sys.number",
+              "param": "cantidad"
+            },
+            {
+              "start": 22,
+              "end": 31,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "¡Marchando! 🍕 $cantidad × $pizza ($tamano). ¿La quieres a domicilio o para recoger?"
+          ]
+        },
+        {
+          "type": "quickReplies",
+          "items": [
+            "A domicilio",
+            "Para recoger"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i043",
+      "name": "pedido.entrega",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [
+        "pedido-entrega"
+      ],
+      "outputContexts": [
+        {
+          "name": "pedido",
+          "lifespan": 5
+        },
+        {
+          "name": "pedido-bebida",
+          "lifespan": 2
+        }
+      ],
+      "resetContexts": false,
+      "action": "pedido.entrega",
+      "parameters": [
+        {
+          "name": "entrega",
+          "entity": "@entrega",
+          "required": true,
+          "isList": false,
+          "prompts": [
+            "¿A domicilio o para recoger?"
+          ],
+          "defaultValue": "",
+          "id": "a044"
+        }
+      ],
+      "trainingPhrases": [
+        {
+          "id": "p045",
+          "text": "a domicilio",
+          "annotations": [
+            {
+              "start": 0,
+              "end": 11,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p046",
+          "text": "para recoger",
+          "annotations": [
+            {
+              "start": 0,
+              "end": 12,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p047",
+          "text": "que me la traigan a casa",
+          "annotations": [
+            {
+              "start": 18,
+              "end": 24,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p048",
+          "text": "la recojo yo",
+          "annotations": [
+            {
+              "start": 3,
+              "end": 9,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p049",
+          "text": "paso a buscarla",
+          "annotations": [
+            {
+              "start": 0,
+              "end": 15,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p050",
+          "text": "envío a domicilio por favor",
+          "annotations": [
+            {
+              "start": 0,
+              "end": 5,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p051",
+          "text": "la quiero para llevar",
+          "annotations": [
+            {
+              "start": 10,
+              "end": 21,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p052",
+          "text": "mejor a domicilio",
+          "annotations": [
+            {
+              "start": 6,
+              "end": 17,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p053",
+          "text": "recoger en el local",
+          "annotations": [
+            {
+              "start": 0,
+              "end": 7,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        },
+        {
+          "id": "p054",
+          "text": "tráemela a casa",
+          "annotations": [
+            {
+              "start": 9,
+              "end": 15,
+              "entity": "@entrega",
+              "param": "entrega"
+            }
+          ]
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Anotado: $entrega. ¿Quieres añadir algo de beber?"
+          ]
+        },
+        {
+          "type": "quickReplies",
+          "items": [
+            "Sí",
+            "No, gracias"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i055",
+      "name": "pedido.bebida.si",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [
+        "pedido-bebida"
+      ],
+      "outputContexts": [
+        {
+          "name": "pedido",
+          "lifespan": 5
+        }
+      ],
+      "resetContexts": false,
+      "action": "pedido.bebida.si",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p056",
+          "text": "sí",
+          "annotations": []
+        },
+        {
+          "id": "p057",
+          "text": "vale",
+          "annotations": []
+        },
+        {
+          "id": "p058",
+          "text": "claro",
+          "annotations": []
+        },
+        {
+          "id": "p059",
+          "text": "sí por favor",
+          "annotations": []
+        },
+        {
+          "id": "p060",
+          "text": "venga",
+          "annotations": []
+        },
+        {
+          "id": "p061",
+          "text": "por qué no",
+          "annotations": []
+        },
+        {
+          "id": "p062",
+          "text": "sí, algo de beber",
+          "annotations": []
+        },
+        {
+          "id": "p063",
+          "text": "ok",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "¿Qué quieres beber? Tenemos agua, coca-cola, refrescos de naranja y limón, y cerveza."
+          ]
+        },
+        {
+          "type": "quickReplies",
+          "items": [
+            "Agua",
+            "Coca-cola",
+            "Cerveza"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i064",
+      "name": "pedido.bebida.no",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [
+        "pedido-bebida"
+      ],
+      "outputContexts": [
+        {
+          "name": "pedido",
+          "lifespan": 0
+        },
+        {
+          "name": "pedido-bebida",
+          "lifespan": 0
+        }
+      ],
+      "resetContexts": false,
+      "action": "pedido.confirmar",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p065",
+          "text": "no",
+          "annotations": []
+        },
+        {
+          "id": "p066",
+          "text": "no gracias",
+          "annotations": []
+        },
+        {
+          "id": "p067",
+          "text": "nada",
+          "annotations": []
+        },
+        {
+          "id": "p068",
+          "text": "nada de beber",
+          "annotations": []
+        },
+        {
+          "id": "p069",
+          "text": "no hace falta",
+          "annotations": []
+        },
+        {
+          "id": "p070",
+          "text": "así está bien",
+          "annotations": []
+        },
+        {
+          "id": "p071",
+          "text": "no, gracias",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "¡Perfecto! Tu pedido estará listo en unos 30 minutos. ¡Gracias por confiar en nosotros! 🍕"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i072",
+      "name": "pedido.bebida",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [
+        {
+          "name": "pedido",
+          "lifespan": 5
+        }
+      ],
+      "resetContexts": false,
+      "action": "pedido.bebida",
+      "parameters": [
+        {
+          "name": "cantidad",
+          "entity": "@sys.number",
+          "required": false,
+          "isList": false,
+          "prompts": [],
+          "defaultValue": "1",
+          "id": "a073"
+        },
+        {
+          "name": "bebida",
+          "entity": "@bebida",
+          "required": true,
+          "isList": false,
+          "prompts": [
+            "¿Qué quieres beber? Tenemos agua, coca-cola, refrescos y cerveza."
+          ],
+          "defaultValue": "",
+          "id": "a074"
+        }
+      ],
+      "trainingPhrases": [
+        {
+          "id": "p075",
+          "text": "quiero una coca cola",
+          "annotations": [
+            {
+              "start": 11,
+              "end": 20,
+              "entity": "@bebida",
+              "param": "bebida"
+            }
+          ]
+        },
+        {
+          "id": "p076",
+          "text": "añade dos cervezas",
+          "annotations": [
+            {
+              "start": 6,
+              "end": 9,
+              "entity": "@sys.number",
+              "param": "cantidad"
+            },
+            {
+              "start": 10,
+              "end": 18,
+              "entity": "@bebida",
+              "param": "bebida"
+            }
+          ]
+        },
+        {
+          "id": "p077",
+          "text": "y de beber agua",
+          "annotations": [
+            {
+              "start": 11,
+              "end": 15,
+              "entity": "@bebida",
+              "param": "bebida"
+            }
+          ]
+        },
+        {
+          "id": "p078",
+          "text": "ponme una fanta",
+          "annotations": [
+            {
+              "start": 10,
+              "end": 15,
+              "entity": "@bebida",
+              "param": "bebida"
+            }
+          ]
+        },
+        {
+          "id": "p079",
+          "text": "también quiero una cerveza",
+          "annotations": [
+            {
+              "start": 15,
+              "end": 18,
+              "entity": "@sys.number",
+              "param": "cantidad"
+            },
+            {
+              "start": 19,
+              "end": 26,
+              "entity": "@bebida",
+              "param": "bebida"
+            }
+          ]
+        },
+        {
+          "id": "p080",
+          "text": "una coca-cola por favor",
+          "annotations": [
+            {
+              "start": 4,
+              "end": 13,
+              "entity": "@bebida",
+              "param": "bebida"
+            }
+          ]
+        },
+        {
+          "id": "p081",
+          "text": "para beber agua",
+          "annotations": [
+            {
+              "start": 11,
+              "end": 15,
+              "entity": "@bebida",
+              "param": "bebida"
+            }
+          ]
+        },
+        {
+          "id": "p082",
+          "text": "quiero algo de beber",
+          "annotations": []
+        },
+        {
+          "id": "p083",
+          "text": "¿qué bebidas tenéis?",
+          "annotations": []
+        },
+        {
+          "id": "p084",
+          "text": "añade una bebida",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Añado $cantidad × $bebida a tu pedido. 🥤 ¿Algo más?"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i085",
+      "name": "pedido.estado",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "pedido.estado",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p086",
+          "text": "¿dónde está mi pedido?",
+          "annotations": []
+        },
+        {
+          "id": "p087",
+          "text": "cuánto le falta a mi pizza",
+          "annotations": []
+        },
+        {
+          "id": "p088",
+          "text": "mi pedido tarda mucho",
+          "annotations": []
+        },
+        {
+          "id": "p089",
+          "text": "estado de mi pedido",
+          "annotations": []
+        },
+        {
+          "id": "p090",
+          "text": "¿ya viene el repartidor?",
+          "annotations": []
+        },
+        {
+          "id": "p091",
+          "text": "llevo una hora esperando",
+          "annotations": []
+        },
+        {
+          "id": "p092",
+          "text": "¿cuándo llega mi pizza?",
+          "annotations": []
+        },
+        {
+          "id": "p093",
+          "text": "no me ha llegado el pedido",
+          "annotations": []
+        },
+        {
+          "id": "p094",
+          "text": "¿cuánto tarda el pedido?",
+          "annotations": []
+        },
+        {
+          "id": "p095",
+          "text": "quiero saber cómo va mi pedido",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Tu pedido ya está en camino 🛵. Llegará en unos 15 minutos."
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i096",
+      "name": "pedido.cancelar",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": true,
+      "action": "pedido.cancelar",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p097",
+          "text": "cancela mi pedido",
+          "annotations": []
+        },
+        {
+          "id": "p098",
+          "text": "ya no quiero la pizza",
+          "annotations": []
+        },
+        {
+          "id": "p099",
+          "text": "anula el pedido",
+          "annotations": []
+        },
+        {
+          "id": "p100",
+          "text": "quiero cancelar el pedido",
+          "annotations": []
+        },
+        {
+          "id": "p101",
+          "text": "olvida el pedido",
+          "annotations": []
+        },
+        {
+          "id": "p102",
+          "text": "cancelar pedido",
+          "annotations": []
+        },
+        {
+          "id": "p103",
+          "text": "no quiero nada ya",
+          "annotations": []
+        },
+        {
+          "id": "p104",
+          "text": "me he equivocado, cancélalo",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "He cancelado tu pedido. ¿Puedo ayudarte con algo más?"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i105",
+      "name": "reserva.mesa",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [
+        {
+          "name": "reserva",
+          "lifespan": 5
+        }
+      ],
+      "resetContexts": false,
+      "action": "reserva.crear",
+      "parameters": [
+        {
+          "name": "personas",
+          "entity": "@sys.number",
+          "required": true,
+          "isList": false,
+          "prompts": [
+            "¿Para cuántas personas es la reserva?"
+          ],
+          "defaultValue": "",
+          "id": "a106"
+        },
+        {
+          "name": "fecha",
+          "entity": "@sys.date",
+          "required": true,
+          "isList": false,
+          "prompts": [
+            "¿Para qué día quieres la mesa?"
+          ],
+          "defaultValue": "",
+          "id": "a107"
+        },
+        {
+          "name": "hora",
+          "entity": "@sys.time",
+          "required": true,
+          "isList": false,
+          "prompts": [
+            "¿A qué hora os viene bien?",
+            "¿A qué hora queréis venir?"
+          ],
+          "defaultValue": "",
+          "id": "a108"
+        }
+      ],
+      "trainingPhrases": [
+        {
+          "id": "p109",
+          "text": "quiero reservar una mesa",
+          "annotations": []
+        },
+        {
+          "id": "p110",
+          "text": "reservar mesa para 4 personas",
+          "annotations": [
+            {
+              "start": 19,
+              "end": 20,
+              "entity": "@sys.number",
+              "param": "personas"
+            }
+          ]
+        },
+        {
+          "id": "p111",
+          "text": "¿tenéis mesa para mañana a las 9?",
+          "annotations": [
+            {
+              "start": 18,
+              "end": 24,
+              "entity": "@sys.date",
+              "param": "fecha"
+            },
+            {
+              "start": 27,
+              "end": 32,
+              "entity": "@sys.time",
+              "param": "hora"
+            }
+          ]
+        },
+        {
+          "id": "p112",
+          "text": "reserva para dos el viernes",
+          "annotations": [
+            {
+              "start": 13,
+              "end": 16,
+              "entity": "@sys.number",
+              "param": "personas"
+            },
+            {
+              "start": 17,
+              "end": 27,
+              "entity": "@sys.date",
+              "param": "fecha"
+            }
+          ]
+        },
+        {
+          "id": "p113",
+          "text": "quiero una mesa para cenar el sábado a las 21:30",
+          "annotations": [
+            {
+              "start": 27,
+              "end": 36,
+              "entity": "@sys.date",
+              "param": "fecha"
+            },
+            {
+              "start": 39,
+              "end": 48,
+              "entity": "@sys.time",
+              "param": "hora"
+            }
+          ]
+        },
+        {
+          "id": "p114",
+          "text": "me gustaría reservar",
+          "annotations": []
+        },
+        {
+          "id": "p115",
+          "text": "¿hay sitio para 6 personas hoy?",
+          "annotations": [
+            {
+              "start": 16,
+              "end": 17,
+              "entity": "@sys.number",
+              "param": "personas"
+            },
+            {
+              "start": 27,
+              "end": 30,
+              "entity": "@sys.date",
+              "param": "fecha"
+            }
+          ]
+        },
+        {
+          "id": "p116",
+          "text": "reservar",
+          "annotations": []
+        },
+        {
+          "id": "p117",
+          "text": "quiero reservar para el 15 de octubre a las 14:00 para tres personas",
+          "annotations": [
+            {
+              "start": 21,
+              "end": 37,
+              "entity": "@sys.date",
+              "param": "fecha"
+            },
+            {
+              "start": 40,
+              "end": 49,
+              "entity": "@sys.time",
+              "param": "hora"
+            },
+            {
+              "start": 55,
+              "end": 59,
+              "entity": "@sys.number",
+              "param": "personas"
+            }
+          ]
+        },
+        {
+          "id": "p118",
+          "text": "¿puedo reservar mesa?",
+          "annotations": []
+        },
+        {
+          "id": "p119",
+          "text": "una mesa para cinco",
+          "annotations": [
+            {
+              "start": 14,
+              "end": 19,
+              "entity": "@sys.number",
+              "param": "personas"
+            }
+          ]
+        },
+        {
+          "id": "p120",
+          "text": "queremos cenar allí el domingo",
+          "annotations": [
+            {
+              "start": 20,
+              "end": 30,
+              "entity": "@sys.date",
+              "param": "fecha"
+            }
+          ]
+        },
+        {
+          "id": "p121",
+          "text": "resérvame una mesa para pasado mañana",
+          "annotations": [
+            {
+              "start": 24,
+              "end": 37,
+              "entity": "@sys.date",
+              "param": "fecha"
+            }
+          ]
+        },
+        {
+          "id": "p122",
+          "text": "reserva a nombre de Juan",
+          "annotations": []
+        },
+        {
+          "id": "p123",
+          "text": "hacer una reserva",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "¡Hecho! ✅ Mesa para $personas el $fecha a las $hora. ¡Os esperamos!"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i124",
+      "name": "info.horario",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "info.horario",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p125",
+          "text": "¿a qué hora abrís?",
+          "annotations": []
+        },
+        {
+          "id": "p126",
+          "text": "horario",
+          "annotations": []
+        },
+        {
+          "id": "p127",
+          "text": "¿estáis abiertos?",
+          "annotations": []
+        },
+        {
+          "id": "p128",
+          "text": "¿cuándo cerráis?",
+          "annotations": []
+        },
+        {
+          "id": "p129",
+          "text": "¿abrís los domingos?",
+          "annotations": []
+        },
+        {
+          "id": "p130",
+          "text": "¿hasta qué hora estáis?",
+          "annotations": []
+        },
+        {
+          "id": "p131",
+          "text": "¿qué horario tenéis?",
+          "annotations": []
+        },
+        {
+          "id": "p132",
+          "text": "¿abrís hoy?",
+          "annotations": []
+        },
+        {
+          "id": "p133",
+          "text": "horario de apertura",
+          "annotations": []
+        },
+        {
+          "id": "p134",
+          "text": "¿a qué hora cierra la pizzería?",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Abrimos todos los días de 12:30 a 16:00 y de 19:30 a 23:30. 🕐"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i135",
+      "name": "info.ubicacion",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "info.ubicacion",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p136",
+          "text": "¿dónde estáis?",
+          "annotations": []
+        },
+        {
+          "id": "p137",
+          "text": "dirección",
+          "annotations": []
+        },
+        {
+          "id": "p138",
+          "text": "¿cómo llego?",
+          "annotations": []
+        },
+        {
+          "id": "p139",
+          "text": "¿dónde está la pizzería?",
+          "annotations": []
+        },
+        {
+          "id": "p140",
+          "text": "ubicación del local",
+          "annotations": []
+        },
+        {
+          "id": "p141",
+          "text": "¿en qué calle estáis?",
+          "annotations": []
+        },
+        {
+          "id": "p142",
+          "text": "¿dónde se encuentra el restaurante?",
+          "annotations": []
+        },
+        {
+          "id": "p143",
+          "text": "mándame la ubicación",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Estamos en la Calle Mayor 12, junto a la plaza. ¡Te esperamos! 📍"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i144",
+      "name": "info.carta",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "info.carta",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p145",
+          "text": "¿qué pizzas tenéis?",
+          "annotations": []
+        },
+        {
+          "id": "p146",
+          "text": "ver la carta",
+          "annotations": []
+        },
+        {
+          "id": "p147",
+          "text": "menú",
+          "annotations": []
+        },
+        {
+          "id": "p148",
+          "text": "¿qué hay para comer?",
+          "annotations": []
+        },
+        {
+          "id": "p149",
+          "text": "¿tenéis opciones vegetarianas?",
+          "annotations": []
+        },
+        {
+          "id": "p150",
+          "text": "¿tenéis pizzas sin gluten?",
+          "annotations": []
+        },
+        {
+          "id": "p151",
+          "text": "enséñame la carta",
+          "annotations": []
+        },
+        {
+          "id": "p152",
+          "text": "¿qué tipos de pizza hay?",
+          "annotations": []
+        },
+        {
+          "id": "p153",
+          "text": "la carta por favor",
+          "annotations": []
+        },
+        {
+          "id": "p154",
+          "text": "¿qué me recomiendas?",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Nuestras pizzas: margarita, barbacoa, cuatro quesos, hawaiana, carbonara, pepperoni, vegetal y jamón y queso. Todas en pequeña (8 €), mediana (11 €) o familiar (15 €). También tenemos base sin gluten."
+          ]
+        },
+        {
+          "type": "quickReplies",
+          "items": [
+            "Pedir una pizza",
+            "Precios"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i155",
+      "name": "info.precios",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "info.precios",
+      "parameters": [
+        {
+          "name": "tamano",
+          "entity": "@tamano",
+          "required": false,
+          "isList": false,
+          "prompts": [],
+          "defaultValue": "",
+          "id": "a156"
+        },
+        {
+          "name": "pizza",
+          "entity": "@pizza",
+          "required": false,
+          "isList": false,
+          "prompts": [],
+          "defaultValue": "",
+          "id": "a157"
+        }
+      ],
+      "trainingPhrases": [
+        {
+          "id": "p158",
+          "text": "¿cuánto cuesta una pizza?",
+          "annotations": []
+        },
+        {
+          "id": "p159",
+          "text": "precios",
+          "annotations": []
+        },
+        {
+          "id": "p160",
+          "text": "¿cuánto vale la familiar?",
+          "annotations": [
+            {
+              "start": 16,
+              "end": 24,
+              "entity": "@tamano",
+              "param": "tamano"
+            }
+          ]
+        },
+        {
+          "id": "p161",
+          "text": "¿es caro?",
+          "annotations": []
+        },
+        {
+          "id": "p162",
+          "text": "precio de la barbacoa",
+          "annotations": [
+            {
+              "start": 13,
+              "end": 21,
+              "entity": "@pizza",
+              "param": "pizza"
+            }
+          ]
+        },
+        {
+          "id": "p163",
+          "text": "¿cuánto cuesta la mediana?",
+          "annotations": [
+            {
+              "start": 18,
+              "end": 25,
+              "entity": "@tamano",
+              "param": "tamano"
+            }
+          ]
+        },
+        {
+          "id": "p164",
+          "text": "¿qué precio tienen las pizzas?",
+          "annotations": []
+        },
+        {
+          "id": "p165",
+          "text": "¿cuánto es el envío?",
+          "annotations": []
+        },
+        {
+          "id": "p166",
+          "text": "tarifas",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "La pizza pequeña cuesta 8 €, la mediana 11 € y la familiar 15 €. El envío a domicilio es gratis a partir de 20 €."
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i167",
+      "name": "info.pago",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "info.pago",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p168",
+          "text": "¿puedo pagar con tarjeta?",
+          "annotations": []
+        },
+        {
+          "id": "p169",
+          "text": "¿aceptáis bizum?",
+          "annotations": []
+        },
+        {
+          "id": "p170",
+          "text": "formas de pago",
+          "annotations": []
+        },
+        {
+          "id": "p171",
+          "text": "¿se puede pagar en efectivo?",
+          "annotations": []
+        },
+        {
+          "id": "p172",
+          "text": "¿cómo se paga?",
+          "annotations": []
+        },
+        {
+          "id": "p173",
+          "text": "métodos de pago",
+          "annotations": []
+        },
+        {
+          "id": "p174",
+          "text": "¿aceptáis visa?",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Puedes pagar en efectivo, con tarjeta o con Bizum. 💳"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i175",
+      "name": "agradecimiento",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "smalltalk.gracias",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p176",
+          "text": "gracias",
+          "annotations": []
+        },
+        {
+          "id": "p177",
+          "text": "muchas gracias",
+          "annotations": []
+        },
+        {
+          "id": "p178",
+          "text": "genial gracias",
+          "annotations": []
+        },
+        {
+          "id": "p179",
+          "text": "mil gracias",
+          "annotations": []
+        },
+        {
+          "id": "p180",
+          "text": "te lo agradezco",
+          "annotations": []
+        },
+        {
+          "id": "p181",
+          "text": "perfecto, gracias",
+          "annotations": []
+        },
+        {
+          "id": "p182",
+          "text": "gracias majo",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "¡A ti! 😊 ¿Puedo ayudarte con algo más?",
+            "¡De nada! ¿Necesitas algo más?"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i183",
+      "name": "despedida",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "smalltalk.adios",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p184",
+          "text": "adiós",
+          "annotations": []
+        },
+        {
+          "id": "p185",
+          "text": "hasta luego",
+          "annotations": []
+        },
+        {
+          "id": "p186",
+          "text": "nos vemos",
+          "annotations": []
+        },
+        {
+          "id": "p187",
+          "text": "chao",
+          "annotations": []
+        },
+        {
+          "id": "p188",
+          "text": "bye",
+          "annotations": []
+        },
+        {
+          "id": "p189",
+          "text": "eso es todo",
+          "annotations": []
+        },
+        {
+          "id": "p190",
+          "text": "nada más",
+          "annotations": []
+        },
+        {
+          "id": "p191",
+          "text": "hasta otra",
+          "annotations": []
+        },
+        {
+          "id": "p192",
+          "text": "me voy",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "¡Hasta pronto! Que aproveche. 🍕",
+            "¡Adiós! Aquí estaremos cuando tengas hambre."
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": true
+    },
+    {
+      "id": "i193",
+      "name": "hablar.humano",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "humano",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p194",
+          "text": "quiero hablar con una persona",
+          "annotations": []
+        },
+        {
+          "id": "p195",
+          "text": "pásame con un humano",
+          "annotations": []
+        },
+        {
+          "id": "p196",
+          "text": "atención al cliente",
+          "annotations": []
+        },
+        {
+          "id": "p197",
+          "text": "hablar con el encargado",
+          "annotations": []
+        },
+        {
+          "id": "p198",
+          "text": "no quiero hablar con un bot",
+          "annotations": []
+        },
+        {
+          "id": "p199",
+          "text": "¿hay alguien de verdad?",
+          "annotations": []
+        },
+        {
+          "id": "p200",
+          "text": "quiero poner una reclamación",
+          "annotations": []
+        },
+        {
+          "id": "p201",
+          "text": "llamar por teléfono",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Te paso con un compañero en cuanto quede libre. También puedes llamarnos al 912 345 678. 📞"
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    },
+    {
+      "id": "i202",
+      "name": "smalltalk.bot",
+      "isFallback": false,
+      "events": [],
+      "inputContexts": [],
+      "outputContexts": [],
+      "resetContexts": false,
+      "action": "smalltalk.bot",
+      "parameters": [],
+      "trainingPhrases": [
+        {
+          "id": "p203",
+          "text": "¿eres un robot?",
+          "annotations": []
+        },
+        {
+          "id": "p204",
+          "text": "¿quién eres?",
+          "annotations": []
+        },
+        {
+          "id": "p205",
+          "text": "¿cómo te llamas?",
+          "annotations": []
+        },
+        {
+          "id": "p206",
+          "text": "¿eres humano?",
+          "annotations": []
+        },
+        {
+          "id": "p207",
+          "text": "¿eres una persona real?",
+          "annotations": []
+        },
+        {
+          "id": "p208",
+          "text": "¿qué eres?",
+          "annotations": []
+        }
+      ],
+      "responses": [
+        {
+          "type": "text",
+          "variants": [
+            "Soy el asistente virtual de la Pizzería Napoli 🤖. No como pizza, pero sé mucho de ellas."
+          ]
+        }
+      ],
+      "webhook": false,
+      "endConversation": false
+    }
+  ]
+}
