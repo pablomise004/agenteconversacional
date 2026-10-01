@@ -240,7 +240,8 @@ Excepción al entrenar: el **texto libre** (`@sys.any`, `@sys.person`… los tip
 sustituye y cuenta como palabras normales. Al analizar un mensaje nunca se detecta como entidad, así
 que sustituirlo solo creaba un rasgo `e:@sys.any` que no aparece al preguntar y dejaba a la mitad
 las palabras de dentro: en el hotel, «[la persiana](averia) está rota» casi no enseñaba
-«persiana» y «la persiana no sube» sacaba 0,00 de confianza; ahora, 0,84.
+«persiana». Solo con este cambio, «la persiana no sube» pasó de 0,00 a 0,25 de confianza y «la caja
+fuerte no abre», de 0,05 a 0,63 (con unas cuantas frases de averías más, 0,84 y 0,89).
 
 ### Vectorización (`classifier.py: Vectorizer`)
 
