@@ -1,7 +1,9 @@
-# Agente conversacional — contexto para Claude
+# Lince (agente conversacional) — contexto para Claude
 
-Alternativa libre y local a **Dialogflow ES** para crear chatbots en español, con una consola web
-que además sirve para **aprender cómo funciona el NLU por dentro** (página «Entrenar»).
+**Lince** es una alternativa libre y local a **Dialogflow ES** para crear chatbots en español, con
+una consola web que además sirve para **aprender cómo funciona el NLU por dentro** (página
+«Entrenar»). El nombre: «listo como un lince» y «vista de lince» (ver el modelo por dentro); el
+logotipo es una burbuja de chat con orejas de lince (`web/favicon.svg`).
 Repositorio: https://github.com/pablomise004/agenteconversacional
 
 ## Sobre el usuario y el proyecto
@@ -14,18 +16,22 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
   `CONTRIBUTING.md` (arquitectura y referencia técnica detallada: léela antes de tocar el NLU;
   se llama así para que GitHub la muestre como pestaña junto al README).
 - Preferencias ya expresadas: modo oscuro **clásico** (grises neutros, sin tintes azulados);
-  quiere poder ver y entender el entrenamiento; quiere todo subido a GitHub.
+  quiere poder ver y entender el entrenamiento; quiere todo subido a GitHub; quiere una interfaz
+  **moderna, con microanimaciones, tablas bonitas e intuitiva**, y la referencia de la API con el
+  mismo estilo que la consola.
 
 ## Arranque y comandos
 
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser)
-python -m pytest                      # 84 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 15 pruebas en navegador real
+python -m pytest                      # 87 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 17 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU con el agente de ejemplo
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
+python tools/capturas_docs.py         # rehace las capturas de docs/img (Playwright)
+python tools/build_icons.py           # rehace favicon.ico y web/icons/*.png desde web/favicon.svg
 ```
 
 En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, instala y lanza).
@@ -35,11 +41,17 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - `app/nlu/`: motor de lenguaje propio (tokenizador, stemmer, corrector, entidades `@sys.*` y
   propias, rasgos, clasificador, motor, `insights.py` para la página Entrenar).
 - `app/dialog.py`: turnos de conversación (contextos, slot filling, fallback, webhook).
-- `app/server.py`: API FastAPI (`/docs`), sirve `web/` en `/` y `docs/` en `/guia`.
+- `app/server.py`: API FastAPI, sirve `web/` en `/`, `docs/` en `/guia` y la referencia de la API
+  en `/docs` (página propia `web/api.html` + `js/apidocs.js` que lee `/openapi.json`; Swagger está
+  desactivado porque depende de un CDN). Cada ruta lleva `summary=` en español, docstring y ejemplos.
 - `app/storage.py`: agentes en `data/agents/<id>.json`, conversaciones en `data/runtime.sqlite3`
   (`data/` no se sube a Git).
-- `web/`: consola en JavaScript sin compilación (módulos ES). `js/pages/learn.js` es la página
-  «Entrenar»; `js/charts.js` los gráficos; `js/markdown.js` pinta `docs/GUIA.md`.
+- `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
+  componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
+  `busy`, `countUp`, `stagger`, tooltips, tema); `js/palette.js` el buscador Ctrl+K;
+  `js/pages/learn.js` la página «Entrenar»; `js/charts.js` los gráficos; `js/markdown.js` pinta
+  `docs/GUIA.md`. `css/app.css` tiene los colores, la fuente (Inter local, `web/fonts/`) y las
+  animaciones; `css/api.css` lo propio de `/docs`.
 - `examples/pizzeria.json`: agente de ejemplo que se copia al arrancar sin agentes.
 - `tests/casos_pizzeria.py`: frases de calibración (en dominio, con contexto, fuera de dominio).
 
@@ -50,12 +62,17 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   No añadir scikit-learn ni frameworks JS sin hablarlo.
 - Todo agente que entra (API, importación, consola) pasa por `app/agents.py:normalize_agent()`.
 - La consola construye el DOM con `h()` de `web/js/ui.js`; **nunca `innerHTML` con datos de
-  usuario** (solo iconos SVG constantes).
-- Colores: variables CSS en `web/css/app.css` (`--panel`, `--text`, `--accent-text`, `--series-1`…),
-  con valores para claro y oscuro (el oscuro, grises neutros). Los colores de gráficos están
-  validados para daltonismo; si se cambian, revalidar.
-- Antes de dar algo por terminado: `python -m pytest` y, si se toca la consola, las pruebas e2e o
-  capturas con Playwright (Edge instalado: `p.chromium.launch(channel="msedge")`) mirando las imágenes.
+  usuario** (solo iconos SVG constantes y el logotipo).
+- Colores: variables CSS en `web/css/app.css` (`--panel`, `--text`, `--accent-text`, `--primary`,
+  `--series-1`…), con valores para claro y oscuro (el oscuro, grises neutros). Los colores de
+  gráficos están validados para daltonismo; si se cambian, revalidar.
+- Antes de crear un componente nuevo, mira si ya hay uno en `ui.js`. Las páginas empiezan con
+  `pageHead({icon, title, sub, actions})`; las tablas de datos usan `dataTable()` (ordenables).
+- Microanimaciones cortas en CSS y siempre desactivadas con `prefers-reduced-motion`. Los `title`
+  se ven como tooltips propios. El logotipo está en `web/favicon.svg` y en `ui.js:logo()`.
+- Antes de dar algo por terminado: `python -m pytest` y, si se toca la consola, las pruebas e2e y
+  capturas con Playwright (Edge instalado: `p.chromium.launch(channel="msedge")`) mirando las
+  imágenes; `tools/capturas_docs.py` rehace las de la documentación. Revisar claro, oscuro y móvil.
 - Si cambia el clasificador: comparar con `tools/benchmark_massive.py` y con los tests de calibración.
 - Commits en español; terminar con la línea de coautoría que indique el entorno.
 

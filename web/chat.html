@@ -4,18 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chat</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234361ee'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h6' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#eef0f6">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="48x48">
   <style>
-    html, body { height: 100%; margin: 0; background: #e9ecf3; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-    .wrap { height: 100%; display: grid; place-items: center; padding: 16px; box-sizing: border-box; }
-    #chat { width: 100%; max-width: 560px; height: min(760px, 100%); border-radius: 16px; overflow: hidden;
-      box-shadow: 0 12px 40px rgba(20, 30, 55, .18); background: #fff; }
-    .error { color: #b42318; background: #fff; padding: 16px 20px; border-radius: 12px; max-width: 480px; }
-    @media (max-width: 600px) { .wrap { padding: 0; } #chat { height: 100%; border-radius: 0; } }
+    html, body { height: 100%; margin: 0; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #16171b;
+      background: radial-gradient(1000px 520px at 15% -10%, #e4e2ff, transparent 60%),
+                  radial-gradient(900px 520px at 100% 110%, #f1e4ff, transparent 60%), #f3f4f8; }
+    .wrap { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      padding: 16px; box-sizing: border-box; }
+    #chat { width: 100%; max-width: 560px; height: min(760px, calc(100% - 40px)); border-radius: 22px; overflow: hidden;
+      background: #fff; box-shadow: 0 30px 70px -20px rgba(30, 27, 75, .35), 0 0 0 1px rgba(0, 0, 0, .04);
+      animation: in .5s cubic-bezier(.2, .8, .2, 1) both; }
+    @keyframes in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+    .made { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #80858f; text-decoration: none; }
+    .made:hover { color: #4f46e5; }
+    .made img { width: 18px; height: 18px; }
+    .error { color: #b42318; background: #fff; padding: 16px 20px; border-radius: 14px; max-width: 480px;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .25); }
+    @media (max-width: 600px) { .wrap { padding: 0; gap: 0; } #chat { height: 100%; border-radius: 0; } .made { display: none; } }
+    @media (prefers-color-scheme: dark) {
+      body { background: radial-gradient(1000px 520px at 15% -10%, #23233a, transparent 60%), #111; }
+      .made { color: #8a8a8a; }
+    }
+    @media (prefers-reduced-motion: reduce) { #chat { animation: none; } }
   </style>
 </head>
 <body>
-  <div class="wrap"><div id="chat"></div></div>
+  <div class="wrap"><div id="chat"></div>
+    <a class="made" href="/" title="Abrir la consola"><img src="favicon.svg" alt="">Hecho con Lince</a>
+  </div>
   <script>
     (function () {
       var p = new URLSearchParams(location.search);

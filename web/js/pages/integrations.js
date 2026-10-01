@@ -1,24 +1,49 @@
 // Integraciones: widget web, API REST, compatibilidad Dialogflow y webhook.
-import { h, icon, clear, codeBlock, switchInput } from "../ui.js";
+import { h, icon, clear, codeBlock, codeTabs, switchInput, pageHead } from "../ui.js";
 import { agentPath, state } from "../app.js";
+
+// Maqueta del widget que cambia al momento con el color, el título y la posición
+function widgetPreview() {
+  const title = h("b", null);
+  const bubble = h("span", { class: "wp-bubble" }, icon("message"));
+  const panel = h("div", { class: "wp-panel" },
+    h("div", { class: "wp-head" }, title, icon("x")),
+    h("div", { class: "wp-body" },
+      h("div", { class: "wp-msg" }, "¡Hola! ¿En qué puedo ayudarte?"),
+      h("div", { class: "wp-quick" }, h("span", null, "Ver la carta"), h("span", null, "Hacer un pedido")),
+      h("div", { class: "wp-msg user" }, "Quiero una pizza")),
+    h("div", { class: "wp-input" }, h("span", null, "Escribe un mensaje…"), h("span", { class: "wp-send" }, icon("send"))));
+  const box = h("div", { class: "widget-preview", "aria-label": "Vista previa del widget" },
+    h("div", { class: "wp-page" }, h("i", { style: { width: "46%" } }), h("i", { style: { width: "72%" } }), h("i", { style: { width: "60%" } }),
+      h("i", { style: { width: "38%" } })),
+    panel, bubble);
+  box.update = (opts) => {
+    box.style.setProperty("--c", /^#[0-9a-f]{3,8}$/i.test(opts.color) ? opts.color : "#4f46e5");
+    box.classList.toggle("left", opts.position === "left");
+    title.textContent = opts.title || "Asistente";
+    panel.querySelector(".wp-body").firstChild.classList.toggle("hidden", !opts.welcome);
+  };
+  return box;
+}
 
 export async function render(el) {
   const agent = state.agent;
   const origin = location.origin;
   const key = agent.settings.apiKey;
-  const opts = { title: agent.name, color: "#4361ee", welcome: true, position: "right" };
+  const opts = { title: agent.name, color: "#4f46e5", welcome: true, position: "right" };
   const widgetBox = h("div");
+  const preview = widgetPreview();
   const drawWidget = () => {
     const attrs = [`src="${origin}/widget.js"`, `data-agent="${agent.id}"`, `data-title="${opts.title.replace(/"/g, "&quot;")}"`,
       `data-color="${opts.color}"`];
     if (!opts.welcome) attrs.push('data-welcome="false"');
     if (opts.position === "left") attrs.push('data-position="left"');
     if (key) attrs.push(`data-key="${key}"`);
-    clear(widgetBox).append(codeBlock(`<script ${attrs.join("\n        ")}></script>`));
+    clear(widgetBox).append(codeBlock(`<script ${attrs.join("\n        ")}></script>`, { lang: "HTML" }));
+    preview.update(opts);
   };
   const title = h("input", { type: "text", value: opts.title, "aria-label": "Título", oninput: () => { opts.title = title.value; drawWidget(); } });
-  const color = h("input", { type: "color", value: opts.color, "aria-label": "Color", style: { width: "48px", height: "34px", padding: "2px" },
-    oninput: () => { opts.color = color.value; drawWidget(); } });
+  const color = h("input", { type: "color", value: opts.color, "aria-label": "Color", oninput: () => { opts.color = color.value; drawWidget(); } });
   const pos = h("select", { "aria-label": "Posición", onchange: () => { opts.position = pos.value; drawWidget(); } },
     h("option", { value: "right" }, "Abajo a la derecha"), h("option", { value: "left" }, "Abajo a la izquierda"));
   drawWidget();
@@ -88,20 +113,22 @@ app.post("/webhook", (req, res) => {
 app.listen(5000);`;
 
   el.append(h("div", { class: "page" },
-    h("div", { class: "page-head" }, h("div", { class: "grow" }, h("h1", null, "Integraciones"),
-      h("div", { class: "sub" }, "Cómo conectar este agente con tu web, tu app o tu propio código."))),
+    pageHead({ icon: "plug", title: "Integraciones", sub: "Cómo conectar este agente con tu web, tu app o tu propio código." }),
 
     h("div", { class: "card" },
-      h("div", { class: "card-head" }, icon("chat"), h("h2", null, "Chat para tu página web")),
-      h("div", { class: "card-body col" },
+      h("div", { class: "card-head" }, icon("message"), h("h2", null, "Chat para tu página web")),
+      h("div", { class: "card-body col", style: { gap: "14px" } },
         h("p", { class: "muted", style: { margin: 0 } }, "Pega esta línea antes de ", h("code", null, "</body>"), " en cualquier página. Aparecerá una burbuja de chat."),
-        h("div", { class: "row wrap" },
-          h("label", { class: "field grow" }, "Título", title),
-          h("label", { class: "field" }, "Color", color),
-          h("label", { class: "field" }, "Posición", pos)),
-        switchInput("Saludar al abrir (evento WELCOME)", opts.welcome, (v) => { opts.welcome = v; drawWidget(); }),
+        h("div", { class: "widget-config" },
+          h("div", { class: "col", style: { gap: "12px" } },
+            h("label", { class: "field" }, "Título", title),
+            h("div", { class: "row", style: { gap: "12px", alignItems: "flex-end" } },
+              h("label", { class: "field" }, "Color", color),
+              h("label", { class: "field grow" }, "Posición", pos)),
+            switchInput("Saludar al abrir (evento WELCOME)", opts.welcome, (v) => { opts.welcome = v; drawWidget(); })),
+          preview),
         widgetBox,
-        h("div", { class: "row" },
+        h("div", { class: "row wrap" },
           h("a", { class: "btn", href: `/chat?agent=${encodeURIComponent(agent.id)}`, target: "_blank", rel: "noopener" }, icon("external"), "Abrir chat de demostración"),
           h("span", { class: "muted small" }, "Página completa con el chat, para probarlo o compartirlo.")),
         location.hostname === "localhost" || location.hostname === "127.0.0.1"
@@ -110,32 +137,30 @@ app.listen(5000);`;
           : null)),
 
     h("div", { class: "card" },
-      h("div", { class: "card-head" }, icon("plug"), h("h2", null, "API REST"),
-        h("span", { class: "spacer" }), h("a", { class: "btn sm", href: "/docs", target: "_blank", rel: "noopener" }, icon("external"), "Documentación interactiva")),
-      h("div", { class: "card-body col" },
+      h("div", { class: "card-head" }, icon("code"), h("h2", null, "API REST"),
+        h("span", { class: "spacer" }), h("a", { class: "btn sm", href: "/docs", target: "_blank", rel: "noopener" }, icon("book"), "Referencia de la API")),
+      h("div", { class: "card-body col", style: { gap: "12px" } },
         h("p", { class: "muted", style: { margin: 0 } }, "Envía cada mensaje del usuario con un ", h("code", null, "sessionId"),
           " propio de cada conversación (así se recuerdan los contextos y las preguntas pendientes)."),
-        h("b", null, "curl"), codeBlock(curl),
-        h("b", null, "JavaScript"), codeBlock(js),
-        h("b", null, "Python"), codeBlock(py),
-        h("b", null, "Respuesta"), codeBlock(response),
+        codeTabs([{ label: "curl", code: curl }, { label: "JavaScript", code: js }, { label: "Python", code: py }]),
+        h("div", { class: "section-title", style: { margin: "6px 0 0" } }, "Respuesta"),
+        codeBlock(response, { lang: "JSON", json: true }),
         h("p", { class: "muted small", style: { margin: 0 } }, "Para lanzar un evento en vez de texto: ", h("code", null, '{"sessionId": "…", "event": "WELCOME"}'),
           ". Para empezar de cero: ", h("code", null, `POST /api/agents/${agent.id}/sessions/{sessionId}/reset`), "."))),
 
     h("div", { class: "card" },
       h("div", { class: "card-head" }, icon("layers"), h("h2", null, "Compatible con Dialogflow")),
-      h("div", { class: "card-body col" },
+      h("div", { class: "card-body col", style: { gap: "12px" } },
         h("p", { class: "muted", style: { margin: 0 } }, "Si tu aplicación ya usaba la API v2 de Dialogflow ES, puedes apuntarla aquí: mismo formato de petición y de respuesta (",
           h("code", null, "queryResult"), ", ", h("code", null, "fulfillmentMessages"), ", ", h("code", null, "outputContexts"), "…)."),
-        codeBlock(df))),
+        codeBlock(df, { lang: "HTTP" }))),
 
     h("div", { class: "card" },
       h("div", { class: "card-head" }, icon("zap"), h("h2", null, "Webhook (fulfillment)")),
-      h("div", { class: "card-body col" },
+      h("div", { class: "card-body col", style: { gap: "12px" } },
         h("p", { class: "muted", style: { margin: 0 } }, "Para respuestas dinámicas (consultar un pedido, una base de datos…). Configura la URL en ",
           h("a", { href: agentPath("settings") }, "Ajustes"), " y activa «Llamar al webhook» en cada intención. Recibe el mismo JSON que enviaría Dialogflow ES y puede devolver ",
           h("code", null, "fulfillmentText"), ", ", h("code", null, "fulfillmentMessages"), ", ", h("code", null, "outputContexts"), " o ", h("code", null, "followupEventInput"), "."),
-        h("b", null, "Python (Flask)"), codeBlock(flask),
-        h("b", null, "Node.js (Express)"), codeBlock(express)))));
+        codeTabs([{ label: "Python (Flask)", code: flask }, { label: "Node.js (Express)", code: express }])))));
   return null;
 }

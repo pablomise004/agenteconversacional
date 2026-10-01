@@ -1,6 +1,6 @@
 // "Entrenar": ver paso a paso cómo aprende el agente y qué ha aprendido.
 import { api } from "../api.js";
-import { h, icon, clear, errorToast, toast } from "../ui.js";
+import { h, icon, clear, errorToast, toast, pageHead, countUp, dataTable, stagger, busy } from "../ui.js";
 import { lineChart, barList, divergingBars, scatter, heatmap, meter, format } from "../charts.js";
 import { agentPath, state } from "../app.js";
 
@@ -8,6 +8,12 @@ const int = (v) => format.nf(0).format(v);
 const pctf = (v) => (v == null ? "—" : format.nf(0).format(v * 100) + " %");
 const KIND_SHORT = { w: "palabra", b: "pareja", e: "entidad", c: "letras", p: "signo" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const msText = (ms) => (ms < 1000 ? int(ms) + " ms" : format.nf(1).format(ms / 1000) + " s");
+
+function tile(ic, label, value, fmt, sub) {
+  return h("div", { class: "card stat" }, h("span", { class: "s-icon" }, icon(ic)), h("div", { class: "l" }, label),
+    countUp(h("div", { class: "v" }), value, fmt), sub ? h("div", { class: "faint small" }, sub) : null);
+}
 
 export async function render(el, _params, query) {
   const agentId = state.agent.id;
@@ -31,31 +37,31 @@ export async function render(el, _params, query) {
   const trainBtn = h("button", { class: "btn primary", type: "button", onclick: () => trainAnimated() }, icon("play"), "Entrenar paso a paso");
   const statsBox = h("div", { class: "grid-stats" });
   page.append(
-    h("div", { class: "page-head" },
-      h("div", { class: "grow" }, h("h1", null, "Entrenar y entender el modelo"),
-        h("div", { class: "sub" }, "El agente se reentrena solo cada vez que guardas un cambio. Aquí puedes ver qué hace por dentro, qué ha aprendido y cuánto acierta.")),
-      trainBtn),
-    statsBox);
+    pageHead({
+      icon: "pulse", title: "Entrenar y entender el modelo",
+      sub: "El agente se reentrena solo cada vez que guardas un cambio. Aquí puedes ver qué hace por dentro, qué ha aprendido y cuánto acierta.",
+      actions: [trainBtn],
+    }),
+    h("div", { class: "cq" }, statsBox));
 
-  function drawStats() {
+  function drawStats(animate = true) {
     const r = model.report;
     const t = r.timing;
     const total = (t.prepare + t.vectorize + t.sgd + t.index) * 1000;
     const ev = model.evaluation;
-    const tile = (label, value, sub) => h("div", { class: "card stat" }, h("div", { class: "l" }, label), h("div", { class: "v" }, value),
-      sub ? h("div", { class: "faint small" }, sub) : null);
     clear(statsBox).append(
-      tile("Intenciones", int(r.intents), r.negativePhrases ? `+ ${int(r.negativePhrases)} ejemplos negativos` : null),
-      tile("Frases de entrenamiento", int(r.phrases)),
-      tile("Rasgos aprendidos", int(r.features)),
-      tile("Tiempo de entrenamiento", total < 1000 ? int(total) + " ms" : format.nf(1).format(total / 1000) + " s"),
-      tile("Acierto en el examen", ev ? pctf(ev.accuracy) : "—", ev ? `${ev.correct} de ${ev.total} frases` : "haz el examen abajo"));
+      tile("chat", "Intenciones", r.intents, int, r.negativePhrases ? `+ ${int(r.negativePhrases)} ejemplos negativos` : null),
+      tile("list", "Frases de entrenamiento", r.phrases, int),
+      tile("cpu", "Rasgos aprendidos", r.features, int),
+      tile("zap", "Tiempo de entrenamiento", total, msText),
+      tile("target", "Acierto en el examen", ev ? ev.accuracy : null, pctf, ev ? `${ev.correct} de ${ev.total} frases` : "haz el examen abajo"));
+    if (animate) stagger(statsBox);
   }
 
   // ---------------------------------------------------- pasos del entrenamiento
   const stepsBox = h("ol", { class: "steps" });
   const stepsCard = h("div", { class: "card" },
-    h("div", { class: "card-head" }, h("h2", null, "Qué hace al entrenar"),
+    h("div", { class: "card-head" }, icon("layers"), h("h2", null, "Qué hace al entrenar"),
       h("span", { class: "help" }, "Pulsa «Entrenar paso a paso» para verlo animado.")),
     h("div", { class: "card-body" }, stepsBox));
   page.append(stepsCard);
@@ -126,20 +132,19 @@ export async function render(el, _params, query) {
     ];
     stepNodes = steps.map((st, i) => {
       const viz = st.viz ? st.viz() : null;
-      const li = h("li", { class: "step done" },
+      return h("li", { class: "step done" },
         h("div", { class: "step-num" }, String(i + 1)),
         h("div", { class: "step-body" },
           h("div", { class: "row" }, h("b", null, st.title), h("span", { class: "spacer" }),
-            st.time != null ? h("span", { class: "faint small" }, ms(st.time)) : null),
+            st.time != null ? h("span", { class: "step-time", title: "Tiempo de este paso" }, ms(st.time)) : null),
           h("div", null, st.text),
           h("div", { class: "muted small" }, st.more),
           viz ? h("div", { class: "step-viz" }, viz) : null));
-      return li;
     });
     stepsBox.append(...stepNodes);
     const total = (t.prepare + t.vectorize + t.sgd + t.index) * 1000;
     stepsBox.append(h("li", { class: "step done final" }, h("div", { class: "step-num" }, "✓"),
-      h("div", { class: "step-body" }, h("b", null, `Listo en ${total < 1000 ? int(total) + " ms" : format.nf(1).format(total / 1000) + " s"}`),
+      h("div", { class: "step-body" }, h("b", null, `Listo en ${msText(total)}`),
         h("div", { class: "muted small" }, "A partir de aquí, cada mensaje se convierte en rasgos igual que las frases y el modelo puntúa cada intención. Mira abajo cómo lo hace con una frase concreta."))));
   }
 
@@ -163,14 +168,17 @@ export async function render(el, _params, query) {
     return h("div", null, h("div", { class: "grid-2" },
       h("div", null, h("div", { class: "chart-title" }, "Error (cuanto más bajo, mejor)"), loss),
       h("div", null, h("div", { class: "chart-title" }, "Aciertos con sus propias frases"), acc)),
-    h("div", { class: "faint small" }, "Eje horizontal: número de época (0 = antes de aprender). Pasa el ratón por las curvas para ver cada valor."));
+    h("div", { class: "faint small", style: { marginTop: "6px" } }, "Eje horizontal: número de época (0 = antes de aprender). Pasa el ratón por las curvas para ver cada valor."));
   }
 
   async function trainAnimated() {
     trainBtn.disabled = true;
     try {
-      await api.train(agentId);
-      model = await api.model(agentId, { chars: includeChars });
+      await busy(trainBtn, async () => {
+        await api.train(agentId);
+        model = await api.model(agentId, { chars: includeChars });
+      });
+      trainBtn.disabled = true;
       drawStats();
       await drawSteps();
       drawLearned();
@@ -211,21 +219,22 @@ export async function render(el, _params, query) {
 
   // ------------------------------------------------------ una frase por dentro
   const explainInput = h("input", { type: "text", class: "grow", "aria-label": "Frase para explicar",
-    value: (query && query.get("q")) || model.report.example || "" });
+    placeholder: "Escribe cualquier frase…", value: (query && query.get("q")) || model.report.example || "" });
+  const explainBtn = h("button", { class: "btn primary", type: "button", onclick: () => runExplain() }, icon("sparkle"), "Explicar");
   const explainBox = h("div");
   explainInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); runExplain(); } });
   page.append(h("div", { class: "card" },
-    h("div", { class: "card-head" }, h("h2", null, "Sigue una frase por dentro"),
+    h("div", { class: "card-head" }, icon("eye"), h("h2", null, "Sigue una frase por dentro"),
       h("span", { class: "help" }, "Escribe cualquier frase y mira cada paso hasta la decisión.")),
-    h("div", { class: "card-body col" },
-      h("div", { class: "row" }, explainInput, h("button", { class: "btn primary", type: "button", onclick: () => runExplain() }, icon("text"), "Explicar")),
+    h("div", { class: "card-body col", style: { gap: "12px" } },
+      h("div", { class: "analyze-box" }, icon("search"), explainInput, explainBtn),
       explainBox)));
 
   async function runExplain() {
     const text = explainInput.value.trim();
     if (!text) return;
     try {
-      explained = await api.explain(agentId, text);
+      explained = await busy(explainBtn, () => api.explain(agentId, text));
     } catch (e) { errorToast(e); return; }
     const winner = explained.ranking[0];
     if (winner && !winner.isFallback) mapA = winner.id;
@@ -269,7 +278,7 @@ export async function render(el, _params, query) {
         h("div", { class: "muted small" }, "La confianza combina la probabilidad con el parecido real con las frases de entrenamiento:"),
         h("ul", { class: "neighbors" }, ex.neighbors.slice(0, 4).map((n) => h("li", null, "“", n.text, "” ",
           h("span", { class: "faint" }, `${n.intentName} · ${pctf(n.similarity)}`)))))));
-    explainBox.append(h("div", { class: "muted small", style: { marginTop: "8px" } }, "En el mapa de frases de abajo aparece marcada como «tu frase»."));
+    explainBox.append(h("div", { class: "muted small", style: { marginTop: "10px" } }, "En el mapa de frases de abajo aparece marcada como «tu frase»."));
   }
 
   // ------------------------------------------------- lo que ha aprendido
@@ -279,15 +288,15 @@ export async function render(el, _params, query) {
     try { model = await api.model(agentId, { chars: includeChars }); drawLearned(); } catch (err) { errorToast(err); }
   } }), "Incluir trozos de letras");
   page.append(h("div", { class: "card" },
-    h("div", { class: "card-head" }, h("h2", null, "Lo que ha aprendido cada intención"), h("span", { class: "spacer" }), charsToggle),
+    h("div", { class: "card-head" }, icon("cpu"), h("h2", null, "Lo que ha aprendido cada intención"), h("span", { class: "spacer" }), charsToggle),
     h("div", { class: "card-body" },
-      h("p", { class: "muted small", style: { margin: "0 0 10px" } }, "Los rasgos con más peso a favor de cada intención: cuanto más larga la barra, más empuja una frase hacia ella. Si ves palabras poco útiles (como «lo» o «con»), añade frases más variadas."),
+      h("p", { class: "muted small", style: { margin: "0 0 12px" } }, "Los rasgos con más peso a favor de cada intención: cuanto más larga la barra, más empuja una frase hacia ella. Si ves palabras poco útiles (como «lo» o «con»), añade frases más variadas."),
       learnedBox)));
 
   function drawLearned() {
     clear(learnedBox);
     const items = model.topFeatures.filter((i) => i.features.length);
-    if (!items.length) { learnedBox.append(h("div", { class: "muted" }, "Hacen falta al menos dos intenciones con frases para que haya algo que aprender.")); return; }
+    if (!items.length) { learnedBox.append(h("div", { class: "notice" }, icon("info"), "Hacen falta al menos dos intenciones con frases para que haya algo que aprender.")); return; }
     learnedBox.append(h("div", { class: "multiples" }, items.map((it) => h("div", { class: "multiple" },
       h("div", { class: "row" }, h("a", { href: agentPath("intents/" + encodeURIComponent(it.id)), class: "multiple-title" }, it.name),
         h("span", { class: "spacer" }), h("span", { class: "faint small" }, it.isFallback ? "negativos" : `${it.phrases} frases`)),
@@ -302,12 +311,12 @@ export async function render(el, _params, query) {
   selA.addEventListener("change", () => { mapA = selA.value || null; drawMap(); });
   selB.addEventListener("change", () => { mapB = selB.value || null; drawMap(); });
   page.append(h("div", { class: "card" },
-    h("div", { class: "card-head" }, h("h2", null, "Mapa de frases")),
-    h("div", { class: "card-body col" },
+    h("div", { class: "card-head" }, icon("globe"), h("h2", null, "Mapa de frases")),
+    h("div", { class: "card-body col", style: { gap: "12px" } },
       h("p", { class: "muted small", style: { margin: 0 } }, "Cada punto es una frase de entrenamiento, colocada según cómo la puntúa el modelo: las que ve parecidas quedan juntas. Si dos grupos se mezclan, el bot puede confundir esas intenciones. Pasa el ratón por un punto para leer la frase."),
       h("div", { class: "row wrap" },
-        h("span", { class: "legend-key a" }), h("label", { class: "small" }, "Resaltar ", selA),
-        h("span", { class: "legend-key b" }), h("label", { class: "small" }, "y comparar con ", selB)),
+        h("span", { class: "legend-key a" }), h("label", { class: "small row" }, "Resaltar ", selA),
+        h("span", { class: "legend-key b" }), h("label", { class: "small row" }, "y comparar con ", selB)),
       mapBox,
       h("div", { class: "faint small" }, "Técnica: t-SNE sobre las puntuaciones del modelo (una por intención). Las distancias entre grupos lejanos no tienen un significado exacto."))));
 
@@ -327,7 +336,7 @@ export async function render(el, _params, query) {
     fill(selA, mapA, true);
     fill(selB, mapB, true);
     clear(mapBox);
-    if (pts.length < 3) { mapBox.append(h("div", { class: "muted" }, "Hacen falta más frases para dibujar el mapa.")); return; }
+    if (pts.length < 3) { mapBox.append(h("div", { class: "notice" }, icon("info"), "Hacen falta más frases para dibujar el mapa.")); return; }
     mapBox.append(scatter({ points: pts, a: mapA, b: mapB, names: names(), probe: explained && explained.position }));
     if (model.projection.sampled) mapBox.append(h("div", { class: "faint small" }, "Hay muchas frases: se muestra una muestra representativa."));
   }
@@ -336,64 +345,69 @@ export async function render(el, _params, query) {
   const examBox = h("div");
   const examBtn = h("button", { class: "btn", type: "button", onclick: () => runExam() }, icon("training"), "Hacer el examen");
   page.append(h("div", { class: "card" },
-    h("div", { class: "card-head" }, h("h2", null, "Examen: ¿acierta con frases que no ha visto?"), h("span", { class: "spacer" }), examBtn),
-    h("div", { class: "card-body col" },
+    h("div", { class: "card-head" }, icon("target"), h("h2", null, "Examen: ¿acierta con frases que no ha visto?"), h("span", { class: "spacer" }), examBtn),
+    h("div", { class: "card-body col", style: { gap: "14px" } },
       h("p", { class: "muted small", style: { margin: 0 } }, "Validación cruzada: esconde 1 de cada 5 frases, entrena con el resto y comprueba si acierta las escondidas. Lo repite 5 veces para que todas las frases se examinen una vez. Es la mejor estimación de cómo funcionará con usuarios reales."),
       examBox)));
 
   async function runExam() {
-    examBtn.disabled = true;
-    clear(examBox).append(h("div", { class: "muted" }, "Examinando… (entrena el modelo 5 veces)"));
+    clear(examBox).append(h("div", { class: "notice" }, h("span", { class: "spinner" }), "Examinando… (entrena el modelo 5 veces)"));
     try {
-      model.evaluation = await api.evaluate(agentId);
+      model.evaluation = await busy(examBtn, () => api.evaluate(agentId));
       drawExam();
-      drawStats();
+      drawStats(false);
       if (!mapB && model.evaluation) {
         const row = model.evaluation.perIntent.find((p) => p.id === mapA);
         const other = row && row.confusedWith.find((c) => c.id !== "__fallback__");
         if (other) { mapB = other.id; drawMap(); }
       }
     } catch (e) { errorToast(e); clear(examBox); }
-    finally { examBtn.disabled = false; }
   }
 
   function drawExam() {
     clear(examBox);
     const ev = model.evaluation;
     if (!ev) return;
-    const tile = (label, value, sub) => h("div", { class: "card stat" }, h("div", { class: "l" }, label), h("div", { class: "v" }, value),
-      sub ? h("div", { class: "faint small" }, sub) : null);
-    examBox.append(h("div", { class: "grid-3" },
-      tile("Acierto con frases nuevas", pctf(ev.accuracy), `umbral de confianza ${pctf(ev.threshold)}`),
-      tile("Frases examinadas", int(ev.total), `${ev.folds} rondas`),
-      tile("Fallos", int(ev.total - ev.correct), "abajo puedes verlos uno a uno")));
-    const rows = [...ev.perIntent].sort((a, b) => (a.recall ?? 1) - (b.recall ?? 1));
-    examBox.append(h("div", { class: "table-wrap" }, h("table", { class: "table" },
-      h("thead", null, h("tr", null, ["Intención", "Frases", "Acierto", "", "Se confunde con"].map((t) => h("th", null, t)))),
-      h("tbody", null, rows.map((r) => h("tr", null,
-        h("td", null, r.id === "__fallback__" ? r.name : h("a", { href: agentPath("intents/" + encodeURIComponent(r.id)) }, r.name)),
-        h("td", { class: "num" }, int(r.phrases)),
-        h("td", { style: { width: "150px" } }, r.recall == null ? "" : h("div", { class: "meter small-meter" }, h("div", { class: "meter-fill", style: { width: Math.round(r.recall * 100) + "%" } }))),
-        h("td", { class: "num" }, pctf(r.recall)),
-        h("td", { class: "muted small" }, r.confusedWith.slice(0, 3).map((c, i) => [i ? ", " : "", `${c.name} (${c.count})`]))))))));
-    examBox.append(h("details", null, h("summary", { class: "small", style: { cursor: "pointer" } }, "Ver la matriz de confusión"),
-      h("div", { class: "muted small", style: { margin: "6px 0" } }, "Cada fila es la intención real y cada columna lo que entendió. Lo ideal es que todo esté en la diagonal."),
+    const tiles = h("div", { class: "grid-3" },
+      tile("target", "Acierto con frases nuevas", ev.accuracy, pctf, `umbral de confianza ${pctf(ev.threshold)}`),
+      tile("list", "Frases examinadas", ev.total, int, `${ev.folds} rondas`),
+      tile("alert", "Fallos", ev.total - ev.correct, int, "abajo puedes verlos uno a uno"));
+    examBox.append(tiles);
+    stagger(tiles);
+    examBox.append(dataTable({
+      rows: ev.perIntent,
+      sort: { col: 2, dir: "asc" },
+      columns: [
+        { label: "Intención", key: "name", render: (r) => r.id === "__fallback__" ? r.name : h("a", { href: agentPath("intents/" + encodeURIComponent(r.id)) }, r.name) },
+        { label: "Frases", key: "phrases", num: true, render: (r) => int(r.phrases) },
+        { label: "Acierto", key: "recall", desc: true, width: "240px", render: (r) => r.recall == null ? h("span", { class: "faint" }, "—")
+          : h("div", { class: "row", style: { gap: "10px" } },
+            h("div", { class: "meter small-meter grow" }, h("div", { class: "meter-fill", style: { width: Math.round(r.recall * 100) + "%" } })),
+            h("b", { class: "tnum", style: { minWidth: "40px", textAlign: "right" } }, pctf(r.recall))) },
+        { label: "Se confunde con", value: (r) => r.confusedWith.length ? r.confusedWith[0].name : null, className: "cell-muted small",
+          render: (r) => r.confusedWith.slice(0, 3).map((c, i) => [i ? ", " : "", `${c.name} (${c.count})`]) },
+      ],
+    }));
+    examBox.append(h("details", null, h("summary", { class: "small", style: { cursor: "pointer", color: "var(--accent-text)", fontWeight: 550 } }, "Ver la matriz de confusión"),
+      h("div", { class: "muted small", style: { margin: "8px 0" } }, "Cada fila es la intención real y cada columna lo que entendió. Lo ideal es que todo esté en la diagonal."),
       heatmap({ labels: ev.matrix.labels, counts: ev.matrix.counts })));
     if (ev.errors.length) {
       examBox.append(h("div", { class: "section-title" }, `Frases que ha fallado (${ev.errors.length})`),
-        h("div", { class: "table-wrap" }, h("table", { class: "table" },
-          h("thead", null, h("tr", null, ["Frase", "Era", "Entendió", "Confianza", ""].map((t) => h("th", null, t)))),
-          h("tbody", null, ev.errors.slice(0, 60).map((e) => h("tr", null,
-            h("td", null, "“", e.text, "”"),
-            h("td", null, e.expected === "__fallback__" ? e.expectedName : h("a", { href: agentPath("intents/" + encodeURIComponent(e.expected)) }, e.expectedName)),
-            h("td", { class: "muted" }, e.predictedName),
-            h("td", { class: "num muted" }, pctf(e.confidence)),
-            h("td", null, h("button", { class: "btn sm ghost", type: "button", onclick: () => {
+        dataTable({
+          rows: ev.errors.slice(0, 60), scroll: true,
+          columns: [
+            { label: "Frase", key: "text", render: (e) => ["“", e.text, "”"] },
+            { label: "Era", key: "expectedName", render: (e) => e.expected === "__fallback__" ? e.expectedName : h("a", { href: agentPath("intents/" + encodeURIComponent(e.expected)) }, e.expectedName) },
+            { label: "Entendió", key: "predictedName", className: "cell-muted" },
+            { label: "Confianza", key: "confidence", num: true, className: "cell-muted", render: (e) => pctf(e.confidence) },
+            { label: "", sortable: false, render: (e) => h("button", { class: "btn sm ghost", type: "button", onclick: () => {
               explainInput.value = e.text;
               runExplain();
               explainInput.scrollIntoView({ behavior: "smooth", block: "center" });
-            } }, "Explicar"))))))),
-        h("p", { class: "muted small" }, "Consejo: si una intención falla mucho, añade frases más variadas. Si dos se confunden, revisa que sus frases no se parezcan demasiado o usa contextos."));
+            } }, icon("eye"), "Explicar") },
+          ],
+        }),
+        h("div", { class: "notice info" }, icon("sparkle"), "Consejo: si una intención falla mucho, añade frases más variadas. Si dos se confunden, revisa que sus frases no se parezcan demasiado o usa contextos."));
     }
   }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Arranca el Agente conversacional en Linux / macOS:  ./iniciar.sh
+# Arranca Lince (el agente conversacional) en Linux / macOS:  ./iniciar.sh
 set -e
 cd "$(dirname "$0")"
 if [ ! -x .venv/bin/python ]; then

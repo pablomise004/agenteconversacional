@@ -7,7 +7,7 @@ import webbrowser
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Agente conversacional (alternativa a Dialogflow)")
+    parser = argparse.ArgumentParser(description="Lince: chatbots en español (alternativa libre a Dialogflow)")
     parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"),
                         help="dirección (0.0.0.0 para acceder desde otros equipos)")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
@@ -23,7 +23,7 @@ def main() -> None:
 
     app = create_app()
     url = f"http://{'localhost' if args.host in ('0.0.0.0', '127.0.0.1') else args.host}:{args.port}"
-    print(f"\n  Agente conversacional en marcha: {url}\n  API: {url}/docs\n  (Ctrl+C para parar)\n")
+    print(f"\n  Lince en marcha: {url}\n  Referencia de la API: {url}/docs\n  (Ctrl+C para parar)\n")
     if not args.no_browser:
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")

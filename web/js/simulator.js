@@ -1,6 +1,6 @@
 // Panel lateral "Pruébalo": conversar con el agente y corregirlo al momento.
 import { api } from "./api.js";
-import { h, icon, clear, toast, errorToast, formatValue, pct, popover, closePopover, optionList } from "./ui.js";
+import { h, icon, logo, clear, toast, errorToast, formatValue, pct, popover, closePopover, optionList, reducedMotion } from "./ui.js";
 import { navigate, reloadAgent, state } from "./app.js";
 
 const MATCH_LABEL = {
@@ -12,19 +12,29 @@ function newSession() {
   return "consola-" + Math.random().toString(36).slice(2, 10);
 }
 
+// Frases para empezar: la primera de las intenciones con más ejemplos
+function suggestions(agent) {
+  return agent.intents
+    .filter((i) => !i.isFallback && !i.inputContexts.length && i.trainingPhrases.length)
+    .sort((a, b) => b.trainingPhrases.length - a.trainingPhrases.length)
+    .slice(0, 3)
+    .map((i) => i.trainingPhrases[i.trainingPhrases.length - 1].text);
+}
+
 export function createSimulator({ getAgent, onClose, onTurn }) {
   let sessionId = newSession();
   let busy = false;
   const body = h("div", { class: "sim-body", "aria-live": "polite" });
-  const input = h("input", { type: "text", placeholder: "Escribe un mensaje…", "aria-label": "Mensaje", maxlength: "1000" });
+  const input = h("input", { type: "text", placeholder: "Escribe un mensaje…", "aria-label": "Mensaje", maxlength: "1000", autocomplete: "off" });
   const sendBtn = h("button", { class: "btn primary icon-only", type: "submit", "aria-label": "Enviar" }, icon("send"));
   const form = h("form", { class: "sim-foot", onsubmit: (e) => { e.preventDefault(); send(input.value); } }, input, sendBtn);
+  const sub = h("div", { class: "sub ellipsis" });
 
   const el = h("aside", { class: "sim", "aria-label": "Probar el agente" },
     h("div", { class: "sim-head" },
-      h("h2", null, "Pruébalo"),
-      h("span", { class: "spacer" }),
-      h("button", { class: "btn ghost sm", type: "button", title: "Enviar el evento WELCOME (inicio de conversación)",
+      logo(),
+      h("div", { class: "grow" }, h("h2", null, "Pruébalo"), sub),
+      h("button", { class: "btn ghost sm", type: "button", title: "Lanzar el evento WELCOME (inicio de conversación)",
         onclick: () => send(null, "WELCOME") }, icon("play"), "Inicio"),
       h("button", { class: "btn ghost sm icon-only", type: "button", title: "Nueva conversación", "aria-label": "Nueva conversación",
         onclick: () => reset() }, icon("refresh")),
@@ -37,9 +47,18 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
   function hint() {
     const agent = getAgent();
     clear(body);
-    body.append(h("div", { class: "msg system" }, agent
-      ? `Escribe algo para probar «${agent.name}». Cada respuesta muestra qué ha entendido; usa ✓ o ✗ para enseñarle.`
-      : "Elige un agente para probarlo."));
+    sub.textContent = agent ? agent.name : "sin agente";
+    sub.classList.toggle("off", !agent);
+    if (!agent) {
+      body.append(h("div", { class: "sim-empty" }, logo(), h("b", null, "Elige un agente"),
+        h("p", null, "Cuando abras un agente podrás hablar con él aquí.")));
+      return;
+    }
+    const examples = suggestions(agent);
+    body.append(h("div", { class: "sim-empty" }, logo(),
+      h("b", null, `Habla con «${agent.name}»`),
+      h("p", null, "Bajo cada respuesta verás qué ha entendido. Si se equivoca, pulsa 👎 y enséñale la intención correcta."),
+      examples.length ? h("div", { class: "quick" }, examples.map((t) => h("button", { type: "button", onclick: () => send(t) }, t))) : null));
   }
 
   async function reset(silent = false) {
@@ -57,17 +76,22 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     if (!agent || busy) return;
     text = (text || "").trim();
     if (!text && !event) return;
-    if (body.querySelector(".msg.system")) clear(body);
+    const empty = body.querySelector(".sim-empty");
+    if (empty) empty.remove();
     body.append(h("div", { class: "msg user" }, text || `⚡ evento ${event}`));
     input.value = "";
     busy = true;
     sendBtn.disabled = true;
-    const typing = h("div", { class: "typing" }, "escribiendo…");
+    const typing = h("div", { class: "typing", role: "status", "aria-label": "Escribiendo" }, h("i"), h("i"), h("i"));
     body.append(typing);
     scroll();
+    const t0 = performance.now();
     try {
       const r = await api.detect(agent.id, { sessionId, text: text || null, event: event || null, debug: true, source: "consola" },
         agent.settings.apiKey);
+      // los puntos se ven un instante aunque la respuesta sea inmediata
+      const wait = 280 - (performance.now() - t0);
+      if (wait > 0 && !reducedMotion()) await new Promise((res) => setTimeout(res, wait));
       typing.remove();
       renderTurn(r);
       if (onTurn) onTurn(r);
@@ -83,13 +107,15 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
   }
 
   function renderTurn(r) {
+    let n = 0;
+    const later = (node) => { node.style.animationDelay = n++ * 110 + "ms"; return node; };
     for (const m of r.messages || []) {
-      if (m.type === "text") body.append(h("div", { class: "msg bot" }, m.text));
+      if (m.type === "text") body.append(later(h("div", { class: "msg bot" }, m.text)));
       else if (m.type === "quickReplies") {
         body.append(h("div", { class: "quick" }, m.items.map((q) => h("button", { type: "button", onclick: () => send(q) }, q))));
       } else if (m.type === "payload") {
-        body.append(h("div", { class: "payload" }, h("div", { class: "small faint" }, "Payload personalizado"),
-          h("pre", null, JSON.stringify(m.payload, null, 2))));
+        body.append(later(h("div", { class: "payload" }, h("div", { class: "small faint" }, "Payload personalizado"),
+          h("pre", null, JSON.stringify(m.payload, null, 2)))));
       }
     }
     if (!r.messages || !r.messages.length) body.append(h("div", { class: "msg system" }, "(sin respuesta configurada)"));
@@ -100,11 +126,12 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     const intentName = r.intent ? r.intent.name : "—";
     const fb = r.match === "fallback" || (r.intent && r.intent.isFallback);
     const meta = h("div", { class: "turn-meta" },
-      h("button", { class: "intent-link", type: "button", title: "Ver detalles", onclick: () => {
+      h("button", { class: "intent-link", type: "button", "aria-expanded": "false", title: "Ver qué ha entendido", onclick: (e) => {
         if (!built) { buildDetail(detail, r); built = true; }
         detail.classList.toggle("hidden");
+        e.currentTarget.setAttribute("aria-expanded", String(!detail.classList.contains("hidden")));
         scroll();
-      } }, intentName),
+      } }, intentName, icon("down")),
       h("span", { class: "badge" + (fb ? " warning" : r.confidence >= 0.8 ? " success" : "") }, pct(r.confidence)),
       h("span", { class: "faint" }, MATCH_LABEL[r.match] || r.match || ""),
       r.queryText && r.logId ? feedbackButtons(r) : null);
@@ -127,8 +154,8 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
       "aria-label": "Respuesta incorrecta", onclick: (ev) => {
         const agent = getAgent();
         const groups = [
-          { title: "Intenciones", options: agent.intents.filter((i) => !i.isFallback).map((i) => ({ label: i.name, value: i.id })) },
-          { title: "No debería entenderla", options: agent.intents.filter((i) => i.isFallback).map((i) => ({ label: i.name + " (fallback)", value: i.id })) },
+          { title: "Intenciones", options: agent.intents.filter((i) => !i.isFallback).map((i) => ({ label: i.name, value: i.id, icon: "chat" })) },
+          { title: "No debería entenderla", options: agent.intents.filter((i) => i.isFallback).map((i) => ({ label: i.name + " (fallback)", value: i.id, icon: "alert" })) },
         ];
         popover(ev.currentTarget, h("div", null,
           h("div", { class: "pop-head" }, "¿Qué intención era?"),
@@ -160,7 +187,7 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     if (r.action) row("Acción", h("code", null, r.action));
     const params = Object.entries(r.parameters || {});
     row("Parámetros", params.length
-      ? h("div", { class: "col", style: { gap: "2px" } }, params.map(([k, v]) => h("div", null, h("code", null, k), " = ", formatValue(v),
+      ? h("div", { class: "col", style: { gap: "3px" } }, params.map(([k, v]) => h("div", null, h("code", null, k), " = ", formatValue(v),
         r.parametersOriginal && r.parametersOriginal[k] != null && formatValue(r.parametersOriginal[k]) !== formatValue(v)
           ? h("span", { class: "faint" }, ` («${formatValue(r.parametersOriginal[k])}»)`) : null)))
       : h("span", { class: "faint" }, "ninguno"));
@@ -172,11 +199,11 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     if (r.analysis) {
       row("Tokens", h("div", { class: "row wrap", style: { gap: "4px" } }, r.analysis.tokens.filter((t) => t.kind !== "symbol").map((t) =>
         h("code", { title: `raíz: ${t.stem}` }, t.corrected ? `${t.norm}→${t.corrected}` : t.norm))));
-      if (r.analysis.entities.length) row("Entidades", h("div", { class: "col", style: { gap: "2px" } }, r.analysis.entities.map((e) =>
+      if (r.analysis.entities.length) row("Entidades", h("div", { class: "col", style: { gap: "3px" } }, r.analysis.entities.map((e) =>
         h("div", null, h("code", null, e.entity), " ", `«${e.text}»`, " = ", formatValue(e.value)))));
       const alt = (r.analysis.ranking || []).slice(0, 3);
-      if (alt.length) row("Candidatas", h("div", { class: "col", style: { gap: "2px" } }, alt.map((x) =>
-        h("div", null, x.name, " ", h("span", { class: "faint" }, pct(x.confidence))))));
+      if (alt.length) row("Candidatas", h("div", { class: "col", style: { gap: "3px" } }, alt.map((x) =>
+        h("div", { class: "row" }, h("span", { class: "grow ellipsis" }, x.name), h("span", { class: "faint tnum" }, pct(x.confidence))))));
     }
     detail.append(kv);
     if (r.queryText) {

@@ -1,26 +1,38 @@
 // Lista de agentes: crear, importar (JSON o ZIP de Dialogflow) y abrir.
 import { api } from "../api.js";
-import { h, icon, modal, toast, errorToast, timeAgo } from "../ui.js";
+import { h, icon, avatar, modal, toast, errorToast, timeAgo, fullDate, pageHead, emptyState, stagger } from "../ui.js";
 import { navigate, refreshAgents, state } from "../app.js";
+
+const TEMPLATES = [
+  { value: "blank", icon: "sparkle", title: "Vacío", text: "Solo bienvenida y fallback. Para empezar de cero." },
+  { value: "pizzeria", icon: "chat", title: "Copia de la pizzería", text: "Pedidos, reservas, carta… para trastear." },
+];
 
 export async function createAgentDialog() {
   const name = h("input", { type: "text", placeholder: "Por ejemplo: Atención al cliente" });
   const lang = h("select", null, Object.entries(state.info.languages).map(([k, v]) => h("option", { value: k }, v)));
-  const tpl = h("select", null,
-    h("option", { value: "blank" }, "Vacío (bienvenida + fallback)"),
-    h("option", { value: "pizzeria" }, "Copia del ejemplo de la pizzería"));
   const desc = h("input", { type: "text", placeholder: "Opcional" });
+  let template = "blank";
+  const tplBox = h("div", { class: "grid-2", role: "radiogroup", "aria-label": "Plantilla" }, TEMPLATES.map((t) => {
+    const radio = h("input", { type: "radio", name: "tpl", value: t.value, checked: t.value === template, class: "sr-only",
+      onchange: () => { template = t.value; paint(); } });
+    return h("label", { class: "tpl-card" + (t.value === template ? " on" : ""), dataset: { value: t.value } }, radio,
+      h("span", { class: "li-icon primary" }, icon(t.icon)),
+      h("span", null, h("b", null, t.title), h("span", { class: "muted small", style: { display: "block" } }, t.text)));
+  }));
+  const paint = () => tplBox.querySelectorAll(".tpl-card").forEach((c) => c.classList.toggle("on", c.dataset.value === template));
   const result = await modal({
     title: "Nuevo agente",
     body: [
       h("label", { class: "field" }, "Nombre", name),
       h("label", { class: "field" }, "Descripción", desc),
-      h("div", { class: "grid-2" }, h("label", { class: "field" }, "Idioma", lang), h("label", { class: "field" }, "Plantilla", tpl)),
+      h("label", { class: "field" }, "Idioma", lang),
+      h("div", { class: "field" }, h("span", null, "Plantilla"), tplBox),
     ],
     actions: [
       { label: "Cancelar", value: null },
       { label: "Crear agente", primary: true, validate: () => { if (!name.value.trim()) { name.focus(); return false; } return true; },
-        value: () => ({ name: name.value.trim(), language: lang.value, description: desc.value.trim(), template: tpl.value }) },
+        value: () => ({ name: name.value.trim(), language: lang.value, description: desc.value.trim(), template }) },
     ],
   });
   if (!result) return;
@@ -47,34 +59,46 @@ export function importAgentDialog() {
   file.click();
 }
 
+function agentCard(a) {
+  const open = () => navigate(`#/a/${encodeURIComponent(a.id)}/intents`);
+  const langName = (state.info.languages || {})[a.language] || a.language;
+  return h("div", { class: "card agent-card", tabindex: "0", role: "link", "aria-label": "Abrir " + a.name,
+    onclick: open, onkeydown: (e) => { if (e.key === "Enter") open(); } },
+  h("div", { class: "row", style: { gap: "12px" } }, avatar(a.name, "lg"),
+    h("div", { class: "grow" }, h("h3", { class: "ellipsis" }, a.name), h("div", { class: "faint small" }, langName)),
+    h("span", { class: "badge outline" }, a.language.toUpperCase())),
+  a.description ? h("div", { class: "desc" }, a.description) : null,
+  h("div", { class: "stats" },
+    h("span", null, icon("chat"), `${a.intents} intenciones`),
+    h("span", null, icon("tag"), `${a.entities} entidades`),
+    h("span", null, icon("list"), `${a.phrases} frases`)),
+  h("div", { class: "foot" }, h("span", { title: fullDate(a.updatedAt) }, "Modificado " + timeAgo(a.updatedAt)),
+    h("span", { class: "open" }, "Abrir", icon("arrowRight"))));
+}
+
 export async function render(el) {
   const agents = await api.agents();
   state.agents = agents;
   const page = h("div", { class: "page" },
-    h("div", { class: "page-head" },
-      h("div", { class: "grow" }, h("h1", null, "Agentes"),
-        h("div", { class: "sub" }, "Cada agente es un chatbot con sus intenciones, entidades y respuestas.")),
-      h("button", { class: "btn", type: "button", onclick: importAgentDialog, title: "JSON exportado de aquí o ZIP exportado de Dialogflow ES" }, icon("upload"), "Importar"),
-      h("button", { class: "btn primary", type: "button", onclick: createAgentDialog }, icon("plus"), "Crear agente")));
+    pageHead({
+      icon: "layers", title: "Agentes", sub: "Cada agente es un chatbot con sus intenciones, entidades y respuestas.",
+      actions: [
+        h("button", { class: "btn", type: "button", onclick: importAgentDialog, title: "JSON exportado de aquí o ZIP exportado de Dialogflow ES" }, icon("upload"), "Importar"),
+        h("button", { class: "btn primary", type: "button", onclick: createAgentDialog }, icon("plus"), "Crear agente")],
+    }));
   if (!agents.length) {
-    page.append(h("div", { class: "card" }, h("div", { class: "empty" }, icon("bot"),
-      h("p", null, "Todavía no hay agentes."),
-      h("button", { class: "btn primary", type: "button", onclick: createAgentDialog }, icon("plus"), "Crear el primero"))));
+    page.append(h("div", { class: "card" }, emptyState({
+      icon: "bot", title: "Todavía no hay agentes", text: "Crea uno desde cero o importa un agente exportado de Dialogflow.",
+      action: h("button", { class: "btn primary", type: "button", onclick: createAgentDialog }, icon("plus"), "Crear el primero") })));
   } else {
-    page.append(h("div", { class: "agent-cards" }, agents.map((a) => h("div", {
-      class: "card agent-card", tabindex: "0", role: "link",
-      onclick: () => navigate(`#/a/${encodeURIComponent(a.id)}/intents`),
-      onkeydown: (e) => { if (e.key === "Enter") navigate(`#/a/${encodeURIComponent(a.id)}/intents`); },
-    },
-      h("div", { class: "row" }, h("h3", { class: "grow" }, a.name), h("span", { class: "badge" }, a.language.toUpperCase())),
-      a.description ? h("div", { class: "muted small" }, a.description) : null,
-      h("div", { class: "row wrap small muted" },
-        h("span", null, `${a.intents} intenciones`), "·", h("span", null, `${a.entities} entidades`), "·",
-        h("span", null, `${a.phrases} frases`)),
-      h("div", { class: "faint small" }, "Modificado " + timeAgo(a.updatedAt))))));
+    const grid = h("div", { class: "agent-cards" }, agents.map(agentCard),
+      h("button", { class: "card agent-card new", type: "button", onclick: createAgentDialog },
+        h("span", { class: "plus" }, icon("plus")), "Nuevo agente"));
+    page.append(grid);
+    stagger(grid);
   }
-  page.append(h("div", { class: "notice info", style: { marginTop: "18px" } }, icon("info"),
-    h("div", null, "¿Vienes de Dialogflow? En la consola de Dialogflow ES ve a ", h("b", null, "Configuración del agente → Exportar e importar → Exportar como ZIP"),
+  page.append(h("div", { class: "notice info", style: { marginTop: "20px" } }, icon("info"),
+    h("div", null, h("b", null, "¿Vienes de Dialogflow? "), "En la consola de Dialogflow ES ve a ", h("b", null, "Configuración del agente → Exportar e importar → Exportar como ZIP"),
       " y usa el botón ", h("b", null, "Importar"), " de aquí. Se conservan intenciones, frases con anotaciones, entidades, contextos, parámetros y respuestas.")));
   el.append(page);
 }

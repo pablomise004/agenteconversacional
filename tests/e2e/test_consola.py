@@ -211,6 +211,48 @@ def test_tema_oscuro(base_url, page):
     page.goto(f"{base_url}/#/a/pizzeria/intents")
     page.wait_for_selector(".list-item")
     page.locator("button[aria-label='Cambiar tema claro u oscuro']").click()
+    # el cambio va animado (View Transitions): se aplica en el siguiente fotograma
+    page.wait_for_function("document.documentElement.dataset.theme === 'dark'")
     bg = page.evaluate("getComputedStyle(document.body).backgroundColor")
     r, g, b = [int(x) for x in bg[bg.index("(") + 1:bg.index(")")].split(",")[:3]]
     assert max(r, g, b) < 60 and max(r, g, b) - min(r, g, b) <= 4  # gris oscuro neutro
+    assert page.evaluate("localStorage.getItem('agente.theme')") == "dark"
+
+
+def test_paleta_de_comandos(base_url, page):
+    page.goto(f"{base_url}/#/a/pizzeria/intents")
+    page.wait_for_selector(".list-item")
+    page.keyboard.press("Control+k")
+    page.wait_for_selector(".cmdk input")
+    page.keyboard.type("entidades")
+    page.keyboard.press("Enter")
+    page.wait_for_url("**/entities")
+    page.wait_for_selector(".list-item")
+    # con una frase propone analizarla
+    page.keyboard.press("Control+k")
+    page.keyboard.type("quiero una pizza")
+    page.locator(".cmdk-item", has_text="Analizar «quiero una pizza»").click()
+    page.wait_for_selector(".token-grid")
+    assert "q=quiero" in page.url
+    assert page.errors == []
+
+
+def test_referencia_de_la_api(base_url, page):
+    page.goto(f"{base_url}/docs")
+    page.wait_for_selector(".ep")
+    assert page.locator(".ep").count() >= 30
+    # el buscador filtra las operaciones
+    page.fill(".docs-search input", "detect")
+    visibles = page.locator(".ep:visible")
+    assert 1 <= visibles.count() <= 3
+    page.fill(".docs-search input", "")
+    # «Pruébalo» hace la petición de verdad
+    info = page.locator("#get-api-info")
+    info.locator(".ep-head").click()
+    info.locator(".try .btn.primary").click()
+    playwright.expect(info.locator(".resp .status-pill.ok")).to_contain_text("200")
+    detect = page.locator("#post-api-agents-agent_id-detect")
+    detect.locator(".ep-head").click()
+    detect.locator(".try .btn.primary").click()
+    playwright.expect(detect.locator(".resp")).to_contain_text("pedido.pizza")
+    assert page.errors == []

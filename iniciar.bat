@@ -1,5 +1,5 @@
 @echo off
-rem Arranca el Agente conversacional en Windows (doble clic).
+rem Arranca Lince (el agente conversacional) en Windows (doble clic).
 chcp 65001 >nul
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" (

@@ -7,3 +7,7 @@
 *.json text eol=lf
 *.md text eol=lf
 *.png binary
+*.svg text eol=lf
+*.webmanifest text eol=lf
+*.ico binary
+*.woff2 binary

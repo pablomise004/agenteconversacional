@@ -95,7 +95,8 @@ export const api = {
   clearLogs: (id) => request("POST", A(id) + "/logs/clear"),
   conversations: (id, params = {}) => request("GET", `${A(id)}/conversations?` + new URLSearchParams(params)),
   conversation: (id, sessionId) => request("GET", `${A(id)}/conversations/${enc(sessionId)}`),
-  stats: (id) => request("GET", A(id) + "/stats"),
+  // tz: para agrupar los mensajes por día de la hora local
+  stats: (id, params = {}) => request("GET", `${A(id)}/stats?` + new URLSearchParams({ tz: new Date().getTimezoneOffset(), ...params })),
   model: (id, params = {}) => request("GET", `${A(id)}/model?` + new URLSearchParams(params)),
   explain: (id, text, contexts) => request("POST", A(id) + "/explain", { text, contexts }),
   evaluate: (id, folds = 5) => request("POST", A(id) + "/evaluate", { folds }),

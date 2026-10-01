@@ -1,8 +1,14 @@
-# Agente conversacional
+<img src="web/favicon.svg" width="72" alt="Logotipo de Lince: una burbuja de chat con orejas de lince">
 
-**Alternativa libre a Dialogflow para crear chatbots en español**, que funciona en tu propio
-ordenador o servidor: sin cuentas, sin límites y sin pagar por mensaje. Y pensada también para
-**aprender** cómo funciona por dentro un sistema de comprensión del lenguaje.
+# Lince
+
+**Chatbots en español, libres y en tu ordenador.** Lince es un agente conversacional, una
+alternativa a Dialogflow que funciona en tu propio ordenador o servidor: sin cuentas, sin límites y
+sin pagar por mensaje. Y está pensado también para **aprender** cómo funciona por dentro un sistema
+de comprensión del lenguaje.
+
+> ¿Por qué «Lince»? Porque entiende rápido (*listo como un lince*) y te deja ver por dentro cómo lo
+> hace (*vista de lince*).
 
 Defines **intenciones** con frases de ejemplo, **entidades** con sinónimos, **contextos** para guiar
 la conversación y **respuestas**. El bot entiende lo que escribe la gente (con faltas, sin tildes,
@@ -39,9 +45,10 @@ Documentación completa: **[Guía de uso](docs/GUIA.md)** (también dentro de la
 | **Analizador** | Tokens, forma normalizada, raíz, correcciones ortográficas, entidades, intenciones candidatas con su confianza y frases de entrenamiento más parecidas |
 | **Entrenar** | Animación de los 6 pasos del entrenamiento, curva de aprendizaje, rasgos más importantes de cada intención, recorrido de una frase hasta la decisión, mapa de frases y examen con validación cruzada |
 | **Aprendizaje continuo** | Botones 👍/👎 en el simulador y pantalla de **Revisión** con los mensajes reales para aprobar o corregir; añadir sinónimos y reglas de normalización |
-| **Integraciones** | Widget de chat para cualquier web (una línea), API REST, API compatible con `detectIntent` de Dialogflow ES y webhook con el formato de Dialogflow |
+| **Integraciones** | Widget de chat para cualquier web (una línea, con vista previa de colores), API REST, API compatible con `detectIntent` de Dialogflow ES y webhook con el formato de Dialogflow |
+| **Referencia de la API** | Página propia en `/docs` con el estilo de la consola: cada ruta en español con sus parámetros y ejemplos, botón **Pruébalo** que envía la petición de verdad y **Copiar como curl**. Funciona sin conexión |
 | **Migración** | Importa agentes exportados de Dialogflow ES (ZIP) |
-| **Consola** | Tema claro y oscuro, adaptable a móvil, guía de uso integrada |
+| **Consola** | Diseño moderno con microanimaciones, tablas ordenables, tema claro y oscuro, búsqueda y atajos con **Ctrl+K**, adaptable a móvil, instalable como aplicación y guía de uso integrada |
 | **Idiomas** | Español (completo) e inglés |
 
 ## Instalación
@@ -75,6 +82,10 @@ Al arrancar por primera vez se crea el agente de ejemplo **Pizzería** (pedidos,
 horarios) para que puedas trastear desde el principio. Tus datos se guardan en la carpeta `data/`
 (no se sube a Git).
 
+**Como aplicación:** en Edge o Chrome, con la consola abierta, usa *Instalar Lince* (el icono de
+instalar de la barra de direcciones o el menú *Aplicaciones*). Se abre en su propia ventana, con el
+icono del lince, cada vez que el servidor esté en marcha.
+
 ## Primeros pasos
 
 1. Abre <http://localhost:8000> y escribe en el panel **Pruébalo**: «hola», «quiero una pizza»,
@@ -86,6 +97,8 @@ horarios) para que puedas trastear desde el principio. Tus datos se guardan en l
 4. En **Entrenar** pulsa «Entrenar paso a paso» y mira cómo aprende.
 5. Crea tu propio agente en *Agentes → Crear agente*: escribe frases de ejemplo (mejor 10 o más por
    intención), selecciona palabras con el ratón para marcarlas como entidades y añade respuestas.
+6. Pulsa **Ctrl+K** en cualquier momento para saltar a una pantalla, intención o entidad, o escribe
+   una frase para analizarla, probarla en el chat o ver cómo la entiende paso a paso.
 
 ![Analizador de frases](docs/img/analizador.png)
 
@@ -157,7 +170,11 @@ curl -X POST http://localhost:8000/api/agents/pizzeria/detect \
 ```
 
 Devuelve la intención, la confianza, los parámetros, los contextos y los mensajes de respuesta. La
-documentación interactiva de toda la API está en <http://localhost:8000/docs>.
+**referencia de toda la API** está en <http://localhost:8000/docs>: cada ruta explicada en español,
+con ejemplos, un botón **Pruébalo** que envía la petición de verdad y **Copiar como curl**. El
+esquema OpenAPI (para Postman, Insomnia…) está en `/openapi.json`.
+
+![Referencia de la API](docs/img/api.png)
 
 **Compatible con Dialogflow:** `POST /v2/projects/{agente}/agent/sessions/{sesión}:detectIntent`
 acepta y devuelve el mismo JSON que la API v2 de Dialogflow ES.
@@ -179,8 +196,8 @@ la URL del webhook.
 Con Docker:
 
 ```bash
-docker build -t agente .
-docker run -d -p 8000:8000 -v agente-datos:/data -e AGENTE_ADMIN_TOKEN=pon-aqui-un-secreto agente
+docker build -t lince .
+docker run -d -p 8000:8000 -v lince-datos:/data -e AGENTE_ADMIN_TOKEN=pon-aqui-un-secreto lince
 ```
 
 O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --no-browser`.
@@ -232,11 +249,13 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 84 pruebas: NLU, diálogo, webhook, API, importación, modelo
+python -m pytest                            # 87 pruebas: NLU, diálogo, webhook, API, importación, modelo
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 15 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 17 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"
+python tools/capturas_docs.py               # rehace las capturas de docs/img con la consola actual
+python tools/build_icons.py                 # rehace favicon.ico y los iconos PNG desde web/favicon.svg
 ```
 
 ```
@@ -251,11 +270,12 @@ app/
   importer.py      importación de JSON y ZIP de Dialogflow
   validation.py    avisos de calidad del agente
   nlu/             motor de lenguaje: tokenizador, stemmer, entidades, clasificador, motor, insights
-web/               consola (HTML/CSS/JS sin compilación), widget.js y chat.html
+web/               consola (HTML/CSS/JS sin compilación), api.html (referencia de la API),
+                   widget.js, chat.html, logotipo e iconos, fuente Inter
 docs/              guía de uso e imágenes (la arquitectura está en CONTRIBUTING.md)
 examples/          agente de ejemplo (pizzería)
 tests/             pruebas automáticas (tests/e2e: navegador)
-tools/             benchmark, generador del ejemplo, prueba rápida del NLU
+tools/             benchmark, generador del ejemplo, prueba rápida del NLU, capturas e iconos
 ```
 
 **Para seguir desarrollando con Claude Code** en otro equipo: clona el repositorio y abre Claude
@@ -272,4 +292,5 @@ proyecto (decisiones, convenciones, cómo probar, ideas pendientes).
 
 ## Licencia
 
-MIT
+MIT. La fuente [Inter](https://rsms.me/inter/) incluida en `web/fonts/` tiene su propia licencia
+libre (SIL Open Font License 1.1, ver `web/fonts/LICENSE-Inter.txt`).

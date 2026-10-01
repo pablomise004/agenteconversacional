@@ -1,7 +1,7 @@
 // Analizador: cómo entiende el agente una frase (tokens, entidades, intención)
 // y corrección inmediata ("lo ha entendido bien / mal").
 import { api } from "../api.js";
-import { h, icon, clear, chipsInput, toast, errorToast, formatValue, pct, confBar } from "../ui.js";
+import { h, icon, clear, chipsInput, toast, errorToast, formatValue, pct, confBar, pageHead, dataTable, busy } from "../ui.js";
 import { annotatedPhrase, colorMap, suggestParam } from "../annotate.js";
 import { agentPath, reloadAgent, state } from "../app.js";
 
@@ -14,13 +14,13 @@ export async function render(el, _params, query) {
   let contexts = [];
   const input = h("input", { type: "text", class: "big grow", style: { fontWeight: 500 }, placeholder: "Escribe una frase como la diría un usuario…",
     "aria-label": "Frase a analizar", value: (query && query.get("q")) || "" });
+  const runBtn = h("button", { class: "btn primary", type: "button", onclick: () => run() }, icon("sparkle"), "Analizar");
   const results = h("div");
   const run = async () => {
     const text = input.value.trim();
     if (!text) { input.focus(); return; }
-    clear(results).append(h("div", { class: "muted", style: { padding: "12px" } }, "Analizando…"));
     try {
-      const a = await api.analyze(state.agent.id, text, contexts);
+      const a = await busy(runBtn, () => api.analyze(state.agent.id, text, contexts));
       drawResults(text, a);
       history.replaceState(null, "", agentPath("analyzer") + "?q=" + encodeURIComponent(text));
     } catch (e) {
@@ -33,11 +33,9 @@ export async function render(el, _params, query) {
     transform: (v) => v.toLowerCase().replace(/\s+/g, "-"), onChange: (v) => { contexts = v; } });
 
   el.append(h("div", { class: "page" },
-    h("div", { class: "page-head" },
-      h("div", { class: "grow" }, h("h1", null, "Analizador de frases"),
-        h("div", { class: "sub" }, "Mira paso a paso cómo tokeniza y entiende una frase, y corrígelo si se equivoca."))),
-    h("div", { class: "card" }, h("div", { class: "card-body col" },
-      h("div", { class: "row" }, input, h("button", { class: "btn primary", type: "button", onclick: run }, icon("text"), "Analizar")),
+    pageHead({ icon: "text", title: "Analizador de frases", sub: "Mira paso a paso cómo tokeniza y entiende una frase, y corrígelo si se equivoca." }),
+    h("div", { class: "card" }, h("div", { class: "card-body col", style: { paddingTop: "16px", gap: "12px" } },
+      h("div", { class: "analyze-box" }, icon("search"), input, runBtn),
       h("div", { class: "row" }, h("span", { class: "muted small nowrap" }, "Simular contextos:"), h("div", { class: "grow" }, ctxChips)))),
     results));
   if (input.value) run();
@@ -69,9 +67,10 @@ export async function render(el, _params, query) {
           ? ["No llega al umbral: la mejor opción es ", h("b", null, best.name), ` con ${pct(best.confidence)} (umbral ${pct(a.threshold)}). Respondería el fallback.`]
           : "No la entiende: respondería la intención de fallback."));
     const params = Object.entries(a.parameters || {});
-    results.append(h("div", { class: "card" },
-      h("div", { class: "card-head" }, h("h2", null, "Resultado"), h("span", { class: "spacer" }), h("span", { class: "faint small" }, `${a.ms} ms`)),
-      h("div", { class: "card-body col" }, hl, decision,
+    results.append(h("div", { class: "card", style: { marginTop: "16px" } },
+      h("div", { class: "card-head" }, icon("target"), h("h2", null, "Resultado"), h("span", { class: "spacer" }),
+        h("span", { class: "badge", title: "Tiempo de análisis" }, icon("clock"), `${a.ms} ms`)),
+      h("div", { class: "card-body col", style: { gap: "12px" } }, hl, decision,
         params.length ? h("div", { class: "kv-table" }, params.map(([k, v]) => [h("div", null, h("code", null, "$" + k)),
           h("div", null, formatValue(v), a.parametersOriginal && a.parametersOriginal[k] != null && formatValue(a.parametersOriginal[k]) !== formatValue(v)
             ? h("span", { class: "faint" }, ` («${formatValue(a.parametersOriginal[k])}»)`) : null)])) : null)));
@@ -96,8 +95,8 @@ export async function render(el, _params, query) {
         t.corrected ? h("span", { class: "corr" }, "→ " + t.corrected) : null);
     }));
     // regla de normalización
-    const word = h("input", { type: "text", placeholder: "palabra (p. ej. «pizzeta»)", "aria-label": "Palabra", style: { width: "170px" } });
-    const repl = h("input", { type: "text", placeholder: "se entiende como (p. ej. «pizza»)", "aria-label": "Reemplazo", style: { width: "210px" } });
+    const word = h("input", { type: "text", placeholder: "palabra (p. ej. «pizzeta»)", "aria-label": "Palabra", style: { width: "180px" } });
+    const repl = h("input", { type: "text", placeholder: "se entiende como (p. ej. «pizza»)", "aria-label": "Reemplazo", style: { width: "220px" } });
     const addRule = async () => {
       const w = word.value.trim().toLowerCase(), r = repl.value.trim();
       if (!w) { word.focus(); return; }
@@ -111,70 +110,83 @@ export async function render(el, _params, query) {
     };
     const corrected = a.tokens.filter((t) => t.corrected);
     return h("div", { class: "card" },
-      h("div", { class: "card-head" }, h("h2", null, "Tokenización"),
+      h("div", { class: "card-head" }, icon("hash"), h("h2", null, "Tokenización"),
         h("span", { class: "help" }, "Texto original · forma normalizada · √ raíz · → corrección ortográfica")),
-      h("div", { class: "card-body col" }, grid,
+      h("div", { class: "card-body col", style: { gap: "12px" } }, grid,
         corrected.length ? h("div", { class: "muted small" }, "Correcciones: ",
           corrected.map((t, i) => [i ? ", " : "", h("b", null, t.norm), " → ", t.corrected])) : null,
         h("details", null,
-          h("summary", { class: "small", style: { cursor: "pointer" } }, "¿Ha tokenizado algo mal? Enséñale cómo debe leer una palabra"),
-          h("div", { class: "col", style: { marginTop: "8px" } },
+          h("summary", { class: "small", style: { cursor: "pointer", color: "var(--accent-text)", fontWeight: 550 } }, "¿Ha tokenizado algo mal? Enséñale cómo debe leer una palabra"),
+          h("div", { class: "col", style: { marginTop: "10px" } },
             h("div", { class: "muted small" }, "Las reglas se aplican antes de todo lo demás (abreviaturas, jerga, errores frecuentes). Deja el segundo campo vacío para ignorar la palabra."),
-            h("div", { class: "row wrap" }, word, h("span", null, "→"), repl, h("button", { class: "btn sm", type: "button", onclick: addRule }, icon("plus"), "Añadir regla")),
+            h("div", { class: "row wrap" }, word, icon("arrowRight"), repl, h("button", { class: "btn sm", type: "button", onclick: addRule }, icon("plus"), "Añadir regla")),
             Object.keys(state.agent.settings.normalization || {}).length
               ? h("div", { class: "small muted" }, "Reglas actuales: ", Object.entries(state.agent.settings.normalization).map(([k, v], i) => [i ? " · " : "", h("code", null, `${k} → ${v || "∅"}`)]),
                 " ", h("a", { href: agentPath("settings") }, "(editar en Ajustes)"))
               : null))));
   }
 
+  function entityColumns() {
+    return [
+      { label: "Entidad", key: "entity", render: (e) => h("code", null, e.entity) },
+      { label: "Texto", key: "text", render: (e) => "«" + e.text + "»" },
+      { label: "Valor", value: (e) => formatValue(e.value), render: (e) => h("code", null, formatValue(e.value)) },
+      { label: "Cómo", value: (e) => SOURCE_LABEL[e.source] || e.source, className: "cell-muted" },
+      { label: "Seguridad", key: "score", num: true, render: (e) => pct(e.score) },
+    ];
+  }
+
   function entitiesCard(a) {
-    const row = (e) => h("tr", null, h("td", null, h("code", null, e.entity)), h("td", null, "«" + e.text + "»"),
-      h("td", null, h("code", null, formatValue(e.value))), h("td", { class: "muted" }, SOURCE_LABEL[e.source] || e.source),
-      h("td", { class: "muted" }, pct(e.score)));
-    const head = h("thead", null, h("tr", null, ["Entidad", "Texto", "Valor", "Cómo", "Seguridad"].map((t) => h("th", null, t))));
     return h("div", { class: "card" },
-      h("div", { class: "card-head" }, h("h2", null, "Entidades"), h("span", { class: "badge" }, String(a.entities.length))),
+      h("div", { class: "card-head" }, icon("tag"), h("h2", null, "Entidades"), h("span", { class: "badge" }, String(a.entities.length))),
       h("div", { class: "card-body" },
-        a.entities.length ? h("div", { class: "table-wrap" }, h("table", { class: "table" }, head, h("tbody", null, a.entities.map(row))))
-          : h("div", { class: "muted small" }, "No ha encontrado entidades."),
-        a.candidates && a.candidates.length ? h("details", { style: { marginTop: "8px" } },
+        a.entities.length ? dataTable({ columns: entityColumns(), rows: a.entities })
+          : h("div", { class: "notice" }, icon("info"), "No ha encontrado entidades."),
+        a.candidates && a.candidates.length ? h("details", { style: { marginTop: "10px" } },
           h("summary", { class: "small muted", style: { cursor: "pointer" } }, `Otros candidatos descartados por solaparse o ser dudosos (${a.candidates.length})`),
-          h("div", { class: "table-wrap" }, h("table", { class: "table" }, head, h("tbody", null, a.candidates.map(row))))) : null));
+          h("div", { style: { marginTop: "8px" } }, dataTable({ columns: entityColumns(), rows: a.candidates }))) : null));
   }
 
   function rankingCard(a) {
     return h("div", { class: "card" },
-      h("div", { class: "card-head" }, h("h2", null, "Intenciones candidatas"),
+      h("div", { class: "card-head" }, icon("gauge"), h("h2", null, "Intenciones candidatas"),
         h("span", { class: "help" }, "Confianza = probabilidad del modelo ajustada por el parecido con las frases. La línea roja es el umbral.")),
-      h("div", { class: "card-body" }, h("div", { class: "table-wrap" }, h("table", { class: "table" },
-        h("thead", null, h("tr", null, ["Intención", "Confianza", "", "Probabilidad", "Parecido", ""].map((t) => h("th", null, t)))),
-        h("tbody", null, a.ranking.map((r) => h("tr", null,
-          h("td", null, h("a", { href: agentPath("intents/" + encodeURIComponent(r.id)) }, r.name), r.isFallback ? h("span", { class: "badge warning", style: { marginLeft: "6px" } }, "fallback") : null),
-          h("td", { style: { width: "160px" } }, confBar(r.confidence, a.threshold)),
-          h("td", { class: "nowrap" }, pct(r.confidence)),
-          h("td", { class: "muted" }, pct(r.prob)),
-          h("td", { class: "muted" }, pct(r.sim)),
-          h("td", null, r.match === "exact" ? h("span", { class: "badge success" }, "exacta") : r.contextual ? h("span", { class: "badge primary" }, "contexto") : null))))))));
+      h("div", { class: "card-body" }, dataTable({
+        rows: a.ranking,
+        columns: [
+          { label: "Intención", key: "name", render: (r) => [h("a", { href: agentPath("intents/" + encodeURIComponent(r.id)) }, r.name),
+            r.isFallback ? h("span", { class: "badge warning", style: { marginLeft: "6px" } }, "fallback") : null] },
+          { label: "Confianza", key: "confidence", desc: true, width: "230px", render: (r) => h("div", { class: "row", style: { gap: "10px" } },
+            h("div", { class: "grow" }, confBar(r.confidence, a.threshold)), h("b", { class: "tnum", style: { minWidth: "38px" } }, pct(r.confidence))) },
+          { label: "Probabilidad", key: "prob", num: true, className: "cell-muted", render: (r) => pct(r.prob) },
+          { label: "Parecido", key: "sim", num: true, className: "cell-muted", render: (r) => pct(r.sim) },
+          { label: "", sortable: false, render: (r) => r.match === "exact" ? h("span", { class: "badge success" }, "exacta")
+            : r.contextual ? h("span", { class: "badge primary" }, "contexto") : null },
+        ],
+      })));
   }
 
   function neighborsCard(a) {
     return h("div", { class: "card" },
-      h("div", { class: "card-head" }, h("h2", null, "Frases de entrenamiento más parecidas")),
-      h("div", { class: "card-body" }, h("div", { class: "table-wrap" }, h("table", { class: "table" },
-        h("tbody", null, a.neighbors.map((n) => h("tr", null,
-          h("td", null, "“", n.text, "”"),
-          h("td", null, h("a", { href: agentPath("intents/" + encodeURIComponent(n.intentId)) }, n.intentName)),
-          h("td", { class: "muted nowrap" }, pct(n.similarity)))))))));
+      h("div", { class: "card-head" }, icon("list"), h("h2", null, "Frases de entrenamiento más parecidas")),
+      h("div", { class: "card-body" }, dataTable({
+        rows: a.neighbors,
+        columns: [
+          { label: "Frase", key: "text", render: (n) => ["“", n.text, "”"] },
+          { label: "Intención", key: "intentName", render: (n) => h("a", { href: agentPath("intents/" + encodeURIComponent(n.intentId)) }, n.intentName) },
+          { label: "Parecido", key: "similarity", num: true, render: (n) => pct(n.similarity) },
+        ],
+      })));
   }
 
   // ------------------------------------------------------------ feedback
   function feedbackCard(text, a, detected) {
     const box = h("div", { class: "card-body col" });
-    const card = h("div", { class: "card", style: { borderColor: "var(--primary)" } },
-      h("div", { class: "card-head" }, h("h2", null, "¿Lo ha entendido bien?")), box);
+    const card = h("div", { class: "card highlight" },
+      h("div", { class: "card-head" }, icon("sparkle"), h("h2", null, "¿Lo ha entendido bien?")), box);
     const yes = h("button", { class: "btn ok", type: "button" }, icon("thumbUp"), "Sí, es correcto");
     const no = h("button", { class: "btn", type: "button" }, icon("thumbDown"), "No, corregir");
-    const editor = h("div", { class: "col hidden" });
+    const editor = h("div", { class: "col hidden", style: { gap: "12px", marginTop: "4px" } });
     box.append(h("div", { class: "row wrap" }, yes, no,
       h("span", { class: "muted small" }, "Al confirmar o corregir, la frase se guarda como ejemplo y el bot aprende al momento.")), editor);
 
@@ -245,8 +257,8 @@ export async function render(el, _params, query) {
       const saveBtn = h("button", { class: "btn primary", type: "button", onclick: () => addPhrase(selected, selected.isFallback ? [] : annotations, box) },
         icon("check"), "Guardar como frase de entrenamiento");
       editor.append(
-        h("label", { class: "field" }, "Intención correcta", select),
-        h("div", { class: "field" }, h("span", { style: { fontWeight: 550, fontSize: "13px" } }, "Entidades en la frase"),
+        h("label", { class: "field", style: { maxWidth: "420px" } }, "Intención correcta", select),
+        h("div", { class: "field" }, h("span", null, "Entidades en la frase"),
           h("span", { class: "hint" }, "Selecciona texto para marcar una entidad; pulsa una marca para cambiarla o quitarla."), phraseBox),
         synBox,
         h("div", null, saveBtn));

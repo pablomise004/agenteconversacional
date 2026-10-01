@@ -2,6 +2,7 @@
 
 import io
 import json
+import time
 import zipfile
 
 import pytest
@@ -22,6 +23,40 @@ def test_arranca_con_agente_de_ejemplo(client):
     assert client.get("/").status_code == 200
     assert client.get("/widget.js").status_code == 200
     assert client.get("/chat").status_code == 200
+
+
+def test_consola_api_y_recursos(client):
+    assert "<title>Lince</title>" in client.get("/").text
+    for path in ("/docs", "/docs/"):
+        r = client.get(path)
+        assert r.status_code == 200 and "apidocs.js" in r.text
+    assert client.get("/favicon.svg").headers["content-type"].startswith("image/svg+xml")
+    assert client.get("/favicon.ico").status_code == 200
+    manifest = client.get("/manifest.webmanifest")
+    assert manifest.headers["content-type"].startswith("application/manifest+json")
+    assert manifest.json()["short_name"] == "Lince"
+    assert client.get("/fonts/inter-latin.woff2").headers["content-type"] == "font/woff2"
+
+
+def test_esquema_openapi(client):
+    spec = client.get("/openapi.json").json()
+    assert spec["info"]["title"] == "Lince"
+    ops = [op for item in spec["paths"].values() for op in item.values()]
+    assert ops and all(op.get("summary") for op in ops)  # todas con resumen en español
+    assert spec["paths"]["/api/agents/{agent_id}/detect"]["post"]["security"] == [{"claveApi": []}]
+    assert spec["paths"]["/api/agents"]["get"]["security"] == [{"tokenAdmin": []}]
+    assert "security" not in spec["paths"]["/api/info"]["get"]
+    assert {"tokenAdmin", "claveApi"} <= set(spec["components"]["securitySchemes"])
+    assert [t["name"] for t in spec["tags"]][0] == "conversación"
+
+
+def test_estadisticas_por_dia(client):
+    turns = [client.post("/api/agents/pizzeria/detect", json={"sessionId": "a", "text": t}).json()
+             for t in ("hola", "zxqw blorp fnord")]
+    fallbacks = sum(1 for r in turns if r["match"] == "fallback" or (r["intent"] or {}).get("isFallback"))
+    s = client.get("/api/agents/pizzeria/stats?tz=-120").json()  # UTC+2
+    assert s["messages"] == 2 and fallbacks == 1
+    assert s["daily"] == [{"day": int((time.time() + 7200) // 86400), "messages": 2, "fallbacks": 1}]
 
 
 def test_crear_agente_intencion_y_conversar(client):

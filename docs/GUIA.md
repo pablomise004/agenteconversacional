@@ -1,8 +1,8 @@
 # Guía de uso
 
-Esta guía explica cómo crear un chatbot con el **Agente conversacional**, qué significa cada
-concepto y, sobre todo, **cómo aprende el agente** cuando lo entrenas. Si vienes de Dialogflow,
-casi todo te sonará: los conceptos son los mismos.
+Esta guía explica cómo crear un chatbot con **Lince**, qué significa cada concepto y, sobre todo,
+**cómo aprende el agente** cuando lo entrenas. Si vienes de Dialogflow, casi todo te sonará: los
+conceptos son los mismos.
 
 > **Consejo:** mientras lees, ten abierta la consola. La página **Entrenar** enseña paso a paso,
 > con gráficos, todo lo que se explica en la sección «Cómo aprende el agente».
@@ -16,6 +16,7 @@ casi todo te sonará: los conceptos son los mismos.
 3. **Mira qué ha entendido**: pulsa el nombre de la intención que aparece bajo cada respuesta.
 4. **Corrígelo** cuando se equivoque: 👎 y eliges la intención correcta. Aprende al instante.
 5. **Crea tu propio agente** en *Agentes → Crear agente* y empieza por 3 o 4 intenciones.
+6. **Muévete con Ctrl+K**: abre el buscador para saltar a cualquier pantalla, intención o entidad.
 
 ## Los conceptos
 
@@ -243,10 +244,27 @@ página *Integraciones* tiene ejemplos en Python y Node.js.
 | **Analizador** | Ver cómo entiende una frase (tokens, entidades, intenciones candidatas, frases parecidas) y corregirlo: intención, anotaciones, sinónimos y reglas de normalización |
 | **Entrenar** | Ver el entrenamiento paso a paso, la curva de aprendizaje, qué ha aprendido cada intención, el mapa de frases y el examen |
 | **Revisión** | Los mensajes reales de los usuarios: apruébalos o corrígelos para que se conviertan en frases de entrenamiento |
-| **Historial** | Las conversaciones completas y estadísticas de uso |
-| **Integraciones** | Código para poner el chat en una web, usar la API o un webhook |
+| **Historial** | Las conversaciones completas, estadísticas de uso y la actividad de cada día |
+| **Integraciones** | Código para poner el chat en una web (con vista previa del color y la posición), usar la API o un webhook |
 | **Ajustes** | Umbral, corrección ortográfica, reglas de normalización, webhook, clave de API, exportar y borrar |
 | **Pruébalo** | El chat de la derecha, con detalles de cada turno y botones 👍/👎 |
+| **Buscar** (Ctrl+K) | Salta a cualquier pantalla, intención o entidad. Si escribes una frase, te ofrece analizarla, probarla en el chat o explicarla paso a paso |
+| **API** | La referencia de la API (`/docs`): cada ruta explicada, con ejemplos y un botón *Pruébalo* que envía la petición de verdad |
+
+![Buscador (Ctrl+K)](img/paleta.png)
+
+### Atajos de teclado
+
+| Atajo | Qué hace |
+|---|---|
+| Ctrl+K (⌘K en Mac) | Abre el buscador |
+| Ctrl+S | Guarda la intención, la entidad o los ajustes que estás editando |
+| ↑ ↓ y Enter | Moverse por las listas del buscador y de las entidades, y elegir |
+| Esc | Cierra ventanas, menús y el buscador |
+| / | En la referencia de la API, salta al buscador |
+
+En las tablas, pulsa el título de una columna para **ordenarla** (otra vez para invertir el orden).
+Al pasar el ratón por un botón o una marca aparece una pequeña explicación.
 
 ## Problemas frecuentes
 

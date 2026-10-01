@@ -65,7 +65,7 @@ export function lineChart({ data, yMax, yFormat = (v) => nf(2).format(v), xLabel
   const xTicks = data.length > 8 ? data.filter((d, i) => i % Math.ceil(data.length / 6) === 0 || i === data.length - 1) : data;
   for (const d of xTicks) svg.append(s("text", { x: X(d.x), y: height - 10, "text-anchor": "middle", class: "tick" }, d.x));
   const area = s("path", { class: "area" });
-  const line = s("path", { class: "line" });
+  const line = s("path", { class: "line", pathLength: 1 }); // pathLength: la línea se dibuja al aparecer (CSS)
   const dot = s("circle", { r: 4, class: "end-dot" });
   const cross = s("line", { y1: m.t, y2: m.t + ih, class: "crosshair", visibility: "hidden" });
   const hoverDot = s("circle", { r: 4, class: "end-dot", visibility: "hidden" });
@@ -177,10 +177,12 @@ export function scatter({ points, a, b, names = {}, probe, width = 640, height =
   svg.append(s("rect", { x: 0.5, y: 0.5, width: width - 1, height: height - 1, rx: 8, class: "plot-frame" }));
   const order = [...points].sort((p, q) => rank(p) - rank(q));
   function rank(p) { return p.intentId === a ? 2 : p.intentId === b ? 1 : 0; }
+  const pts = s("g", { class: "pts" });
   for (const p of order) {
     const cls = p.intentId === a ? "pt a" : p.intentId === b ? "pt b" : "pt";
-    svg.append(s("circle", { cx: X(p.x), cy: Y(p.y), r: p.intentId === a || p.intentId === b ? 5 : 4, class: cls }));
+    pts.append(s("circle", { cx: X(p.x), cy: Y(p.y), r: p.intentId === a || p.intentId === b ? 5 : 4, class: cls }));
   }
+  svg.append(pts);
   if (probe) {
     svg.append(s("circle", { cx: X(probe.x), cy: Y(probe.y), r: 9, class: "probe-ring" }));
     svg.append(s("circle", { cx: X(probe.x), cy: Y(probe.y), r: 3, class: "probe-dot" }));
@@ -263,6 +265,58 @@ export function meter({ value, threshold, label = "Confianza" }) {
       h("div", { class: "meter-thr", style: { left: Math.round(threshold * 100) + "%" }, title: "Umbral" })),
     h("div", { class: "status" }, h("span", { class: "status-icon " + (ok ? "good" : "critical") }, ok ? "✓" : "✗"),
       ok ? "Por encima del umbral: responde esta intención" : "Por debajo del umbral: respondería el fallback («no te he entendido»)"));
+}
+
+/**
+ * Columnas verticales de una sola serie (actividad por día).
+ * data: [{ x: etiqueta corta del eje, value, title: título del tooltip, tip?: texto extra }]
+ */
+export function columnChart({ data, label = "", yFormat = (v) => nf(0).format(v), every = 7, width = 440, height = 180 }) {
+  const m = { l: 34, r: 6, t: 10, b: 26 };
+  const iw = width - m.l - m.r, ih = height - m.t - m.b;
+  const ticks = niceTicks(Math.max(1, ...data.map((d) => d.value)), 3);
+  const yTop = ticks[ticks.length - 1] || 1;
+  const Y = (v) => m.t + ih - (v / yTop) * ih;
+  const bw = iw / Math.max(1, data.length);
+  const svg = s("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart-svg columns", role: "img", "aria-label": label });
+  for (const t of ticks) {
+    svg.append(s("line", { x1: m.l, x2: m.l + iw, y1: Y(t), y2: Y(t), class: t === 0 ? "axis" : "grid" }));
+    svg.append(s("text", { x: m.l - 6, y: Y(t) + 4, "text-anchor": "end", class: "tick" }, yFormat(t)));
+  }
+  const bars = data.map((d, i) => {
+    const w = Math.max(2, bw * 0.62), x = m.l + i * bw + (bw - w) / 2;
+    const ht = d.value ? Math.max(2, (d.value / yTop) * ih) : 0;
+    const bar = s("rect", { x, y: m.t + ih - ht, width: w, height: ht, rx: Math.min(3, w / 2), class: "col-bar",
+      style: `animation-delay:${Math.min(i, 40) * 14}ms` });
+    svg.append(bar);
+    if ((data.length - 1 - i) % every === 0) { // la última columna (hoy) siempre lleva fecha
+      svg.append(s("text", { x: x + w / 2, y: height - 8, "text-anchor": "middle", class: "tick" }, d.x));
+    }
+    return { bar, cx: x + w / 2, top: m.t + ih - ht };
+  });
+  const box = h("div", { class: "chart" }, svg);
+  const tip = tooltip(box);
+  const overlay = s("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+  svg.append(overlay);
+  let hot = -1;
+  overlay.addEventListener("pointermove", (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * width;
+    const i = Math.max(0, Math.min(data.length - 1, Math.floor((px - m.l) / bw)));
+    if (i !== hot) {
+      if (hot >= 0) bars[hot].bar.classList.remove("hot");
+      bars[i].bar.classList.add("hot");
+      hot = i;
+    }
+    const scale = r.width / width;
+    tip.show(bars[i].cx * scale, Math.min(bars[i].top, m.t + ih - 4) * scale, data[i].title, data[i].tip || "");
+  });
+  overlay.addEventListener("pointerleave", () => {
+    if (hot >= 0) bars[hot].bar.classList.remove("hot");
+    hot = -1;
+    tip.hide();
+  });
+  return box;
 }
 
 export const format = { nf };

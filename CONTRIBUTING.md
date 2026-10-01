@@ -1,8 +1,8 @@
 # Arquitectura y guía para desarrolladores
 
-Todo lo necesario para entender el código y seguir desarrollándolo: cómo está organizado, cómo
-funciona cada pieza, qué formato tienen los datos y por qué se tomó cada decisión. Para *usar* la
-aplicación, mejor la [guía de uso](docs/GUIA.md).
+Todo lo necesario para entender el código de **Lince** y seguir desarrollándolo: cómo está
+organizado, cómo funciona cada pieza, qué formato tienen los datos y por qué se tomó cada decisión.
+Para *usar* la aplicación, mejor la [guía de uso](docs/GUIA.md).
 
 > GitHub muestra este fichero en la pestaña **Contributing** de la portada del repositorio (solo
 > admite pestañas con nombres fijos: README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT y SECURITY).
@@ -70,7 +70,7 @@ flowchart TB
 | Ruta | Responsabilidad |
 |---|---|
 | `app/__main__.py` | Arranque: argumentos `--host --port --data --no-browser`, abre el navegador |
-| `app/server.py` | `create_app(data_dir)`: todas las rutas, autenticación, ficheros estáticos (`/` = `web/`, `/guia` = `docs/`) |
+| `app/server.py` | `create_app(data_dir)`: todas las rutas (con resumen en español para el OpenAPI), autenticación, ficheros estáticos (`/` = `web/`, `/guia` = `docs/`, `/docs` = `web/api.html`) |
 | `app/storage.py` | Agentes en JSON (escritura atómica, versión incremental) y SQLite (logs y sesiones) |
 | `app/agents.py` | `normalize_agent()` y compañía: todo lo que entra se limpia y completa aquí |
 | `app/dialog.py` | `DialogManager.detect()`: un turno de conversación; `EngineCache` |
@@ -90,14 +90,21 @@ flowchart TB
 | `app/nlu/classifier.py` | `Vectorizer` (TF-IDF por clases) e `IntentClassifier` (regresión logística SGD + similitud) |
 | `app/nlu/engine.py` | `NLUEngine`: entrenamiento, `analyze()`, plantillas, parámetros, auto-anotación, informe |
 | `app/nlu/insights.py` | Rasgos por intención, mapa t-SNE, explicación de una frase, validación cruzada |
-| `web/js/app.js` | Estado global, rutas por `#hash`, barra lateral, tema |
-| `web/js/ui.js` | `h()` (crea DOM sin `innerHTML`), iconos, modales, avisos, chips, popovers |
+| `web/js/app.js` | Estado global, rutas por `#hash`, barra lateral (selector de agente, navegación), títulos de pestaña |
+| `web/js/ui.js` | `h()` (crea DOM sin `innerHTML`), iconos y logotipo, tema, modales, avisos, tooltips, chips, popovers y los componentes comunes (ver [Consola web](#consola-web)) |
+| `web/js/palette.js` | Buscador / paleta de comandos (Ctrl+K) |
+| `web/api.html`, `web/js/apidocs.js`, `web/css/api.css` | Referencia de la API (`/docs`): lee `/openapi.json` y pinta cada ruta con un formulario «Pruébalo» |
+| `web/css/app.css` | Colores (claro y oscuro), fuente, componentes y animaciones; lo usan la consola y `/docs` |
+| `web/favicon.svg`, `web/icons/`, `web/favicon.ico`, `web/manifest.webmanifest` | Logotipo, iconos y manifiesto para instalar la consola como aplicación |
+| `web/fonts/` | Inter (OFL), solo el alfabeto latino: la consola no depende de internet |
 | `web/js/annotate.js` | Frase anotable: seleccionar texto → elegir entidad |
-| `web/js/charts.js` | Gráficos SVG/HTML: línea, barras, barras divergentes, puntos, matriz, medidor |
-| `web/js/markdown.js` | Intérprete mínimo de Markdown (para la guía) |
+| `web/js/charts.js` | Gráficos SVG/HTML: línea, barras, barras divergentes, columnas, puntos, matriz, medidor |
+| `web/js/markdown.js` | Intérprete mínimo de Markdown (para la guía y las descripciones de la API) |
 | `web/js/simulator.js` | Panel «Pruébalo» |
 | `web/js/pages/*.js` | Una página por sección de la consola |
-| `web/widget.js` | Widget incrustable (Shadow DOM, sin dependencias) |
+| `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias) y página de chat de demostración |
+| `tools/build_icons.py` | Genera `favicon.ico` y los PNG de `web/icons/` a partir de `web/favicon.svg` (Playwright) |
+| `tools/capturas_docs.py` | Rehace las capturas de `docs/img/` con la consola actual (Playwright) |
 
 ## Formato de un agente
 
@@ -277,7 +284,19 @@ se usa la respuesta estática.
 
 ## API
 
-Documentación interactiva en `/docs`. Resumen:
+Referencia completa en `/docs` y esquema en `/openapi.json`. `/docs` es una página propia
+(`web/api.html` + `js/apidocs.js`) que lee el esquema y lo pinta con los componentes de la consola;
+Swagger UI y ReDoc están desactivados porque se cargan de un CDN (no funcionan sin conexión) y no se
+pueden adaptar al estilo. Para que la referencia salga bien:
+
+- cada ruta lleva `summary=` en español y un docstring (la descripción, admite `código` y **negrita**);
+- los grupos (`tags`) tienen descripción y orden en `TAGS` (`server.py`);
+- los modelos y los `Body(...)` llevan ejemplos (`json_schema_extra` / `examples`), que son el cuerpo
+  que propone el formulario «Pruébalo»;
+- la seguridad se declara con `HTTPBearer` (`tokenAdmin`) y `APIKeyHeader` (`claveApi`) solo para el
+  esquema: la comprobación real sigue en `admin()` y `check_key()`.
+
+Resumen:
 
 | Método y ruta | Uso |
 |---|---|
@@ -297,7 +316,7 @@ Documentación interactiva en `/docs`. Resumen:
 | `POST /api/agents/{id}/evaluate` | Examen con validación cruzada (`folds`) |
 | `GET /api/agents/{id}/validate` | Avisos de calidad |
 | `GET /api/agents/{id}/logs`, `POST .../logs/{lid}/review` | Revisión: listar y aprobar/asignar/ignorar |
-| `GET /api/agents/{id}/conversations[/{sid}]`, `GET .../stats` | Historial y estadísticas |
+| `GET /api/agents/{id}/conversations[/{sid}]`, `GET .../stats` | Historial y estadísticas (`daily`: mensajes por día local, según `tz`) |
 | `POST /v2/projects/{id}/agent/sessions/{sid}:detectIntent` | Compatible con Dialogflow ES |
 
 Seguridad: si existe `AGENTE_ADMIN_TOKEN`, las rutas de administración (agentes, intenciones,
@@ -328,20 +347,42 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
 - Rutas por hash (`#/a/<agente>/<sección>[/<id>]`, con `?q=` opcional). Cada página exporta
   `render(el, params, query)` y puede devolver `{canLeave, save, destroy}` (aviso de cambios sin
   guardar y Ctrl+S).
+- Cada página se dibuja en su propio contenedor dentro de `#page`: si el usuario cambia de página
+  antes de que termine de cargar, lo que llegue tarde no se mezcla con la nueva. Si tarda más de
+  150 ms se ve un esqueleto de carga.
 - El estado del agente vive en `state.agent`; tras cambiar algo en el servidor desde otra pantalla
   (revisión, 👍/👎) se recarga con `reloadAgent()`.
 - Tema: variables CSS en `:root` y en `[data-theme=dark]` / `prefers-color-scheme`. El modo oscuro
-  usa grises neutros. Los colores de los gráficos (`--series-1` azul, `--series-2` naranja,
-  `--series-neg` rojo, `--deemph` gris) se validaron para daltonismo y contraste en ambos modos.
+  usa grises neutros; el acento es índigo (`--primary`) y el logotipo usa `--brand-1`/`--brand-2`.
+  Contrastes comprobados (texto ≥ 15:1, secundario ≥ 5,5:1, botones primarios ≥ 4,8:1). El cambio
+  de tema se anima con View Transitions (un círculo desde el botón) y se guarda en `agente.theme`.
+- Los colores de los gráficos (`--series-1` azul, `--series-2` naranja, `--series-neg` rojo,
+  `--deemph` gris) se validaron para daltonismo y contraste en ambos modos: no cambiarlos sin
+  revalidar.
+- Fuente: Inter variable incluida (`web/fonts/`, solo latín, ~70 KB), con las del sistema de reserva.
+- Componentes de `ui.js` (úsalos antes de crear otros): `pageHead()` (cabecera con icono, migas y
+  acciones; `sticky` en los editores), `dataTable()` (tabla con columnas ordenables y animación al
+  reordenar), `segmented()` (pestañas con indicador que se desliza), `codeBlock()` / `codeTabs()`
+  (código con botón Copiar; `json: true` lo colorea), `emptyState()`, `busy(botón, fn)` (estado
+  «cargando»), `countUp()` (cifras que cuentan), `stagger()` (los elementos aparecen en cascada),
+  `avatar()`, `logo()`, `copyButton()`, `toggleTheme()`.
+- Los `title` se muestran como tooltips propios (`initTooltips()`): basta con poner `title` a un
+  botón o marca.
+- Microanimaciones: en CSS (`@keyframes` al principio de `app.css`), cortas (150-400 ms) y con
+  `prefers-reduced-motion` desactivándolas todas. Las ventanas y avisos tienen animación de salida:
+  la caja que se va deja de llamarse `.modal` para no confundirse con la siguiente.
 - Gráficos (`charts.js`): una sola escala por gráfico, marcas finas, tooltip al pasar el ratón,
   identidad nunca solo por color (leyendas y etiquetas).
+- Logotipo: `web/favicon.svg` (el mismo dibujo está en `ui.js:logo()`). Si cambia, regenera los
+  iconos con `python tools/build_icons.py`.
 
 ## Pruebas
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 84 pruebas: tokenizador, stemmer, corrector, entidades, clasificación (umbral y fuera de tema), contextos, diálogo completo, webhook real, API, importación ZIP, información del modelo |
-| `python -m pytest tests/e2e -m e2e` | 15 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, editar y anotar, simulador, analizador, página Entrenar, crear agente, tema oscuro |
+| `python -m pytest` | 87 pruebas: tokenizador, stemmer, corrector, entidades, clasificación (umbral y fuera de tema), contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI y los recursos de la web), importación ZIP, información del modelo |
+| `python -m pytest tests/e2e -m e2e` | 17 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, editar y anotar, simulador, analizador, página Entrenar, crear agente, tema oscuro, buscador Ctrl+K y referencia de la API con «Pruébalo» |
+| `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 
 `tests/casos_pizzeria.py` contiene frases nunca vistas (paráfrasis, faltas, sin tildes), frases
@@ -358,6 +399,12 @@ con contexto y frases fuera de tema; los tests exigen ≥ 93 % de acierto y ≥ 
   sin tilde («cancelación» → «cancel», «cancelacion» → «cancelacion»).
 - **JavaScript sin framework ni compilación**: cero herramientas para el usuario; se instala solo
   con Python.
+- **Referencia de la API propia** en vez de Swagger UI: Swagger se descarga de un CDN (sin internet
+  no funciona), está en inglés y no se puede adaptar al estilo de la consola. La propia reutiliza
+  `ui.js` y `app.css` y añade lo que más se usa aquí: ejemplos en español y «Pruébalo» con los
+  agentes reales.
+- **Fuente incluida** (Inter, OFL) en vez de Google Fonts: la consola tiene que funcionar sin
+  conexión y no debe hacer peticiones a terceros.
 - **Agentes en JSON** (versionables, fáciles de copiar) y **SQLite** para lo que crece (conversaciones).
 
 ## Limitaciones conocidas

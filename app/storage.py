@@ -284,8 +284,12 @@ class Storage:
                               (agent_id, session_id)).fetchall()
         return [self._row(r) for r in rows]
 
-    def stats(self, agent_id: str, days: int = 30) -> dict:
+    def stats(self, agent_id: str, days: int = 30, tz_offset: int = 0) -> dict:
+        """Resumen de los últimos `days` días. `tz_offset`: minutos que hay que sumar a la
+        hora local para tener la UTC (lo que da `Date.getTimezoneOffset()` en el navegador);
+        sirve para agrupar los mensajes por día local (`daily`, día = días desde 1970)."""
         since = time.time() - days * 86400
+        local = -tz_offset * 60
         with self._db() as db:
             row = db.execute(
                 "SELECT COUNT(*) AS messages, COUNT(DISTINCT session_id) AS sessions, "
@@ -296,6 +300,10 @@ class Storage:
                 "SELECT intent_name, COUNT(*) AS n FROM logs WHERE agent_id=? AND ts>=? AND "
                 "intent_name IS NOT NULL GROUP BY intent_name ORDER BY n DESC LIMIT 10",
                 (agent_id, since)).fetchall()
+            daily = db.execute(
+                "SELECT CAST((ts + ?) / 86400 AS INTEGER) AS day, COUNT(*) AS n, SUM(is_fallback) AS f "
+                "FROM logs WHERE agent_id=? AND ts>=? GROUP BY day ORDER BY day",
+                (local, agent_id, since)).fetchall()
         return {
             "messages": row["messages"] or 0,
             "sessions": row["sessions"] or 0,
@@ -303,6 +311,7 @@ class Storage:
             "avgConfidence": round(row["avg_conf"] or 0, 3),
             "pendingReview": row["pending"] or 0,
             "topIntents": [{"name": r["intent_name"], "count": r["n"]} for r in top],
+            "daily": [{"day": r["day"], "messages": r["n"], "fallbacks": r["f"] or 0} for r in daily],
         }
 
     def clear_logs(self, agent_id: str) -> None:
