@@ -1,8 +1,19 @@
 // Integraciones: widget web, API REST, compatibilidad Dialogflow y webhook.
-import { h, icon, clear, codeBlock, codeTabs, switchInput, pageHead } from "../ui.js";
+import { h, icon, clear, codeBlock, codeTabs, switchInput, pageHead, segmented, isDark } from "../ui.js";
 import { agentPath, state } from "../app.js";
 
-// Maqueta del widget que cambia al momento con el color, el título y la posición
+const THEMES = [
+  { key: "auto", icon: "contrast", label: "Automático" },
+  { key: "light", icon: "sun", label: "Claro" },
+  { key: "dark", icon: "moon", label: "Oscuro" },
+];
+const THEME_HELP = {
+  auto: "Claro u oscuro según el sistema de cada visitante. Aquí se ve como la consola.",
+  light: "Siempre claro, aunque el visitante use el modo oscuro.",
+  dark: "Siempre oscuro, para webs con fondo oscuro.",
+};
+
+// Maqueta del widget que cambia al momento con el color, el título, la posición y el tema
 function widgetPreview() {
   const title = h("b", null);
   const bubble = h("span", { class: "wp-bubble" }, icon("message"));
@@ -20,6 +31,8 @@ function widgetPreview() {
   box.update = (opts) => {
     box.style.setProperty("--c", /^#[0-9a-f]{3,8}$/i.test(opts.color) ? opts.color : "#4f46e5");
     box.classList.toggle("left", opts.position === "left");
+    // «automático» se enseña como esté ahora la consola (claro u oscuro)
+    box.classList.toggle("dark", opts.theme === "dark" || (opts.theme === "auto" && isDark()));
     title.textContent = opts.title || "Asistente";
     panel.querySelector(".wp-body").firstChild.classList.toggle("hidden", !opts.welcome);
   };
@@ -30,23 +43,39 @@ export async function render(el) {
   const agent = state.agent;
   const origin = location.origin;
   const key = agent.settings.apiKey;
-  const opts = { title: agent.name, color: "#4f46e5", welcome: true, position: "right" };
+  const opts = { title: agent.name, color: "#4f46e5", welcome: true, position: "right", theme: "auto" };
   const widgetBox = h("div");
   const preview = widgetPreview();
+  const themeHelp = h("div", { class: "hint" });
+  const demo = h("a", { class: "btn", target: "_blank", rel: "noopener" }, icon("external"), "Abrir chat de demostración");
   const drawWidget = () => {
     const attrs = [`src="${origin}/widget.js"`, `data-agent="${agent.id}"`, `data-title="${opts.title.replace(/"/g, "&quot;")}"`,
       `data-color="${opts.color}"`];
+    if (opts.theme !== "light") attrs.push(`data-theme="${opts.theme}"`);
     if (!opts.welcome) attrs.push('data-welcome="false"');
     if (opts.position === "left") attrs.push('data-position="left"');
     if (key) attrs.push(`data-key="${key}"`);
     clear(widgetBox).append(codeBlock(`<script ${attrs.join("\n        ")}></script>`, { lang: "HTML" }));
     preview.update(opts);
+    themeHelp.textContent = THEME_HELP[opts.theme];
+    // la demostración abre el chat con lo elegido aquí (y la clave, si el agente la pide)
+    demo.href = "/chat?" + new URLSearchParams({ agent: agent.id, title: opts.title, color: opts.color, theme: opts.theme,
+      ...(key ? { key } : {}) });
   };
   const title = h("input", { type: "text", value: opts.title, "aria-label": "Título", oninput: () => { opts.title = title.value; drawWidget(); } });
   const color = h("input", { type: "color", value: opts.color, "aria-label": "Color", oninput: () => { opts.color = color.value; drawWidget(); } });
   const pos = h("select", { "aria-label": "Posición", onchange: () => { opts.position = pos.value; drawWidget(); } },
     h("option", { value: "right" }, "Abajo a la derecha"), h("option", { value: "left" }, "Abajo a la izquierda"));
+  const theme = segmented({ items: THEMES.map((t) => ({ key: t.key, label: [icon(t.icon), t.label] })), active: opts.theme,
+    label: "Tema del chat", onChange: (k) => { opts.theme = k; drawWidget(); } });
+  theme.style.marginBottom = "0";
   drawWidget();
+  // si cambia el tema de la consola, la vista previa en «automático» lo sigue
+  const follow = () => preview.update(opts);
+  const themeObs = new MutationObserver(follow);
+  themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", follow);
 
   const detectBody = { sessionId: "usuario-123", text: "quiero una pizza barbacoa familiar" };
   const curl = `curl -X POST ${origin}/api/agents/${agent.id}/detect \\
@@ -125,11 +154,12 @@ app.listen(5000);`;
             h("div", { class: "row", style: { gap: "12px", alignItems: "flex-end" } },
               h("label", { class: "field" }, "Color", color),
               h("label", { class: "field grow" }, "Posición", pos)),
+            h("div", { class: "field" }, h("span", null, "Tema"), theme, themeHelp),
             switchInput("Saludar al abrir (evento WELCOME)", opts.welcome, (v) => { opts.welcome = v; drawWidget(); })),
           preview),
         widgetBox,
         h("div", { class: "row wrap" },
-          h("a", { class: "btn", href: `/chat?agent=${encodeURIComponent(agent.id)}`, target: "_blank", rel: "noopener" }, icon("external"), "Abrir chat de demostración"),
+          demo,
           h("span", { class: "muted small" }, "Página completa con el chat, para probarlo o compartirlo.")),
         location.hostname === "localhost" || location.hostname === "127.0.0.1"
           ? h("div", { class: "notice warning" }, icon("info"), h("div", null, "Ahora el servidor solo es accesible desde este ordenador. Para usarlo en una web pública, despliégalo en un servidor (ver README) o arráncalo con ",
@@ -162,5 +192,5 @@ app.listen(5000);`;
           h("a", { href: agentPath("settings") }, "Ajustes"), " y activa «Llamar al webhook» en cada intención. Recibe el mismo JSON que enviaría Dialogflow ES y puede devolver ",
           h("code", null, "fulfillmentText"), ", ", h("code", null, "fulfillmentMessages"), ", ", h("code", null, "outputContexts"), " o ", h("code", null, "followupEventInput"), "."),
         codeTabs([{ label: "Python (Flask)", code: flask }, { label: "Node.js (Express)", code: express }])))));
-  return null;
+  return { destroy: () => { themeObs.disconnect(); media.removeEventListener("change", follow); } };
 }

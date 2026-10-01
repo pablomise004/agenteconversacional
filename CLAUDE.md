@@ -25,8 +25,8 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser)
-python -m pytest                      # 87 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 17 pruebas en navegador real
+python -m pytest                      # 90 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 20 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU con el agente de ejemplo
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
@@ -70,6 +70,9 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   `pageHead({icon, title, sub, actions})`; las tablas de datos usan `dataTable()` (ordenables).
 - Microanimaciones cortas en CSS y siempre desactivadas con `prefers-reduced-motion`. Los `title`
   se ven como tooltips propios. El logotipo está en `web/favicon.svg` y en `ui.js:logo()`.
+- Probar también a ~1280 px con el simulador abierto (zona central estrecha): nada debe salirse
+  ni estrujarse. Los bloques de código siguen el tema (claros en claro); el widget tiene
+  `data-theme` (light/dark/auto) y su vista previa en Integraciones usa los mismos colores.
 - Antes de dar algo por terminado: `python -m pytest` y, si se toca la consola, las pruebas e2e y
   capturas con Playwright (Edge instalado: `p.chromium.launch(channel="msedge")`) mirando las
   imágenes; `tools/capturas_docs.py` rehace las de la documentación. Revisar claro, oscuro y móvil.
@@ -92,7 +95,10 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - `NoDefaultCurrentDirectoryInExePath=1`: desde una terminal, `iniciar.bat` hay que lanzarlo con su
   ruta completa (con doble clic funciona normal).
 - Para imprimir tildes desde Python en la consola: `PYTHONIOENCODING=utf-8`.
-- Tras cambiar código Python hay que reiniciar el servidor; JS/CSS se sirven en caliente (recargar).
+- Tras cambiar código Python (o hacer `git pull`) hay que reiniciar el servidor; JS/CSS se sirven en
+  caliente (recargar). La consola avisa si el servidor va con código anterior (`restartNeeded` en
+  `/api/info` y `APP_VERSION` de `web/js/app.js` frente a `app/__init__.py`: al subir la versión,
+  cambiar las dos).
 - No hay Node instalado; la consola no lo necesita.
 
 ## Ideas pendientes (por orden de utilidad)

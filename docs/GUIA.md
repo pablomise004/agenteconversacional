@@ -245,7 +245,7 @@ página *Integraciones* tiene ejemplos en Python y Node.js.
 | **Entrenar** | Ver el entrenamiento paso a paso, la curva de aprendizaje, qué ha aprendido cada intención, el mapa de frases y el examen |
 | **Revisión** | Los mensajes reales de los usuarios: apruébalos o corrígelos para que se conviertan en frases de entrenamiento |
 | **Historial** | Las conversaciones completas, estadísticas de uso y la actividad de cada día |
-| **Integraciones** | Código para poner el chat en una web (con vista previa del color y la posición), usar la API o un webhook |
+| **Integraciones** | Código para poner el chat en una web (con vista previa del color, la posición y el tema claro, oscuro o automático), usar la API o un webhook |
 | **Ajustes** | Umbral, corrección ortográfica, reglas de normalización, webhook, clave de API, exportar y borrar |
 | **Pruébalo** | El chat de la derecha, con detalles de cada turno y botones 👍/👎 |
 | **Buscar** (Ctrl+K) | Salta a cualquier pantalla, intención o entidad. Si escribes una frase, te ofrece analizarla, probarla en el chat o explicarla paso a paso |
@@ -287,6 +287,11 @@ necesitas otra cosa, pregunta «¿de la mañana o de la tarde?».
 
 **Una entidad no reconoce un valor.** Añade el valor o un sinónimo en *Entidades*, o desde el
 Analizador al anotar la palabra («Añadir sinónimo»).
+
+**Aparece «Reinicia el servidor para terminar de actualizar».** Has actualizado el programa con el
+servidor en marcha: la consola ya es la nueva, pero el servidor sigue con el código anterior (por
+ejemplo, la referencia de la API se ve antigua). Cierra la ventana del servidor (o pulsa Ctrl+C en
+ella) y vuelve a abrir `iniciar.bat`.
 
 ## Glosario
 

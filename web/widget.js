@@ -5,6 +5,7 @@
  *
  * Atributos opcionales:
  *   data-title="Asistente"     data-color="#4f46e5"     data-position="left"
+ *   data-theme="auto"           (light, por defecto; dark; o auto = como el sistema del visitante)
  *   data-welcome="false"        (no lanzar el evento WELCOME al abrir)
  *   data-key="..."              (si el agente tiene clave de API)
  *   data-inline="#selector"     (mostrarlo dentro de un elemento, siempre abierto)
@@ -23,6 +24,7 @@
   var server = cfg.server || new URL(script.src, location.href).origin;
   var title = cfg.title || "Asistente";
   var color = /^#[0-9a-f]{3,8}$/i.test(cfg.color || "") ? cfg.color : "#4f46e5";
+  var theme = /^(dark|auto)$/.test(cfg.theme || "") ? cfg.theme : "light";
   var welcome = cfg.welcome !== "false";
   var inlineSel = cfg.inline;
   var left = cfg.position === "left";
@@ -44,8 +46,16 @@
   }
 
   var side = left ? "left" : "right";
+  // Colores del panel en variables: claro por defecto, oscuro con data-theme="dark" y
+  // data-theme="auto" sigue el modo del sistema del visitante. --ink es el color de marca
+  // para textos y bordes: en oscuro se aclara para que se lea sobre el fondo.
+  var DARK = "color-scheme:dark;--bg:#1c1c1c;--fg:#ececec;--soft:#141414;--card:#262626;--line:#303030;--line2:#424242;" +
+    "--muted:#9b9b9b;--dot:#8a8a8a;--edge:rgba(255,255,255,.08);--ring:rgba(255,255,255,.1);--ink:color-mix(in srgb,var(--c) 50%,#fff)";
   var css = [
-    ":host{all:initial}",
+    ":host{all:initial;--bg:#fff;--fg:#1b2232;--soft:#f6f7f9;--card:#fff;--line:#e7e8eb;--line2:#d6d8dd;--muted:#80858f;",
+    "--dot:#a1a6b0;--edge:rgba(0,0,0,.04);--ring:rgba(0,0,0,.06);--ink:var(--c)}",
+    ":host([data-agente-theme=dark]){" + DARK + "}",
+    "@media (prefers-color-scheme:dark){:host([data-agente-theme=auto]){" + DARK + "}}",
     "*{box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}",
     // burbuja
     ".bubble{position:fixed;bottom:20px;" + side + ":20px;width:60px;height:60px;border-radius:50%;border:0;cursor:pointer;",
@@ -59,8 +69,8 @@
     ".bubble::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid var(--c);opacity:0;animation:ping 2.4s ease-out 1.2s 2}",
     "@keyframes ping{0%{transform:scale(1);opacity:.6}80%,100%{transform:scale(1.6);opacity:0}}",
     // panel
-    ".panel{position:fixed;bottom:94px;" + side + ":20px;width:380px;height:min(600px,calc(100vh - 116px));background:#fff;color:#1b2232;",
-    "border-radius:20px;box-shadow:0 24px 60px -12px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.04);display:flex;flex-direction:column;",
+    ".panel{position:fixed;bottom:94px;" + side + ":20px;width:380px;height:min(600px,calc(100vh - 116px));background:var(--bg);color:var(--fg);",
+    "border-radius:20px;box-shadow:0 24px 60px -12px rgba(0,0,0,.35),0 0 0 1px var(--edge);display:flex;flex-direction:column;",
     "overflow:hidden;z-index:2147483000;transform-origin:bottom " + side + ";animation:pop .32s cubic-bezier(.34,1.45,.64,1)}",
     ".panel.closing{animation:out .18s ease forwards}",
     ".panel.inline{position:relative;inset:auto;width:100%;height:100%;border-radius:0;box-shadow:none;animation:none}",
@@ -78,28 +88,28 @@
     ".head button{background:transparent;border:0;color:#fff;cursor:pointer;opacity:.85;padding:6px;border-radius:9px;display:grid;",
     "place-items:center;transition:background-color .15s,opacity .15s,transform .3s}",
     ".head button:hover{opacity:1;background:rgba(255,255,255,.16)}.head .reset:hover{transform:rotate(-90deg)}.head svg{width:18px;height:18px}",
-    ".body{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:8px;background:#f6f7f9;scroll-behavior:smooth}",
+    ".body{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:8px;background:var(--soft);scroll-behavior:smooth}",
     ".msg{max-width:85%;padding:9px 13px;border-radius:18px;line-height:1.45;font-size:14.5px;white-space:pre-wrap;word-break:break-word;",
     "animation:msg .3s cubic-bezier(.34,1.45,.64,1) backwards}",
     "@keyframes msg{from{opacity:0;transform:translateY(8px) scale(.96)}}",
-    ".bot{align-self:flex-start;background:#fff;border:1px solid #e7e8eb;border-bottom-left-radius:6px;box-shadow:0 1px 2px rgba(16,18,27,.05);",
+    ".bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px;box-shadow:0 1px 2px rgba(16,18,27,.05);",
     "transform-origin:bottom left}",
     ".user{align-self:flex-end;background:var(--c);color:#fff;border-bottom-right-radius:6px;transform-origin:bottom right}",
-    ".bot a{color:var(--c)}.user a{color:#fff}",
-    ".note{align-self:center;color:#80858f;font-size:12px;background:#fff;border:1px solid #e7e8eb;padding:4px 11px;border-radius:999px}",
+    ".bot a{color:var(--ink)}.user a{color:#fff}",
+    ".note{align-self:center;color:var(--muted);font-size:12px;background:var(--card);border:1px solid var(--line);padding:4px 11px;border-radius:999px}",
     ".quick{display:flex;flex-wrap:wrap;gap:6px;animation:msg .3s cubic-bezier(.34,1.45,.64,1) .1s backwards}",
-    ".quick button{border:1px solid var(--c);color:var(--c);background:#fff;border-radius:999px;padding:6px 13px;font-size:13.5px;",
+    ".quick button{border:1px solid var(--ink);color:var(--ink);background:var(--card);border-radius:999px;padding:6px 13px;font-size:13.5px;",
     "cursor:pointer;transition:background-color .15s,color .15s,transform .2s}",
-    ".quick button:hover{background:var(--c);color:#fff;transform:translateY(-1px)}",
-    ".typing{align-self:flex-start;display:flex;gap:4px;padding:12px 14px;background:#fff;border:1px solid #e7e8eb;border-radius:18px;",
+    ".quick button:hover{background:var(--c);border-color:var(--c);color:#fff;transform:translateY(-1px)}",
+    ".typing{align-self:flex-start;display:flex;gap:4px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:18px;",
     "border-bottom-left-radius:6px;animation:msg .2s ease}",
-    ".typing i{width:7px;height:7px;border-radius:50%;background:#a1a6b0;animation:b 1s infinite}",
+    ".typing i{width:7px;height:7px;border-radius:50%;background:var(--dot);animation:b 1s infinite}",
     ".typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}",
     "@keyframes b{0%,60%,100%{transform:none;opacity:.5}30%{transform:translateY(-4px);opacity:1}}",
-    "form{display:flex;gap:8px;padding:10px 12px 12px;border-top:1px solid #eceef1;background:#fff;align-items:center}",
-    "input{flex:1;border:1px solid #d6d8dd;border-radius:999px;padding:11px 16px;font-size:14.5px;outline:none;color:#1b2232;background:#fff;",
+    "form{display:flex;gap:8px;padding:10px 12px 12px;border-top:1px solid var(--line);background:var(--bg);align-items:center}",
+    "input{flex:1;border:1px solid var(--line2);border-radius:999px;padding:11px 16px;font-size:14.5px;outline:none;color:var(--fg);background:var(--card);",
     "transition:border-color .15s,box-shadow .15s}",
-    "input:focus{border-color:var(--c);box-shadow:0 0 0 3px rgba(0,0,0,.06)}",
+    "input:focus{border-color:var(--c);box-shadow:0 0 0 3px var(--ring)}input::placeholder{color:var(--muted)}",
     "form button{width:44px;height:44px;border-radius:50%;border:0;background:var(--c);color:#fff;cursor:pointer;display:grid;",
     "place-items:center;flex:none;transition:transform .2s cubic-bezier(.34,1.45,.64,1),opacity .15s}",
     "form button:hover:not(:disabled){transform:scale(1.06)}form button:disabled{opacity:.5;cursor:default}form button svg{width:18px;height:18px}",
@@ -114,6 +124,7 @@
 
   var host = document.createElement("div");
   host.setAttribute("data-agente-widget", agent);
+  host.setAttribute("data-agente-theme", theme);  // con prefijo: no choca con el CSS de la web
   var container = inlineSel ? document.querySelector(inlineSel) : null;
   (container || document.body).appendChild(host);
   if (container) host.style.cssText = "display:block;width:100%;height:100%";

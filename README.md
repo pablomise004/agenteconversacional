@@ -86,6 +86,12 @@ horarios) para que puedas trastear desde el principio. Tus datos se guardan en l
 instalar de la barra de direcciones o el menú *Aplicaciones*). Se abre en su propia ventana, con el
 icono del lince, cada vez que el servidor esté en marcha.
 
+**Al actualizar** (`git pull` o un ZIP nuevo) **reinicia el servidor**: cierra su ventana (o
+Ctrl+C) y vuelve a arrancarlo (`iniciar.bat`, `./iniciar.sh` o `python -m app`). La consola se
+actualiza sola, pero el servidor sigue con el código anterior hasta que se reinicia; si se te
+olvida, la consola te lo avisa. Si al arrancar ya hay otro Lince abierto en el mismo puerto, también
+lo dice en vez de abrir el antiguo.
+
 ## Primeros pasos
 
 1. Abre <http://localhost:8000> y escribe en el panel **Pruébalo**: «hola», «quiero una pizza»,
@@ -151,13 +157,17 @@ En las respuestas puedes usar `$parametro` (formateado: «viernes 2 de octubre»
 ## Conectarlo a tu web o aplicación
 
 **Widget de chat** — pega esto antes de `</body>` (la página *Integraciones* lo genera con tus
-colores):
+colores, la posición y el tema, con una vista previa):
 
 ```html
-<script src="http://localhost:8000/widget.js" data-agent="pizzeria" data-title="Pizzería"></script>
+<script src="http://localhost:8000/widget.js" data-agent="pizzeria" data-title="Pizzería" data-theme="auto"></script>
 ```
 
-También hay una página de chat completa en `/chat?agent=pizzeria`.
+`data-theme` puede ser `light` (claro, por defecto), `dark` (oscuro) o `auto` (claro u oscuro según
+el sistema de cada visitante). Otras opciones: `data-color`, `data-position="left"`,
+`data-welcome="false"`, `data-open="true"`, `data-inline="#selector"` y `data-key` (detalles al
+principio de [`web/widget.js`](web/widget.js)). También hay una página de chat completa en
+`/chat?agent=pizzeria` (admite `&theme=dark`).
 
 ![Chat](docs/img/chat.png)
 
@@ -249,9 +259,9 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 87 pruebas: NLU, diálogo, webhook, API, importación, modelo
+python -m pytest                            # 90 pruebas: NLU, diálogo, webhook, API, importación, modelo
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 17 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 20 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"
 python tools/capturas_docs.py               # rehace las capturas de docs/img con la consola actual

@@ -57,6 +57,7 @@ const ICONS = {
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  contrast: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>',
   back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   bot: '<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13v1M15 13v1"/>',
@@ -335,15 +336,18 @@ export function optionList({ groups, onPick, placeholder = "Buscar…" }) {
     clear(box);
     flat = [];
     for (const g of groups) {
-      const opts = g.options.filter((o) => !q || fold(o.label + " " + (o.desc || "")).includes(q));
+      const opts = g.options.filter((o) => !q || fold(`${o.label} ${o.desc || ""} ${o.sub || ""}`).includes(q));
       if (!opts.length) continue;
       if (g.title) box.append(h("div", { class: "group" }, g.title));
       for (const o of opts) {
-        const btn = h("button", { type: "button", class: "opt", role: "option", onclick: () => onPick(o.value, o) },
+        // con «sub» la opción ocupa dos líneas (nombre y detalle debajo), como el selector de agente
+        const btn = h("button", { type: "button", class: "opt" + (o.sub ? " two-line" : ""), role: "option", onclick: () => onPick(o.value, o) },
           o.dot != null ? h("span", { class: "ann-dot ann-" + o.dot }) : null,
-          o.avatar ? avatar(o.avatar, "sm") : null,
+          o.avatar ? avatar(o.avatar, o.sub ? "" : "sm") : null,
           o.icon ? icon(o.icon) : null,
-          h("span", { class: "ellipsis" }, o.label),
+          o.sub
+            ? h("span", { class: "opt-text" }, h("span", { class: "ellipsis" }, o.label), h("span", { class: "opt-sub ellipsis" }, o.sub))
+            : h("span", { class: "ellipsis" }, o.label),
           o.desc ? h("span", { class: "desc", title: o.desc }, o.desc) : null,
           o.selected ? icon("check", "check-mark") : null);
         flat.push(btn);
@@ -584,15 +588,19 @@ export function switchInput(label, checked, onChange, hint) {
 }
 
 // Cabecera de página: icono, título, subtítulo y acciones
+// Título y botones van en dos bloques: si no caben en una línea, los botones bajan a la
+// siguiente en vez de estrujar el texto (pasa con el simulador abierto en pantallas medianas).
 export function pageHead({ icon: ic, title, sub, actions = [], crumbs, sticky = false, titleNode }) {
+  const acts = [actions].flat().filter(Boolean);
   return h("div", { class: "page-head" + (sticky ? " sticky" : "") },
-    ic ? h("div", { class: "page-icon" }, icon(ic)) : null,
-    h("div", { class: "grow" },
-      crumbs ? h("div", { class: "crumbs" }, crumbs.map((c, i) => [i ? icon("chevRight") : null,
-        c.href ? h("a", { href: c.href }, c.label) : h("span", null, c.label)])) : null,
-      titleNode || h("h1", null, title),
-      sub ? h("div", { class: "sub" }, sub) : null),
-    actions);
+    h("div", { class: "head-main" },
+      ic ? h("div", { class: "page-icon" }, icon(ic)) : null,
+      h("div", { class: "head-text" },
+        crumbs ? h("div", { class: "crumbs" }, crumbs.map((c, i) => [i ? icon("chevRight") : null,
+          c.href ? h("a", { href: c.href }, c.label) : h("span", null, c.label)])) : null,
+        titleNode || h("h1", null, title),
+        sub ? h("div", { class: "sub" }, sub) : null)),
+    acts.length ? h("div", { class: "head-actions" }, acts) : null);
 }
 
 // Estado vacío con icono, título, texto y acción

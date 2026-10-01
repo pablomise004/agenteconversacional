@@ -42,6 +42,13 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("font/woff2", ".woff2")
 
+
+def code_stamp() -> float:
+    """Última modificación del código Python del servidor. Si cambia con el servidor en
+    marcha (p. ej. tras un git pull), /api/info lo indica y la consola pide reiniciarlo."""
+    return max((p.stat().st_mtime for p in Path(__file__).resolve().parent.rglob("*.py")), default=0.0)
+
+
 # Grupos de la referencia de la API, en el orden en que se muestran
 TAGS = [
     {"name": "conversación", "description": "Hablar con un agente: lo que usan el widget, tu web o tu aplicación. "
@@ -176,6 +183,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     dialog = DialogManager(storage, engines)
     admin_token = os.environ.get("AGENTE_ADMIN_TOKEN", "").strip()
     evaluations: dict[str, dict] = {}  # último examen por agente
+    started_stamp = code_stamp()
 
     app = FastAPI(
         title=APP_NAME,
@@ -260,12 +268,16 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     # ---------------------------------------------------------------- info
     @app.get("/api/info", tags=["general"], summary="Información del servidor")
     def info():
-        """Versión, idiomas, entidades del sistema y si hace falta token de administración."""
+        """Versión, idiomas, entidades del sistema y si hace falta token de administración.
+
+        `restartNeeded` es `true` si el código del servidor ha cambiado desde que se arrancó
+        (hay que reiniciarlo para usar la versión nueva)."""
         return {
             "version": __version__,
             "languages": SUPPORTED_LANGUAGES,
             "systemEntities": [{"name": k, "description": v} for k, v in SYSTEM_ENTITIES.items()],
             "adminTokenRequired": bool(admin_token),
+            "restartNeeded": code_stamp() > started_stamp,
         }
 
     @app.get("/api/auth-check", tags=["general"], dependencies=ADMIN, summary="Comprobar el token de administración")

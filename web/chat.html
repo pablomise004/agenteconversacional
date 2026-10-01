@@ -24,10 +24,19 @@
     .error { color: #b42318; background: #fff; padding: 16px 20px; border-radius: 14px; max-width: 480px;
       box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .25); }
     @media (max-width: 600px) { .wrap { padding: 0; gap: 0; } #chat { height: 100%; border-radius: 0; } .made { display: none; } }
+    /* oscuro si el sistema lo pide (salvo ?theme=light) o con ?theme=dark */
     @media (prefers-color-scheme: dark) {
-      body { background: radial-gradient(1000px 520px at 15% -10%, #23233a, transparent 60%), #111; }
-      .made { color: #8a8a8a; }
+      :root:not([data-theme="light"]) body { background: radial-gradient(1000px 520px at 15% -10%, #23233a, transparent 60%), #111; }
+      :root:not([data-theme="light"]) #chat { background: #1c1c1c; box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .07); }
+      :root:not([data-theme="light"]) .made { color: #8a8a8a; }
+      :root:not([data-theme="light"]) .made:hover { color: #a5b4fc; }
+      :root:not([data-theme="light"]) .error { background: #1c1c1c; color: #f87171; }
     }
+    :root[data-theme="dark"] body { background: radial-gradient(1000px 520px at 15% -10%, #23233a, transparent 60%), #111; }
+    :root[data-theme="dark"] #chat { background: #1c1c1c; box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .07); }
+    :root[data-theme="dark"] .made { color: #8a8a8a; }
+    :root[data-theme="dark"] .made:hover { color: #a5b4fc; }
+    :root[data-theme="dark"] .error { background: #1c1c1c; color: #f87171; }
     @media (prefers-reduced-motion: reduce) { #chat { animation: none; } }
   </style>
 </head>
@@ -40,6 +49,11 @@
       var p = new URLSearchParams(location.search);
       var agent = p.get("agent");
       var wrap = document.querySelector(".wrap");
+      // tema del chat y de la página: auto (como el sistema), light o dark
+      var theme = /^(light|dark|auto)$/.test(p.get("theme") || "") ? p.get("theme") : "auto";
+      if (theme !== "auto") document.documentElement.dataset.theme = theme;
+      var dark = theme === "dark" || (theme === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#111111" : "#eef0f6");
       function fail(msg) {
         var d = document.createElement("div");
         d.className = "error";
@@ -58,6 +72,7 @@
           s.dataset.agent = info.id;
           s.dataset.inline = "#chat";
           s.dataset.title = p.get("title") || info.name;
+          s.dataset.theme = theme;
           if (p.get("color")) s.dataset.color = p.get("color");
           if (p.get("key")) s.dataset.key = p.get("key");
           if (info.language === "en") s.dataset.placeholder = "Type a message…";

@@ -219,6 +219,56 @@ def test_tema_oscuro(base_url, page):
     assert page.evaluate("localStorage.getItem('agente.theme')") == "dark"
 
 
+def test_menu_de_agentes_y_cabecera_caben(base_url, browser):
+    """En pantallas medianas con el simulador abierto nada se sale ni se estruja."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 800}, locale="es-ES")
+    page = ctx.new_page()
+    page.goto(f"{base_url}/#/a/pizzeria/intents")
+    page.wait_for_selector(".list-item")
+    # la cabecera baja los botones a otra línea antes que dejar el texto en una columna estrecha
+    assert page.locator(".page-head .head-text").bounding_box()["width"] > 400
+    page.click(".agent-switch")
+    page.wait_for_selector(".popover .opt")
+    # todo medido en el mismo fotograma (el menú se abre con una animación de escala)
+    sobra = page.evaluate("""() => {
+        const pop = document.querySelector('.popover').getBoundingClientRect();
+        return Math.max(...[...document.querySelectorAll('.popover .opt')].map((o) => {
+            const r = o.getBoundingClientRect();
+            return Math.max(pop.left - r.left, r.right - pop.right);
+        }));
+    }""")
+    assert sobra <= 0
+    page.locator(".popover .opt", has_text="Ver todos los agentes").click()
+    page.wait_for_url("**/#/agents")
+    ctx.close()
+
+
+def test_widget_con_tema_oscuro(base_url, page):
+    page.goto(f"{base_url}/#/a/pizzeria/integrations")
+    page.wait_for_selector(".widget-preview")
+    page.locator(".tabs button", has_text="Oscuro").click()
+    assert "dark" in page.locator(".widget-preview").get_attribute("class")
+    assert 'data-theme="dark"' in page.locator(".code-block pre").first.inner_text()
+    assert "theme=dark" in page.locator("a", has_text="Abrir chat de demostración").get_attribute("href")
+    # el widget de verdad también se pinta oscuro
+    page.goto(f"{base_url}/chat?agent=pizzeria&theme=dark")
+    page.wait_for_selector("[data-agente-widget] .panel")
+    bg = page.evaluate("getComputedStyle(document.querySelector('[data-agente-widget]').shadowRoot"
+                       ".querySelector('.panel')).backgroundColor")
+    assert bg == "rgb(28, 28, 28)"
+    assert page.errors == []
+
+
+def test_aviso_de_servidor_desactualizado(base_url, page):
+    """Si el servidor sigue con una versión anterior (no se reinició tras actualizar), se avisa."""
+    info = api(base_url, "/api/info")
+    page.route("**/api/info", lambda route, request: route.fulfill(json={**info, "version": "0.0.1"}))
+    page.goto(f"{base_url}/#/a/pizzeria/intents")
+    playwright.expect(page.locator(".version-notice")).to_contain_text("Reinicia el servidor")
+    page.locator(".version-notice button[aria-label='Cerrar aviso']").click()
+    assert page.locator(".version-notice").count() == 0
+
+
 def test_paleta_de_comandos(base_url, page):
     page.goto(f"{base_url}/#/a/pizzeria/intents")
     page.wait_for_selector(".list-item")

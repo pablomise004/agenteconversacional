@@ -18,7 +18,12 @@ Para *usar* la aplicación, mejor la [guía de uso](docs/GUIA.md).
    ```
 
 2. Arranca la consola con `python -m app` (<http://localhost:8000>). Tras cambiar código Python
-   reinicia el servidor; para los cambios en `web/` basta con recargar el navegador.
+   reinicia el servidor; para los cambios en `web/` basta con recargar el navegador. Si se te
+   olvida, la consola lo avisa: `/api/info` devuelve `restartNeeded` cuando algún `.py` de `app/`
+   es más nuevo que el arranque, y la consola compara su `APP_VERSION` (`web/js/app.js`) con la
+   del servidor (`app/__init__.py`; al subir la versión cambia las dos, hay una prueba que lo
+   comprueba). `python -m app` tampoco arranca encima de otro Lince: si el puerto está ocupado,
+   lo explica.
 3. Antes de subir cambios, pasa las pruebas (detalles en [Pruebas](#pruebas)):
    - `python -m pytest`: deben pasar todas.
    - Si tocas la consola: `pip install playwright` y `python -m pytest tests/e2e -m e2e`.
@@ -102,7 +107,7 @@ flowchart TB
 | `web/js/markdown.js` | Intérprete mínimo de Markdown (para la guía y las descripciones de la API) |
 | `web/js/simulator.js` | Panel «Pruébalo» |
 | `web/js/pages/*.js` | Una página por sección de la consola |
-| `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias) y página de chat de demostración |
+| `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias; tema claro, oscuro o automático con `data-theme`, colores en variables CSS) y página de chat de demostración (`?theme=`, `?title=`, `?color=`, `?key=`) |
 | `tools/build_icons.py` | Genera `favicon.ico` y los PNG de `web/icons/` a partir de `web/favicon.svg` (Playwright) |
 | `tools/capturas_docs.py` | Rehace las capturas de `docs/img/` con la consola actual (Playwright) |
 
@@ -300,7 +305,7 @@ Resumen:
 
 | Método y ruta | Uso |
 |---|---|
-| `GET /api/info` | Versión, idiomas, entidades del sistema, si hace falta token |
+| `GET /api/info` | Versión, idiomas, entidades del sistema, si hace falta token y si hay que reiniciar (`restartNeeded`) |
 | `GET/POST /api/agents`, `POST /api/agents/import` | Listar, crear, importar (JSON o ZIP de Dialogflow) |
 | `GET/PATCH/DELETE /api/agents/{id}` | Leer, cambiar ajustes, borrar |
 | `GET /api/agents/{id}/export`, `POST .../duplicate` | Exportar JSON, duplicar |
@@ -356,12 +361,16 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
   usa grises neutros; el acento es índigo (`--primary`) y el logotipo usa `--brand-1`/`--brand-2`.
   Contrastes comprobados (texto ≥ 15:1, secundario ≥ 5,5:1, botones primarios ≥ 4,8:1). El cambio
   de tema se anima con View Transitions (un círculo desde el botón) y se guarda en `agente.theme`.
+- Bloques de código: siguen el tema (claros en el claro, oscuros en el oscuro) con `--code-*` y los
+  colores de sintaxis `--tok-*`, todos con contraste ≥ 4,5:1 sobre su fondo.
 - Los colores de los gráficos (`--series-1` azul, `--series-2` naranja, `--series-neg` rojo,
   `--deemph` gris) se validaron para daltonismo y contraste en ambos modos: no cambiarlos sin
   revalidar.
 - Fuente: Inter variable incluida (`web/fonts/`, solo latín, ~70 KB), con las del sistema de reserva.
 - Componentes de `ui.js` (úsalos antes de crear otros): `pageHead()` (cabecera con icono, migas y
-  acciones; `sticky` en los editores), `dataTable()` (tabla con columnas ordenables y animación al
+  acciones; `sticky` en los editores; si no caben, las acciones bajan a otra línea en vez de
+  estrujar el título), `optionList()` (lista filtrable para los menús; con `sub` cada opción ocupa
+  dos líneas), `dataTable()` (tabla con columnas ordenables y animación al
   reordenar), `segmented()` (pestañas con indicador que se desliza), `codeBlock()` / `codeTabs()`
   (código con botón Copiar; `json: true` lo colorea), `emptyState()`, `busy(botón, fn)` (estado
   «cargando»), `countUp()` (cifras que cuentan), `stagger()` (los elementos aparecen en cascada),
@@ -380,8 +389,8 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 87 pruebas: tokenizador, stemmer, corrector, entidades, clasificación (umbral y fuera de tema), contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI y los recursos de la web), importación ZIP, información del modelo |
-| `python -m pytest tests/e2e -m e2e` | 17 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, editar y anotar, simulador, analizador, página Entrenar, crear agente, tema oscuro, buscador Ctrl+K y referencia de la API con «Pruébalo» |
+| `python -m pytest` | 90 pruebas: tokenizador, stemmer, corrector, entidades, clasificación (umbral y fuera de tema), contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI y los recursos de la web), importación ZIP, información del modelo, versión de consola y servidor, aviso de reinicio y arranque con el puerto ocupado |
+| `python -m pytest tests/e2e -m e2e` | 20 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, editar y anotar, simulador, analizador, página Entrenar, crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

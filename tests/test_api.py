@@ -38,6 +38,58 @@ def test_consola_api_y_recursos(client):
     assert client.get("/fonts/inter-latin.woff2").headers["content-type"] == "font/woff2"
 
 
+def test_version_de_la_consola_coincide():
+    """La consola compara su versión con la del servidor para avisar si hay que reiniciarlo."""
+    import re
+    from pathlib import Path
+
+    from app import __version__
+
+    js = (Path(__file__).resolve().parent.parent / "web" / "js" / "app.js").read_text(encoding="utf-8")
+    assert re.search(r'APP_VERSION = "([^"]+)"', js).group(1) == __version__
+
+
+def test_info_avisa_si_hay_que_reiniciar(client, monkeypatch):
+    import app.server
+
+    assert client.get("/api/info").json()["restartNeeded"] is False
+    # el código cambia en disco con el servidor en marcha (p. ej. tras un git pull)
+    stamp = app.server.code_stamp()
+    monkeypatch.setattr(app.server, "code_stamp", lambda: stamp + 60)
+    assert client.get("/api/info").json()["restartNeeded"] is True
+
+
+def test_arranque_detecta_otro_servidor():
+    """python -m app avisa si el puerto ya lo usa un Lince anterior u otro programa."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from app.__main__ import running_lince
+
+    class Handler(BaseHTTPRequestHandler):
+        body = b""
+
+        def do_GET(self):  # noqa: N802 - nombre impuesto por http.server
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(self.body)
+
+        def log_message(self, *args):
+            pass
+
+    for body, expected in [(b'{"version": "0.3.0"}', {"version": "0.3.0"}), (b"<html>otra cosa</html>", {})]:
+        Handler.body = body
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{srv.server_address[1]}"
+        try:
+            assert running_lince(url) == expected
+        finally:
+            srv.shutdown()
+            srv.server_close()
+    assert running_lince(url) is None  # ya no escucha nadie
+
+
 def test_esquema_openapi(client):
     spec = client.get("/openapi.json").json()
     assert spec["info"]["title"] == "Lince"

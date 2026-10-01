@@ -19,6 +19,8 @@ import * as learnPage from "./pages/learn.js";
 import * as guidePage from "./pages/guide.js";
 
 export const APP_NAME = "Lince";
+// Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
+export const APP_VERSION = "0.4.1";
 
 export const state = {
   info: null,
@@ -125,6 +127,43 @@ export function openSimulator(text) {
   if (text) simulator.send(text);
 }
 
+// ------------------------------------------------------- aviso de versión
+// Tras un «git pull» los ficheros de web/ ya son nuevos (se sirven tal cual), pero el servidor
+// sigue con el código Python de antes hasta que se reinicia: se avisa de qué hacer.
+function compareVersions(a, b) {
+  const pa = String(a).split(".").map(Number);
+  const pb = String(b).split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+function versionNotice() {
+  const server = state.info.version;
+  const cmp = compareVersions(server, APP_VERSION);
+  let title, text, action = null;
+  if (cmp < 0 || state.info.restartNeeded) {
+    title = "Reinicia el servidor para terminar de actualizar";
+    text = (cmp < 0 ? `La consola ya es la versión ${APP_VERSION}, pero el servidor sigue con la ${server}. `
+      : "El código del servidor ha cambiado desde que se arrancó. ")
+      + "Cierra su ventana (o pulsa Ctrl+C en ella) y vuelve a abrir iniciar.bat o python -m app.";
+  } else if (cmp > 0) {
+    title = "Hay una versión nueva de la consola";
+    text = `El servidor ya va por la ${server} y esta pestaña tiene guardada la ${APP_VERSION}.`;
+    action = h("button", { class: "btn sm", type: "button", onclick: () => location.reload() }, icon("refresh"), "Recargar");
+  } else {
+    return null;
+  }
+  const box = h("div", { class: "version-notice", role: "status" },
+    h("div", { class: "notice warning" }, icon("alert"),
+      h("div", { class: "grow" }, h("b", null, title), h("div", null, text)),
+      action,
+      h("button", { class: "btn ghost sm icon-only", type: "button", "aria-label": "Cerrar aviso", onclick: () => box.remove() }, icon("x"))));
+  return box;
+}
+
 // ----------------------------------------------------------------- layout
 function buildLayout() {
   root = document.getElementById("app");
@@ -153,7 +192,7 @@ function buildLayout() {
     h("button", { class: "btn ghost icon-only", type: "button", "aria-label": "Buscar", onclick: () => openPalette() }, icon("search")),
     h("button", { class: "btn ghost icon-only", type: "button", "aria-label": "Probar el agente", onclick: () => setSimOpen(true) }, icon("chat")));
   pageEl = h("div", { id: "page" });
-  mainEl = h("main", { class: "main", onclick: () => root.classList.remove("menu-open") }, topbar, pageEl);
+  mainEl = h("main", { class: "main", onclick: () => root.classList.remove("menu-open") }, topbar, versionNotice(), pageEl);
   mainEl.addEventListener("scroll", () => {
     const head = pageEl.querySelector(".page-head.sticky");
     if (head) head.classList.toggle("stuck", mainEl.scrollTop > 6);
@@ -201,7 +240,8 @@ function renderAgentSwitch() {
 function openAgentMenu() {
   const groups = [{
     title: "Agentes",
-    options: state.agents.map((a) => ({ label: a.name, value: a.id, avatar: a.name, desc: `${a.intents} intenciones`,
+    options: state.agents.map((a) => ({ label: a.name, value: a.id, avatar: a.name,
+      sub: `${a.intents} ${a.intents === 1 ? "intención" : "intenciones"} · ${(a.language || "es").toUpperCase()}`,
       selected: !!state.agent && a.id === state.agent.id })),
   }];
   popover(agentBtn, h("div", { class: "agent-menu" },
