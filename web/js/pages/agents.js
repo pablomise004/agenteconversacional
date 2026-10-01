@@ -5,7 +5,8 @@ import { navigate, refreshAgents, state } from "../app.js";
 
 const TEMPLATES = [
   { value: "blank", icon: "sparkle", title: "Vacío", text: "Solo bienvenida y fallback. Para empezar de cero." },
-  { value: "pizzeria", icon: "chat", title: "Copia de la pizzería", text: "Pedidos, reservas, carta… para trastear." },
+  { value: "pizzeria", icon: "chat", title: "Copia de la pizzería", text: "Pequeña y fácil de seguir: pedidos, reservas y carta. Para aprender." },
+  { value: "hotel", icon: "key", title: "Copia del hotel", text: "El ejemplo grande: 88 intenciones y más de 2.000 frases. Para ver hasta dónde llega." },
 ];
 
 export async function createAgentDialog() {
@@ -13,7 +14,7 @@ export async function createAgentDialog() {
   const lang = h("select", null, Object.entries(state.info.languages).map(([k, v]) => h("option", { value: k }, v)));
   const desc = h("input", { type: "text", placeholder: "Opcional" });
   let template = "blank";
-  const tplBox = h("div", { class: "grid-2", role: "radiogroup", "aria-label": "Plantilla" }, TEMPLATES.map((t) => {
+  const tplBox = h("div", { class: "tpl-list", role: "radiogroup", "aria-label": "Plantilla" }, TEMPLATES.map((t) => {
     const radio = h("input", { type: "radio", name: "tpl", value: t.value, checked: t.value === template, class: "sr-only",
       onchange: () => { template = t.value; paint(); } });
     return h("label", { class: "tpl-card" + (t.value === template ? " on" : ""), dataset: { value: t.value } }, radio,

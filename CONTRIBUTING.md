@@ -29,6 +29,9 @@ Para *usar* la aplicación, mejor la [guía de uso](docs/GUIA.md).
    - Si tocas la consola: `pip install playwright` y `python -m pytest tests/e2e -m e2e`.
    - Si tocas el clasificador: `python tools/benchmark_massive.py` y compara con 59 % (10 frases
      por intención) y 65,6 % (20 frases).
+   - Si cambias un agente de ejemplo, edita su generador (`tools/build_pizzeria.py`,
+     `tools/build_hotel.py`) y ejecútalo: el JSON de `examples/` no se toca a mano (una prueba
+     comprueba que `examples/hotel.json` es lo que genera su script).
 4. Convenciones:
    - identificadores en inglés; comentarios, textos de la interfaz y documentación en español;
    - sin dependencias pesadas (ni scikit-learn ni frameworks de JavaScript);
@@ -108,6 +111,8 @@ flowchart TB
 | `web/js/simulator.js` | Panel «Pruébalo» |
 | `web/js/pages/*.js` | Una página por sección de la consola |
 | `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias; tema claro, oscuro o automático con `data-theme`, colores en variables CSS) y página de chat de demostración (`?theme=`, `?title=`, `?color=`, `?key=`) |
+| `examples/pizzeria.json`, `examples/hotel.json` | Agentes de ejemplo: la pizzería (pequeña, para aprender) y el hotel (88 intenciones, para ver el potencial). `seed_examples()` (`server.py`) copia cada uno la primera vez que arranca el servidor con él y lo apunta en `data/seeded_examples.json`: un ejemplo borrado no vuelve |
+| `tools/build_pizzeria.py`, `tools/build_hotel.py` | Generan los ejemplos a partir de frases con la notación `[texto](parámetro)`. El del hotel además comprueba que cada anotación coincide con lo que detecta el motor (y que no queda nada sin anotar), que no hay frases repetidas y que la normalización no inventa parámetros |
 | `tools/build_icons.py` | Genera `favicon.ico` y los PNG de `web/icons/` a partir de `web/favicon.svg` (Playwright) |
 | `tools/capturas_docs.py` | Rehace las capturas de `docs/img/` con la consola actual (Playwright) |
 
@@ -195,8 +200,17 @@ absolutas (hoy, pasado mañana, el lunes que viene, el 15 de marzo, dentro de 3 
 Navidad), horas («las 5 y cuarto de la tarde», «a la una menos cuarto», «21h»), fecha+hora, email,
 URL y teléfono. Decisiones:
 
-- «a las N» sin calificador: 1-7 → tarde (17:00), 8-12 tal cual.
-- «un/una» son números **débiles**: solo rellenan un parámetro `@sys.number` si no hay otro número.
+- «a las N» sin calificador: 1-7 → tarde (17:00), 8-12 tal cual. Salvo que la frase hable de la
+  mañana (`MORNING_CUES`: despert-, levant-, madrug-, desayun-…: «despiértame a las 7» = 07:00) o
+  de la noche (`EVENING_CUES`: cenar, noche…: «mesa para cenar a las 9» = 21:00).
+- «esta mañana/tarde/noche» es hoy.
+- Días sin mes: en rangos («del 12 al 15», «del 30 al 2 de noviembre», «el 12 de octubre al 15»;
+  el mes que falta se toma del otro extremo y, si no cuadra, del mes anterior o siguiente) o con
+  una palabra de llegada/salida delante (`_DAY_CUES`: «para el 12», «llegamos el 12», «nos vamos
+  el 15»). «tengo 12 años», «la habitación 12» o «quiero el 2» no son fechas.
+- «un/una» son números **débiles**: solo rellenan un parámetro `@sys.number` si detrás llevan lo
+  que ese parámetro solía llevar detrás en las anotaciones («una noche» rellena las noches; «una
+  habitación», no).
 - «las dos pizzas» no es una hora: si tras «las N» viene una palabra que no es de hora/fecha, se descarta.
 
 ### Entidades propias (`entities.py`)
@@ -221,6 +235,12 @@ Las entidades elegidas se sustituyen por su tipo y la frase se convierte en rasg
 
 Los números sin entidad se representan como `#num`. Si una palabra se corrigió, se usa la forma
 corregida.
+
+Excepción al entrenar: el **texto libre** (`@sys.any`, `@sys.person`… los tipos `ANY_LIKE`) no se
+sustituye y cuenta como palabras normales. Al analizar un mensaje nunca se detecta como entidad, así
+que sustituirlo solo creaba un rasgo `e:@sys.any` que no aparece al preguntar y dejaba a la mitad
+las palabras de dentro: en el hotel, «[la persiana](averia) está rota» casi no enseñaba
+«persiana» y «la persiana no sube» sacaba 0,00 de confianza; ahora, 0,84.
 
 ### Vectorización (`classifier.py: Vectorizer`)
 
@@ -253,15 +273,30 @@ entre dos frases es `0,55·cos(palabras) + 0,45·cos(letras)`.
   ganan a las demás (como en Dialogflow).
 - **Plantillas**: cada frase de entrenamiento se guarda como secuencia de raíces y entidades; si el
   mensaje coincide exactamente (las `@sys.any` son comodines), la confianza es 1,0 y los parámetros
-  salen de la plantilla.
+  salen de la plantilla. Una frase igual gana a un comodín. Y un comodín no se impone a los
+  ejemplos negativos: si el modelo ve el fallback más probable que esa intención, decide el modelo
+  (como en Dialogflow). Así «[la nevera](averia) hace un ruido raro» sigue siendo una avería, pero
+  «mi coche hace un ruido raro» no.
+- `report.example`, la frase que usa la página Entrenar para ilustrar los pasos, es una de unas seis
+  palabras con entidades; mejor si tiene dos y alguna propia del agente («¿tenéis una doble libre
+  esta noche?»).
 
 ### Parámetros (`engine.py: extract_parameters`)
 
 Por orden: valores de la plantilla exacta; candidatos del tipo de entidad que no estén dentro de otra
-entidad elegida; si varios parámetros comparten tipo («de @ciudad a @ciudad»), se reparten por la
-palabra anterior aprendida en las anotaciones; `@sys.any` sin plantilla se captura entre las anclas
-izquierda/derecha aprendidas («me llamo [X]» → hasta el final; «quiero [X] para el sábado» → solo si
-aparece «para»).
+entidad elegida; si varios parámetros comparten tipo («de @ciudad a @ciudad», «para 3 noches para 2
+personas»), se reparten por lo que cada uno solía llevar **a los lados** en las anotaciones: la
+palabra (su raíz) o la entidad anterior y la siguiente, contadas y divididas por las veces que se
+anotó el parámetro (`left_context`, `right_context`, `param_count`); `@sys.any` sin plantilla se
+captura entre las anclas izquierda/derecha aprendidas («me llamo [X]» → hasta el final; «quiero [X]
+para el sábado» → solo si aparece «para»).
+
+El texto libre que llega hasta el final, de una plantilla o de un ancla, se recorta:
+
+- antes de otro dato de la misma intención y sin palabras vacías colgando: «no se enciende la tele
+  de la 215» → avería «la tele», habitación 215 (`_free_text_end`);
+- sin muletillas delante (`LEADING_FILLERS`: oye, hola, mira, perdona…): «oye, la luz del baño no
+  funciona» → «la luz del baño».
 
 ## Diálogo (`dialog.py`)
 
@@ -270,13 +305,16 @@ Un turno (`DialogManager.detect`):
 1. Carga la sesión (o crea una nueva si caducó o terminó) y añade los contextos que mande el cliente.
 2. Si había un **parámetro pendiente**: «cancelar» (solo si todo el mensaje son palabras de cancelar
    y de relleno) lo abandona; si el mensaje trae el valor, lo rellena (y otros que vengan); si no lo
-   trae y otra intención supera 0,8, cambia de tema; si no, vuelve a preguntar.
+   trae y otra intención supera 0,8, cambia de tema; si no, vuelve a preguntar. Si lo pendiente es
+   texto libre y el mensaje lo trae entre sus anclas («estoy en la 304, no va la tele»), se usa lo
+   extraído en vez del mensaje entero.
 3. Si no: evento → intención con ese evento; texto → `analyze` y umbral → intención o fallback (el
    fallback más específico para los contextos activos).
 4. Valores por defecto (`#contexto.param`, `$otro`, literal), y si falta un obligatorio se pregunta
    uno de sus `prompts`.
 5. Si está completa: contextos de salida (con los parámetros y `param.original`), respuesta
-   (variante al azar), webhook si está activado y `endConversation`.
+   (variante al azar, sin repetir la que dio la última vez esa intención en la sesión:
+   `state["said"]`; así «otro chiste» cuenta otro), webhook si está activado y `endConversation`.
 6. **Duración de los contextos**: al final del turno los contextos previos pierden 1 turno; los
    puestos en este turno conservan su duración completa; 0 = borrar; `resetContexts` borra los previos.
 7. Guarda la sesión y el registro, y devuelve el resultado (con el análisis completo si `debug`).
@@ -339,11 +377,18 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
   en el ejemplo): PCA sobre TF-IDF −0,21, PCA sobre puntuaciones 0,03, t-SNE sobre TF-IDF 0,04,
   t-SNE sobre puntuaciones 0,87 (pero con el 92 % de puntos superpuestos) y con repulsión 0,75 sin
   superposición. Hasta 700 frases (muestra estratificada). Una frase nueva se coloca en la media
-  ponderada de sus 5 vecinos más cercanos en el espacio de puntuaciones.
+  ponderada de sus 5 vecinos más cercanos en el espacio de puntuaciones. Las distancias se calculan
+  con la matriz de Gram (`|a−b|² = |a|² + |b|² − 2a·b`, sin tablas n×n×intenciones, que con 700
+  frases y 90 intenciones ocupaban 350 MB), el descenso va en float32 y la perplejidad se calibra
+  para todas las filas a la vez: con 700 frases tarda unos 2 s en vez de 18, con el mismo mapa.
 - `explain`: tokens, entidades, rasgos con TF-IDF, ranking y, para las 3 primeras intenciones, la
   aportación de cada rasgo (`peso TF-IDF × peso aprendido`) más el sesgo.
 - `evaluate`: validación cruzada estratificada (5 rondas por defecto), entrenando un `NLUEngine`
   completo por ronda y evaluando cada frase con los contextos de entrada de su intención activos.
+  Con frases muy variadas es pesimista: una frase escondida que era la única de su estilo se queda
+  por debajo del umbral aunque elija bien la intención. El hotel saca un 65 % (527 de sus 820
+  fallos son «no entendida») y, en cambio, acierta el 91,5 % de frases nuevas escritas aparte.
+  Tarda unos 20 s con las 2.300 frases del hotel.
 
 ## Consola web
 
@@ -352,9 +397,16 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
 - Rutas por hash (`#/a/<agente>/<sección>[/<id>]`, con `?q=` opcional). Cada página exporta
   `render(el, params, query)` y puede devolver `{canLeave, save, destroy}` (aviso de cambios sin
   guardar y Ctrl+S).
+- La raíz (`#/` o sin hash) abre la lista de agentes.
 - Cada página se dibuja en su propio contenedor dentro de `#page`: si el usuario cambia de página
   antes de que termine de cargar, lo que llegue tarde no se mezcla con la nueva. Si tarda más de
-  150 ms se ve un esqueleto de carga.
+  150 ms se ve un esqueleto de carga, siempre que la página no añada nada hasta tener sus datos
+  (Entrenar espera a `/model` antes de añadir su contenedor).
+- Con agentes grandes, Entrenar enseña en «Lo que ha aprendido» las 12 intenciones con más frases
+  (con buscador y «Ver todas»), y las tablas del examen tienen scroll propio. El atributo `hidden`
+  lleva `display: none !important` en `app.css`: si no, `.row` o `.btn` lo pisan.
+- `/docs` pone la pizzería la primera en «Pruébalo», porque los ejemplos de la API están escritos
+  para ella.
 - El estado del agente vive en `state.agent`; tras cambiar algo en el servidor desde otra pantalla
   (revisión, 👍/👎) se recarga con `reloadAgent()`.
 - Tema: variables CSS en `:root` y en `[data-theme=dark]` / `prefers-color-scheme`. El modo oscuro
@@ -389,13 +441,22 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 90 pruebas: tokenizador, stemmer, corrector, entidades, clasificación (umbral y fuera de tema), contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI y los recursos de la web), importación ZIP, información del modelo, versión de consola y servidor, aviso de reinicio y arranque con el puerto ocupado |
-| `python -m pytest tests/e2e -m e2e` | 20 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, editar y anotar, simulador, analizador, página Entrenar, crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
+| `python -m pytest` | 131 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web y la copia de los ejemplos al arrancar), importación ZIP, información del modelo, versión de consola y servidor, aviso de reinicio, arranque con el puerto ocupado y el agente del hotel (`tests/test_hotel.py`) |
+| `python -m pytest tests/e2e -m e2e` | 22 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, la raíz abre la lista de agentes con los dos ejemplos, editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 
 `tests/casos_pizzeria.py` contiene frases nunca vistas (paráfrasis, faltas, sin tildes), frases
 con contexto y frases fuera de tema; los tests exigen ≥ 93 % de acierto y ≥ 80 % de rechazo.
+
+`tests/casos_hotel.py` hace lo mismo para el hotel: 770 frases de 78 intenciones, 128 fuera de tema
+y 10 con contexto, ninguna igual a una de entrenamiento (se comprobó sin tildes ni signos). Se
+escribieron en seis rondas y los fallos de cada una se añadieron al agente, así que ahí acierta
+casi todas (las pruebas exigen ≥ 97 % y ≥ 90 % de rechazo, al umbral del agente, 0,25). La medida
+honesta es la de la última ronda antes de usarla: 118 de 129 frases nuevas (91,5 %) y 19 de 23
+rechazadas. `tests/test_hotel.py` comprueba además conversaciones completas con la fecha fija
+(reserva con confirmación, cambios, cancelación con código, avería, despertador, mesa para cenar,
+respuestas sin repetir).
 
 ## Decisiones y alternativas descartadas
 
@@ -415,6 +476,16 @@ con contexto y frases fuera de tema; los tests exigen ≥ 93 % de acierto y ≥ 
 - **Fuente incluida** (Inter, OFL) en vez de Google Fonts: la consola tiene que funcionar sin
   conexión y no debe hacer peticiones a terceros.
 - **Agentes en JSON** (versionables, fáciles de copiar) y **SQLite** para lo que crece (conversaciones).
+- **Medir con frases escritas aparte**, no solo con la validación cruzada: con frases tan variadas
+  como las del hotel, la validación cruzada da un 65 % y frases nuevas de verdad, un 91,5 %. Al
+  afinar con una ronda, esa ronda deja de servir para medir: hace falta otra nueva (y comprobar
+  que ninguna frase está ya en el entrenamiento, que pasa más de lo que parece).
+- **Umbral por agente**: el hotel usa 0,25. Bajar el exponente del parecido en la confianza era
+  equivalente a bajar el umbral para todos los agentes, y la pizzería está calibrada a 0,3.
+- **Descartado: dar prioridad al fallback sobre los comodines siempre que fuera la clase más
+  probable**. Antes de que el texto libre contara como palabras al entrenar, averías de verdad
+  como «la luz del baño no va» tenían el fallback arriba (0,65). Con ese arreglo la regla separa
+  bien: en las averías de verdad el fallback no pasa de 0,05.
 
 ## Limitaciones conocidas
 
@@ -424,4 +495,7 @@ con contexto y frases fuera de tema; los tests exigen ≥ 93 % de acierto y ≥ 
   pizzería) hasta que se añaden como ejemplos negativos.
 - `@sys.given-name`, `@sys.geo-city` y similares no tienen diccionario: se aprenden por posición
   como `@sys.any`.
-- El t-SNE es O(n²): por eso el mapa usa como mucho 700 frases.
+- El t-SNE es O(n²): por eso el mapa usa como mucho 700 frases (unos 2 s la primera vez; después
+  queda en caché hasta el siguiente entrenamiento).
+- Los comodines aceptan cualquier cosa en su hueco: «[X] pierde agua» también acepta «mi lavadora
+  pierde agua» si el modelo no lo ve claro como fallback. Se corrige con ejemplos negativos.

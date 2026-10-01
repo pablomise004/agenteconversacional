@@ -81,6 +81,7 @@ CANCEL_WORDS = frozenset({"cancel", "stop", "quit", "exit", "nevermind", "forget
                           "nothing", "none"})
 CANCEL_FILLER = frozenset({"it", "please", "just", "no", "never", "mind", "that",
                            "ok", "i", "want", "to", "about"})
+LEADING_FILLERS = frozenset({"hey", "hi", "hello", "so", "well", "ok", "okay", "um", "uh"})
 
 TEXTS = {
     "cancelled": "Okay, let's leave it there.",

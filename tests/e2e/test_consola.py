@@ -182,6 +182,28 @@ def test_pagina_entrenar(base_url, page):
     assert page.errors == []
 
 
+def test_inicio_en_agentes_con_los_dos_ejemplos(base_url, page):
+    page.goto(base_url + "/")
+    page.wait_for_url("**/#/agents")
+    page.wait_for_selector(".agent-card h3")
+    nombres = page.locator(".agent-card h3").all_inner_texts()
+    assert "Pizzería (ejemplo)" in nombres and "Hotel (ejemplo)" in nombres
+    assert page.errors == []
+
+
+def test_entrenar_con_un_agente_grande(base_url, page):
+    page.goto(f"{base_url}/#/a/hotel/learn")
+    page.wait_for_selector(".steps .step", timeout=60000)
+    learned = page.locator(".card", has_text="Lo que ha aprendido")
+    assert learned.locator(".multiple").count() == 12  # primero las que tienen más frases
+    learned.locator("input[type=search]").fill("reserva.cancelar")
+    assert learned.locator(".multiple").count() == 3
+    learned.locator("input[type=search]").fill("")
+    learned.locator("button", has_text="Ver las 88 intenciones").click()
+    assert learned.locator(".multiple").count() == 88
+    assert page.errors == []
+
+
 def test_crear_agente_y_conversar(base_url, page):
     page.goto(f"{base_url}/#/agents")
     page.locator("button", has_text="Crear agente").first.click()

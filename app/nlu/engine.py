@@ -108,7 +108,10 @@ class NLUEngine:
 
         self.examples: list[dict] = []
         self.templates: list[Template] = []
+        # palabras de alrededor de cada parámetro en las anotaciones ("para [2] personas")
         self.left_context: dict[tuple[str, str], Counter] = defaultdict(Counter)
+        self.right_context: dict[tuple[str, str], Counter] = defaultdict(Counter)
+        self.param_count: Counter = Counter()
         self.any_patterns: dict[tuple[str, str], list] = defaultdict(list)
         self.stem_words: dict[str, Counter] = defaultdict(Counter)  # raíz -> palabras reales
         feats, labels = [], []
@@ -136,12 +139,15 @@ class NLUEngine:
                 spans = annotation_spans(tokens, anns)
                 n_annotations += len(spans)
                 spans4 = [(s, e, entity_kind(ent), p) for s, e, ent, p in spans]
-                feats.append(featurize(tokens, [(s, e, ent) for s, e, ent, _ in spans4],
+                # el texto libre (@sys.any y parecidos) cuenta como palabras normales: al preguntar
+                # nunca se detecta como entidad, y así «[la persiana] está rota» enseña «persiana»
+                feats.append(featurize(tokens, [(s, e, ent) for s, e, ent, _ in spans4 if ent not in ANY_LIKE],
                                        self.feature_config))
                 labels.append(label)
                 self.examples.append({"intent": intent["id"], "phrase": ph.get("id"),
                                       "text": text, "fallback": bool(intent.get("isFallback")),
-                                      "annotations": len(spans)})
+                                      "annotations": len(spans),
+                                      "custom": sum(1 for s in spans4 if s[2] in self.custom_entities)})
                 if not intent.get("isFallback"):
                     self._add_template(intent, ph, tokens, spans4, params)
         t_prepare = time.perf_counter() - t_start
@@ -179,13 +185,15 @@ class NLUEngine:
         }
 
     def _example_phrase(self) -> str:
-        """Una frase de entrenamiento representativa (con entidades) para las explicaciones."""
+        """Una frase de entrenamiento representativa para las explicaciones: con entidades
+        (mejor dos y alguna propia del agente) y de unas seis palabras."""
         best = None
         for e in self.examples:
             if e["fallback"]:
                 continue
             words = len(e["text"].split())
-            score = (e["annotations"] > 0, 4 <= words <= 9, -abs(words - 6))
+            score = (e["annotations"] > 0, 4 <= words <= 9, min(e["annotations"], 2), e["custom"] > 0,
+                     -abs(words - 6))
             if best is None or score > best[0]:
                 best = (score, e["text"])
         return best[1] if best else ""
@@ -193,28 +201,53 @@ class NLUEngine:
     def _add_template(self, intent, phrase, tokens, spans, params) -> None:
         units = []
         has_any = False
+        labels = self._unit_labels(tokens, [(s, e, ent) for s, e, ent, _ in spans])
         for unit in entity_units(tokens, [(s, e, (ent, p)) for s, e, ent, p in spans]):
             if unit[0] == "e":
                 ent, pname = unit[1]
                 custom = self.custom_entities.get(ent)
                 start = tokens.index(unit[2][0])
-                left = self._left_word(tokens, start)
+                end = start + len(unit[2])
                 if ent in ANY_LIKE or (custom and custom.get("autoExpand")):
                     units.append(("any", ent, pname))
                     has_any = True
                     # anclas para capturar texto libre cuando no hay coincidencia exacta
-                    right = self._right_word(tokens, start + len(unit[2]))
                     self.any_patterns[(intent["id"], pname)].append(
-                        (left or "^", right or "$", len([t for t in unit[2] if t.kind != "symbol"])))
+                        (self._left_word(tokens, start) or "^", self._right_word(tokens, end) or "$",
+                         len([t for t in unit[2] if t.kind != "symbol"])))
                 else:
                     units.append(("e", ent, pname))
-                # palabra a la izquierda: ayuda a repartir parámetros del mismo tipo
+                # lo que suele ir a los lados («para [2] personas», «[dos] [pepperoni]»): ayuda a
+                # repartir parámetros del mismo tipo y a saber si un «una» suelto es un número
+                key = (intent["id"], pname)
+                self.param_count[key] += 1
+                left, right = self._neighbor(labels, start - 1, -1), self._neighbor(labels, end, 1)
                 if left:
-                    self.left_context[(intent["id"], pname)][left] += 1
+                    self.left_context[key][left] += 1
+                if right:
+                    self.right_context[key][right] += 1
             else:
                 units.append(("w", word_form(unit[1])[1]))
         if units:
             self.templates.append(Template(intent["id"], phrase.get("id"), units, has_any))
+
+    @staticmethod
+    def _unit_labels(tokens: list[Token], spans) -> list:
+        """Etiqueta de cada token para el contexto de los parámetros: la entidad que lo
+        cubre («@pizza») o la raíz de la palabra (así «noche» y «noches» cuentan igual)."""
+        labels = [word_form(t)[1] if t.kind != "symbol" else None for t in tokens]
+        for s, e, ent in spans:
+            for k in range(s, min(e, len(labels))):
+                labels[k] = entity_kind(ent)
+        return labels
+
+    @staticmethod
+    def _neighbor(labels: list, k: int, step: int):
+        while 0 <= k < len(labels):
+            if labels[k] is not None:
+                return labels[k]
+            k += step
+        return None
 
     @staticmethod
     def _left_word(tokens: list[Token], start: int) -> str | None:
@@ -270,6 +303,7 @@ class NLUEngine:
         ranking = self.classifier.predict(x, eligible & self.labels) if x else []
 
         templates = self._match_templates(tokens, chosen, text, eligible)
+        fb_prob = max((r["prob"] for r in ranking if r["intent"].startswith(FALLBACK_PREFIX)), default=0.0)
         results = []
         seen = set()
         for r in ranking:
@@ -282,7 +316,10 @@ class NLUEngine:
             seen.add(real_id)
             conf = self.confidence(r["prob"], r["sim"])
             match = "ml"
-            if real_id in templates:
+            # una plantilla con comodín («[X] hace un ruido raro») no se impone a los ejemplos
+            # negativos: si el modelo ve más probable el fallback («mi coche hace un ruido raro»),
+            # decide el modelo, como en Dialogflow
+            if real_id in templates and not (templates[real_id]["wild"] and fb_prob > r["prob"]):
                 conf, match = 1.0, "exact"
             contextual = bool(intent.get("inputContexts"))
             if contextual:
@@ -351,13 +388,16 @@ class NLUEngine:
         if not q:
             return found
         for tpl in self.templates:
-            if tpl.intent_id not in eligible or tpl.intent_id in found:
+            if tpl.intent_id not in eligible:
+                continue
+            prev = found.get(tpl.intent_id)
+            if prev and (not prev["wild"] or tpl.has_any):  # mejor una frase igual que un comodín
                 continue
             if not tpl.has_any and len(tpl.units) != len(q):
                 continue
             binds = self._match(tpl.units, q)
             if binds is not None:
-                found[tpl.intent_id] = {"intent": tpl.intent_id, "phrase": tpl.phrase_id,
+                found[tpl.intent_id] = {"intent": tpl.intent_id, "phrase": tpl.phrase_id, "wild": tpl.has_any,
                                         "bindings": self._bindings_to_values(binds, text)}
         return found
 
@@ -424,6 +464,8 @@ class NLUEngine:
         if tpl:
             for p in params:
                 bound = tpl["bindings"].get(p["name"])
+                if bound and entity_kind(p.get("entity", "")) in ANY_LIKE:
+                    bound = [self._trim_bound(intent, p, analysis, b) for b in bound]
                 if bound:
                     vals = [b[0] for b in bound]
                     values[p["name"]] = vals if p.get("isList") else vals[0]
@@ -431,10 +473,11 @@ class NLUEngine:
 
         used: set[int] = set()
         pending = [p for p in params if p["name"] not in values]
-        # parámetros del mismo tipo: primero los que tienen pista por la palabra anterior
+        # parámetros del mismo tipo: primero los que tienen pista por lo que llevan a los lados
         by_kind = defaultdict(list)
         for p in pending:
             by_kind[entity_kind(p.get("entity", ""))].append(p)
+        labels = self._unit_labels(analysis.tokens, [(c.tstart, c.tend, c.entity) for c in analysis.entities])
         for kind, plist in by_kind.items():
             if kind in ANY_LIKE:
                 for p in plist:
@@ -445,12 +488,18 @@ class NLUEngine:
             pool = self.pool(kind, analysis)
             if not pool:
                 continue
+            # «para 3 noches para 2 personas»: lo a menudo que cada parámetro llevaba eso
+            # delante y detrás en las frases de entrenamiento
+            sides = {id(c): (self._neighbor(labels, c.tstart - 1, -1), self._neighbor(labels, c.tend, 1))
+                     for c in pool}
+            score = lambda c, p: self._side_score(intent["id"], p["name"], *sides[id(c)])  # noqa: E731
+            # un «una» suelto solo es un número si el parámetro solía llevar detrás lo mismo:
+            # «una noche» rellena las noches, pero «una habitación» no
+            fits = lambda c, p: not c.weak or self._side_score(intent["id"], p["name"], None, sides[id(c)][1]) > 0  # noqa: E731
             assigned: dict[str, list[EntityMatch]] = defaultdict(list)
             if len(plist) > 1:
                 for c in pool:
-                    left = self._left_word(analysis.tokens, c.tstart)
-                    scores = [(self.left_context[(intent["id"], p["name"])].get(left, 0), -k, p)
-                              for k, p in enumerate(plist)]
+                    scores = [(score(c, p) if fits(c, p) else 0, -k, p) for k, p in enumerate(plist)]
                     best = max(scores, key=lambda s: (s[0], s[1]))
                     if best[0] > 0 and (best[2].get("isList") or not assigned[best[2]["name"]]):
                         assigned[best[2]["name"]].append(c)
@@ -458,7 +507,7 @@ class NLUEngine:
             for p in plist:
                 if assigned[p["name"]]:
                     continue
-                free = [c for c in pool if id(c) not in used]
+                free = [c for c in pool if id(c) not in used and fits(c, p)]
                 if not free:
                     continue
                 take = free if p.get("isList") else free[:1]
@@ -475,6 +524,64 @@ class NLUEngine:
                         originals[p["name"]] = got[0].text
         return values, originals
 
+    def _side_score(self, intent_id: str, pname: str, left: str | None, right: str | None) -> float:
+        """Frecuencia con la que el parámetro aparecía entre esas palabras (0 = nunca)."""
+        key = (intent_id, pname)
+        total = self.param_count.get(key, 0)
+        if not total:
+            return 0.0
+        hits = (self.left_context[key].get(left, 0) if left else 0) + \
+               (self.right_context[key].get(right, 0) if right else 0)
+        return hits / total
+
+    def _trim_bound(self, intent, param, analysis, bound):
+        """Recorta el texto libre que ha cazado una plantilla: sin muletillas delante ni
+        otro dato de la intención detrás (el comodín se lo come todo)."""
+        _value, _orig, s, e = bound
+        toks = analysis.tokens
+        idx = [k for k, t in enumerate(toks) if t.start >= s and t.end <= e]
+        if not idx:
+            return bound
+        first, end = idx[0], idx[-1] + 1
+        if entity_kind(param.get("entity", "")) == "@sys.any":
+            first = self._skip_fillers(toks, first, end)
+        end = self._free_text_end(intent, param, analysis, first, end)
+        if (first, end) == (idx[0], idx[-1] + 1):
+            return bound
+        s, e = toks[first].start, toks[end - 1].end
+        text = analysis.text[s:e].strip(" .,;:!?¿¡")
+        return (text, text, s, e) if text else bound
+
+    def _skip_fillers(self, toks, start: int, end: int) -> int:
+        """Primer token tras las muletillas del principio («oye, la tele» -> «la tele»)."""
+        fillers = getattr(self.language.res, "LEADING_FILLERS", ())
+        k = start
+        while k < end and (toks[k].kind == "symbol" or toks[k].norm in fillers):
+            k += 1
+        return k if k < end else start
+
+    @staticmethod
+    def _other_params_at(intent, param, analysis) -> set[int]:
+        """Tokens donde empieza una entidad de otro parámetro de la intención."""
+        others = {entity_kind(p.get("entity", "")) for p in intent.get("parameters") or []
+                  if p["name"] != param["name"]}
+        if "@sys.number-integer" in others:
+            others.add("@sys.number")
+        return {c.tstart for c in analysis.entities if c.entity in others}
+
+    def _free_text_end(self, intent, param, analysis, start: int, end: int) -> int:
+        """Dónde acaba un texto libre que llega hasta el final: antes de otro dato de la
+        intención («no va la tele de la 215»: el número es la habitación, el texto «la tele»)
+        y sin palabras vacías colgando («de la»)."""
+        taken = self._other_params_at(intent, param, analysis)
+        cut = next((k for k in range(start + 1, end) if k in taken), None)
+        if cut is None:
+            return end
+        toks = analysis.tokens
+        while cut - 1 > start and (toks[cut - 1].kind == "symbol" or toks[cut - 1].stop):
+            cut -= 1
+        return cut
+
     def _any_by_context(self, intent, param, analysis):
         """@sys.any sin plantilla exacta: captura el texto entre las palabras que lo
         rodeaban en las frases de entrenamiento ("me llamo [X]", "de [X] a ...")."""
@@ -483,6 +590,8 @@ class NLUEngine:
             return None
         toks = analysis.tokens
         words = [k for k, t in enumerate(toks) if t.kind != "symbol"]
+        any_text = entity_kind(param.get("entity", "")) == "@sys.any"
+        taken = self._other_params_at(intent, param, analysis)
         for left, right, length in sorted(patterns, key=lambda p: (p[0] == "^", p[1] == "$")):
             if left == "^":
                 starts = [0]
@@ -490,11 +599,20 @@ class NLUEngine:
                 starts = [i + 1 for i, k in enumerate(words) if toks[k].key == left]
             for a in starts:
                 if right == "$":
-                    b = len(words)
+                    if a >= len(words):
+                        continue
+                    end = self._free_text_end(intent, param, analysis, words[a], len(toks))
+                    b = sum(1 for k in words if k < end)
                 else:
                     b = next((i for i in range(a + 1, len(words)) if toks[words[i]].key == right), None)
                     if b is None:
                         continue
+                if any_text and b > a:
+                    a = words.index(self._skip_fillers(toks, words[a], words[b - 1] + 1))
+                # el hueco no puede tragarse otro dato: en «estoy en la 304, no va la tele» el
+                # ancla «[X] no» daría «estoy en la 304»
+                if any(words[i] in taken for i in range(a, b)):
+                    continue
                 if not 0 < b - a <= max(length + 3, 6):
                     continue
                 s, e = toks[words[a]].start, toks[words[b - 1]].end

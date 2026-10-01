@@ -22,6 +22,7 @@ abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada fras
 - [Qué incluye](#qué-incluye)
 - [Instalación](#instalación)
 - [Primeros pasos](#primeros-pasos)
+- [Los agentes de ejemplo](#los-agentes-de-ejemplo)
 - [Ver cómo aprende](#ver-cómo-aprende)
 - [Conceptos](#conceptos)
 - [Conectarlo a tu web o aplicación](#conectarlo-a-tu-web-o-aplicación)
@@ -78,9 +79,9 @@ pip install -r requirements.txt
 python -m app                     # opciones: --port 8000 --host 0.0.0.0 --no-browser --data carpeta
 ```
 
-Al arrancar por primera vez se crea el agente de ejemplo **Pizzería** (pedidos, reservas, carta,
-horarios) para que puedas trastear desde el principio. Tus datos se guardan en la carpeta `data/`
-(no se sube a Git).
+Al arrancar por primera vez se crean dos [agentes de ejemplo](#los-agentes-de-ejemplo): la
+**Pizzería**, pequeña y fácil de seguir para aprender, y el **Hotel**, grande, para ver hasta dónde
+llega. Tus datos se guardan en la carpeta `data/` (no se sube a Git).
 
 **Como aplicación:** en Edge o Chrome, con la consola abierta, usa *Instalar Lince* (el icono de
 instalar de la barra de direcciones o el menú *Aplicaciones*). Se abre en su propia ventana, con el
@@ -94,9 +95,9 @@ lo dice en vez de abrir el antiguo.
 
 ## Primeros pasos
 
-1. Abre <http://localhost:8000> y escribe en el panel **Pruébalo**: «hola», «quiero una pizza»,
-   «barbacoa», «grande», «a domicilio»… Pulsa el nombre de la intención bajo cada respuesta para ver
-   qué ha entendido.
+1. Abre <http://localhost:8000>: empieza en la lista de agentes. Entra en la **Pizzería** y escribe
+   en el panel **Pruébalo**: «hola», «quiero una pizza», «barbacoa», «grande», «a domicilio»… Pulsa
+   el nombre de la intención bajo cada respuesta para ver qué ha entendido.
 2. Si se equivoca, pulsa 👎 y elige la intención correcta: la frase se añade al entrenamiento y el
    modelo se actualiza al instante.
 3. En **Analizador** escribe cualquier frase para ver su tokenización completa y corregirla.
@@ -107,6 +108,28 @@ lo dice en vez de abrir el antiguo.
    una frase para analizarla, probarla en el chat o ver cómo la entiende paso a paso.
 
 ![Analizador de frases](docs/img/analizador.png)
+
+## Los agentes de ejemplo
+
+| | **Pizzería** | **Hotel** |
+|---|---|---|
+| Para qué | Aprender: pocas intenciones, fáciles de seguir paso a paso | Ver el potencial: un bot completo que no se pierde con cualquier cosa |
+| Tamaño | 19 intenciones, 174 frases, 4 entidades | 88 intenciones, más de 2.000 frases, 5 entidades con 184 sinónimos |
+| Qué sabe hacer | Pedir pizzas, reservar mesa, carta y horarios | Reservas con resumen, confirmación (nombre y correo), cambios y cancelación por contextos; peticiones a la habitación, averías, quejas, spa, restaurante, traslados, despertador, turismo y charla |
+
+El **Hotel** es Mira, la recepcionista virtual del Hotel Mirador (Málaga). Prueba a escribirle
+«quiero una suite del 3 al 6 de diciembre para 2 personas», «mejor para 3», «sí, confírmala», «no
+se enciende la tele de la 215», «me subís dos toallas y una almohada a la 310?», «despiértame
+mañana a las 7», «¿tenéis parking?», «cuéntame un chiste» o «¿cuál es la capital de Francia?».
+
+![El agente del hotel en el simulador](docs/img/hotel.png)
+
+Con frases nuevas que no había visto nunca (escritas con faltas, sin tildes o de forma coloquial)
+acierta **9 de cada 10** y rechaza la mayoría de lo que no tiene que ver con un hotel. Se genera con
+[`tools/build_hotel.py`](tools/build_hotel.py), que es también un buen ejemplo de cómo escribir un
+agente grande, y sus pruebas están en [`tests/casos_hotel.py`](tests/casos_hotel.py). Si borras un
+ejemplo no vuelve a aparecer, pero siempre puedes crear una copia nueva en *Agentes → Crear agente →
+Plantilla*.
 
 ## Ver cómo aprende
 
@@ -250,8 +273,9 @@ flowchart LR
 **Calidad**, medida con el dataset público MASSIVE (Amazon, 60 intenciones de asistente doméstico
 en español, muchas muy parecidas entre sí): **65 % de acierto con 20 frases por intención** (59 % con
 10), entrenando en un par de segundos. Con agentes normales, de intenciones más distintas, acierta
-mucho más: con el de ejemplo, 74 de 76 frases de prueba nunca vistas (con faltas y sin tildes), y
-rechaza 22 de 25 frases fuera de tema.
+mucho más: la pizzería, 74 de 76 frases de prueba nunca vistas (con faltas y sin tildes), y rechaza
+22 de 25 frases fuera de tema; el hotel, con 88 intenciones, 118 de 129 frases nuevas (91,5 %),
+medido antes de afinarlo con ellas.
 
 Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -259,11 +283,12 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 90 pruebas: NLU, diálogo, webhook, API, importación, modelo
+python -m pytest                            # 131 pruebas: NLU, diálogo, webhook, API, importación, modelo, hotel
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 20 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 22 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
-python tools/probar_nlu.py "quiero una pizza barbacoa familiar"
+python tools/probar_nlu.py "quiero una pizza barbacoa familiar"   # --agente hotel "…" para el grande
+python tools/build_hotel.py                 # regenera examples/hotel.json (y comprueba sus anotaciones)
 python tools/capturas_docs.py               # rehace las capturas de docs/img con la consola actual
 python tools/build_icons.py                 # rehace favicon.ico y los iconos PNG desde web/favicon.svg
 ```
@@ -283,9 +308,9 @@ app/
 web/               consola (HTML/CSS/JS sin compilación), api.html (referencia de la API),
                    widget.js, chat.html, logotipo e iconos, fuente Inter
 docs/              guía de uso e imágenes (la arquitectura está en CONTRIBUTING.md)
-examples/          agente de ejemplo (pizzería)
+examples/          agentes de ejemplo (pizzería y hotel), que se copian al arrancar
 tests/             pruebas automáticas (tests/e2e: navegador)
-tools/             benchmark, generador del ejemplo, prueba rápida del NLU, capturas e iconos
+tools/             benchmark, generadores de los ejemplos, prueba rápida del NLU, capturas e iconos
 ```
 
 **Para seguir desarrollando con Claude Code** en otro equipo: clona el repositorio y abre Claude

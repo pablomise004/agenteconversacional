@@ -90,6 +90,8 @@ def extract(text, lang="es"):
     ("a las cinco y cuarto", "@sys.time", "17:15:00"),
     ("a la una menos cuarto", "@sys.time", "12:45:00"),
     ("a las 17:30", "@sys.time", "17:30:00"),
+    ("despiértame a las 7", "@sys.time", "07:00:00"),  # habla de la mañana
+    ("mesa para cenar a las 9", "@sys.time", "21:00:00"),  # habla de la noche
     ("doscientos treinta y cinco", "@sys.number", 235),
     ("dos mil veintiséis", "@sys.number", 2026),
     ("3,5", "@sys.number", 3.5),
@@ -101,6 +103,23 @@ def extract(text, lang="es"):
 def test_entidades_sistema_es(text, entity, value):
     found, _ = extract(text)
     assert value in [v for (e, _t), v in found.items() if e == entity], found
+
+
+@pytest.mark.parametrize("text,dates", [
+    ("del 12 al 15 de octubre", ["2026-10-12", "2026-10-15"]),
+    ("entre el 12 y el 15 de octubre", ["2026-10-12", "2026-10-15"]),
+    ("del 30 al 2 de noviembre", ["2026-10-30", "2026-11-02"]),
+    ("del 30 de octubre al 2", ["2026-10-30", "2026-11-02"]),
+    ("llegamos el 12 de octubre y nos vamos el 15", ["2026-10-12", "2026-10-15"]),
+    ("del 12 al 15", ["2026-10-12", "2026-10-15"]),  # sin mes: los próximos días 12 y 15
+    ("para el 12", ["2026-10-12"]),
+    ("tengo 12 años", []),
+    ("la habitación 12", []),
+    ("quiero el 2", []),
+])
+def test_dias_sin_mes_en_rangos(text, dates):
+    found, _ = extract(text)
+    assert sorted(v for (e, _t), v in found.items() if e == "@sys.date") == dates
 
 
 def test_no_confunde_numeros_con_horas():
@@ -199,6 +218,33 @@ def test_varios_parametros_del_mismo_tipo():
     a = eng.analyze("necesito ir a Sevilla desde Bilbao")
     vals, _ = eng.extract_parameters(eng.intents["viaje"], a)
     assert vals == {"origen": "Bilbao", "destino": "Sevilla"}
+
+
+def test_numeros_del_mismo_tipo_por_la_palabra_siguiente():
+    """«para 3 noches para 2 personas»: la palabra de detrás decide qué número es cada uno."""
+    def ph(text, *spans):
+        anns = []
+        for value, param in spans:
+            start = text.index(value)
+            anns.append({"start": start, "end": start + len(value), "entity": "@sys.number", "param": param})
+        return {"text": text, "annotations": anns}
+
+    agent = {"language": "es", "entities": [], "intents": [{
+        "id": "r", "name": "reserva", "parameters": [
+            {"name": "huespedes", "entity": "@sys.number"}, {"name": "noches", "entity": "@sys.number"}],
+        "trainingPhrases": [
+            ph("quiero reservar 3 noches para 2 personas", ("3", "noches"), ("2", "huespedes")),
+            ph("una habitación para 4 personas", ("4", "huespedes")),
+            ph("somos 2 adultos", ("2", "huespedes")),
+            ph("para 5 noches", ("5", "noches")),
+            ph("nos quedamos 2 noches", ("2", "noches")),
+        ]}]}
+    eng = NLUEngine(agent)
+    for text, expected in [("para 3 noches para 2 personas", {"noches": 3, "huespedes": 2}),
+                           ("2 personas y 4 noches", {"noches": 4, "huespedes": 2}),
+                           ("para dos personas, tres noches", {"noches": 3, "huespedes": 2})]:
+        vals, _ = eng.extract_parameters(eng.intents["r"], eng.analyze(text))
+        assert vals == expected, text
 
 
 def test_sys_any_con_anclas():

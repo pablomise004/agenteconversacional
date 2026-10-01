@@ -10,13 +10,29 @@ conceptos son los mismos.
 ## Primeros pasos
 
 1. **Arranca la aplicación** con doble clic en `iniciar.bat` (Windows) o `./iniciar.sh`
-   (Linux/macOS). Se abre <http://localhost:8000> con el agente de ejemplo **Pizzería**.
+   (Linux/macOS). Se abre <http://localhost:8000> en la lista de agentes, con dos ejemplos:
+   la **Pizzería** y el **Hotel**. Entra en la Pizzería.
 2. **Habla con él** en el panel **Pruébalo** (a la derecha): «hola», «quiero una pizza»,
    «barbacoa», «grande». Verás que pregunta lo que falta y recuerda lo que ya le has dicho.
 3. **Mira qué ha entendido**: pulsa el nombre de la intención que aparece bajo cada respuesta.
 4. **Corrígelo** cuando se equivoque: 👎 y eliges la intención correcta. Aprende al instante.
 5. **Crea tu propio agente** en *Agentes → Crear agente* y empieza por 3 o 4 intenciones.
 6. **Muévete con Ctrl+K**: abre el buscador para saltar a cualquier pantalla, intención o entidad.
+
+### Los dos agentes de ejemplo
+
+- **Pizzería**: pequeña (19 intenciones) y fácil de seguir. Es la mejor para aprender: en la
+  página Entrenar se ve claro qué palabras pesan en cada intención.
+- **Hotel**: Mira, la recepcionista virtual del Hotel Mirador. Es grande (88 intenciones y más de
+  2.000 frases) y enseña hasta dónde se puede llegar: reservas con resumen y confirmación,
+  cambios («mejor para 3 personas») y cancelación usando contextos, peticiones a la habitación,
+  averías, quejas, spa, restaurante, traslados, turismo y charla. Prueba frases como «quiero una
+  suite del 3 al 6 de diciembre para 2 personas», «no se enciende la tele de la 215» o «¿me
+  subís dos toallas y una almohada a la 310?». Y frases que no tienen nada que ver: sabe decir
+  que eso no lo sabe.
+
+Si borras un ejemplo no vuelve a aparecer al reiniciar; puedes crear una copia nueva cuando
+quieras en *Agentes → Crear agente*, eligiendo la plantilla.
 
 ## Los conceptos
 
@@ -179,8 +195,15 @@ importa es cómo funciona con **frases nuevas**. El **examen** de la página Ent
 3. Comprueba cuántas de las escondidas acierta.
 4. Repite cinco veces, para que todas las frases se examinen una vez.
 
-El resultado es una buena estimación del acierto real. Además te dice **qué frases falla** y
-**con qué intención las confunde** (la matriz de confusión).
+Además te dice **qué frases falla** y **con qué intención las confunde** (la matriz de
+confusión).
+
+Es una estimación **prudente**. Si una frase escondida era la única de su estilo, el modelo
+duda, se queda por debajo del umbral y la cuenta como fallo aunque eligiera bien la intención.
+En agentes con frases muy variadas pasa mucho: el hotel saca un 65 % en el examen, pero con
+frases nuevas escritas por personas acierta 9 de cada 10. Lo útil del examen es **comparar**:
+si cambias algo y la nota sube, vas bien; y las intenciones de abajo de la tabla son las que
+piden más frases.
 
 > Un examen bajo en una intención casi siempre significa que necesita **más frases y más
 > variadas**. Si dos intenciones se confunden entre sí, sus frases se parecen demasiado:
@@ -209,6 +232,10 @@ frase de prueba aparece marcada para ver en qué zona cae.
 - **Revisa las conversaciones reales** en *Revisión*: lo que escribe la gente de verdad es el
   mejor material de entrenamiento.
 - **Haz el examen** de vez en cuando y fíjate en las intenciones con peor acierto.
+- **Pide a otra persona que escriba cómo lo diría.** Las frases que escribes tú se parecen entre
+  sí; las de otros sacan los huecos de verdad («¿hay algún súper cerca?», «gotea el grifo»).
+  Así se afinó el agente del hotel: cada ronda de frases nuevas, sus fallos se añadieron como
+  frases de entrenamiento.
 
 ## Diseñar conversaciones
 

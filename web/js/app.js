@@ -20,7 +20,7 @@ import * as guidePage from "./pages/guide.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.4.1";
+export const APP_VERSION = "0.5.0";
 
 export const state = {
   info: null,
@@ -311,9 +311,8 @@ async function route() {
   root.classList.remove("menu-open");
   const [path, qs] = hash.replace(/^#\/?/, "").split("?");
   const query = new URLSearchParams(qs || "");
-  if (!path) {
-    const first = state.agents[0];
-    navigate(first ? `#/a/${encodeURIComponent(first.id)}/intents` : "#/agents");
+  if (!path) {  // al entrar en la consola, la lista de agentes
+    navigate("#/agents");
     return;
   }
   let match = null, mod = null;

@@ -89,6 +89,50 @@ def top_features(engine: NLUEngine, k: int = 8, include_chars: bool = False) -> 
 
 
 # ------------------------------------------------------------------- mapa 2D
+def _sq_dists(Y: np.ndarray) -> np.ndarray:
+    """Distancias al cuadrado entre todas las filas: |a-b|² = |a|² + |b|² - 2·a·b
+    (sin crear la tabla n×n×dimensiones, que con 700 frases y 90 intenciones ocupa 350 MB)."""
+    sq = (Y * Y).sum(1)
+    D = Y @ Y.T
+    D *= -2.0
+    D += sq[:, None]
+    D += sq[None, :]
+    return np.maximum(D, 0.0, out=D)
+
+
+def _pull(W: np.ndarray, Z: np.ndarray) -> np.ndarray:
+    """Σ_j W_ij·(z_i - z_j) para cada punto, con productos de matrices."""
+    return Z * W.sum(1)[:, None] - W @ Z
+
+
+def _affinities(D: np.ndarray, perplexity: float, steps: int = 60, tol: float = 1e-4) -> np.ndarray:
+    """Para cada frase, una campana sobre las demás cuya anchura da la perplejidad (las
+    «vecinas efectivas»); se busca a la vez para todas las filas por bisección."""
+    n = len(D)
+    off = ~np.eye(n, dtype=bool)
+    # cada fila se mide desde su vecina más cercana (pesa exp(0) = 1): así nunca se anula todo
+    Dz = np.where(off, D, 0.0)
+    Dz -= np.where(off, D, np.inf).min(1)[:, None]
+    np.fill_diagonal(Dz, 0.0)
+    target = np.log(perplexity)
+    beta, lo, hi = np.ones(n), np.zeros(n), np.full(n, np.inf)
+    active = np.ones(n, dtype=bool)
+    for _ in range(steps):
+        E = np.exp(-Dz * beta[:, None])
+        np.fill_diagonal(E, 0.0)
+        total = E.sum(1)
+        H = np.log(total) + beta * (E * Dz).sum(1) / total  # entropía de cada fila
+        active &= np.abs(H - target) >= tol
+        if not active.any():
+            break
+        up, down = active & (H > target), active & (H <= target)
+        lo[up] = beta[up]
+        beta[up] = np.where(np.isinf(hi[up]), beta[up] * 2, (beta[up] + hi[up]) / 2)
+        hi[down] = beta[down]
+        beta[down] = (beta[down] + lo[down]) / 2
+    return E / total[:, None]
+
+
 def _tsne(Y: np.ndarray, perplexity: float = 20.0, iters: int = 400, seed: int = 0) -> np.ndarray:
     """t-SNE exacto y compacto (suficiente para unos cientos de frases)."""
     n = len(Y)
@@ -96,45 +140,24 @@ def _tsne(Y: np.ndarray, perplexity: float = 20.0, iters: int = 400, seed: int =
         return np.zeros((n, 2))
     perplexity = min(perplexity, max(2.0, (n - 1) / 3))
     rng = np.random.default_rng(seed)
-    D = ((Y[:, None, :] - Y[None, :, :]) ** 2).sum(-1)
-    P = np.zeros((n, n))
-    target = np.log(perplexity)
-    for i in range(n):
-        lo, hi, beta = 1e-20, 1e20, 1.0
-        p = np.zeros(n)
-        for _ in range(60):
-            p = np.exp(-D[i] * beta)
-            p[i] = 0.0
-            total = p.sum()
-            if total <= 0:
-                p[:] = 1.0 / (n - 1)
-                p[i] = 0.0
-                break
-            p /= total
-            nz = p[p > 0]
-            H = -(nz * np.log(nz)).sum()
-            if abs(H - target) < 1e-4:
-                break
-            if H > target:
-                lo = beta
-                beta = beta * 2 if hi >= 1e19 else (beta + hi) / 2
-            else:
-                hi = beta
-                beta = (beta + lo) / 2
-        P[i] = p
-    P = np.maximum((P + P.T) / (2 * n), 1e-12)
-    Z = rng.normal(0, 1e-4, (n, 2))
+    P = _affinities(_sq_dists(Y), perplexity)
+    # el descenso, en float32: la mitad de memoria que mover en cada vuelta y sobra precisión
+    P = np.maximum((P + P.T) / (2 * n), 1e-12).astype(np.float32)
+    P_early = 4.0 * P  # «exageración» inicial: separa antes los grupos
+    Z = rng.normal(0, 1e-4, (n, 2)).astype(np.float32)
     V = np.zeros_like(Z)
     for it in range(iters):
-        exaggeration = 4.0 if it < 100 else 1.0
-        diff = Z[:, None, :] - Z[None, :, :]
-        num = 1.0 / (1.0 + (diff ** 2).sum(-1))
+        num = _sq_dists(Z)
+        num += 1.0
+        np.reciprocal(num, out=num)
         np.fill_diagonal(num, 0.0)
-        Q = np.maximum(num / num.sum(), 1e-12)
-        G = 4.0 * (((exaggeration * P - Q) * num)[:, :, None] * diff).sum(1)
-        V = (0.5 if it < 250 else 0.8) * V - 100.0 * G
+        Q = num / num.sum()
+        np.maximum(Q, 1e-12, out=Q)
+        W = (P_early if it < 100 else P) - Q
+        W *= num
+        V = (0.5 if it < 250 else 0.8) * V - 400.0 * _pull(W, Z)
         Z = Z + V
-    return Z
+    return Z.astype(np.float64)
 
 
 def _relax(Z: np.ndarray, min_dist: float = 0.022, iters: int = 80) -> np.ndarray:
@@ -144,13 +167,12 @@ def _relax(Z: np.ndarray, min_dist: float = 0.022, iters: int = 80) -> np.ndarra
     igual); con esta repulsión de corto alcance cada frase se ve por separado."""
     Z = Z + np.random.default_rng(0).normal(0, 1e-4, Z.shape)
     for _ in range(iters):
-        diff = Z[:, None, :] - Z[None, :, :]
-        d = np.maximum(np.sqrt((diff ** 2).sum(-1)), 1e-6) + np.eye(len(Z))
+        d = np.maximum(np.sqrt(_sq_dists(Z)), 1e-6) + np.eye(len(Z))
         push = np.clip(min_dist - d, 0, None)
         np.fill_diagonal(push, 0.0)
         if not push.any():
             break
-        Z = np.clip(Z + 0.5 * ((push / d)[:, :, None] * diff).sum(1), 0.0, 1.0)
+        Z = np.clip(Z + 0.5 * _pull(push / d, Z), 0.0, 1.0)
     return Z
 
 

@@ -18,18 +18,20 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 - Preferencias ya expresadas: modo oscuro **clásico** (grises neutros, sin tintes azulados);
   quiere poder ver y entender el entrenamiento; quiere todo subido a GitHub; quiere una interfaz
   **moderna, con microanimaciones, tablas bonitas e intuitiva**, y la referencia de la API con el
-  mismo estilo que la consola.
+  mismo estilo que la consola. La pizzería le parece el ejemplo perfecto para aprender; el hotel
+  es para ver el potencial («que no parezca tonto ni se pierda con cualquier cosa»).
 
 ## Arranque y comandos
 
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser)
-python -m pytest                      # 90 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 20 pruebas en navegador real
+python -m pytest                      # 131 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 22 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
-python tools/probar_nlu.py "frase"    # prueba rápida del NLU con el agente de ejemplo
+python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
+python tools/build_hotel.py           # regenera examples/hotel.json y comprueba sus anotaciones
 python tools/capturas_docs.py         # rehace las capturas de docs/img (Playwright)
 python tools/build_icons.py           # rehace favicon.ico y web/icons/*.png desde web/favicon.svg
 ```
@@ -52,8 +54,13 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   `js/pages/learn.js` la página «Entrenar»; `js/charts.js` los gráficos; `js/markdown.js` pinta
   `docs/GUIA.md`. `css/app.css` tiene los colores, la fuente (Inter local, `web/fonts/`) y las
   animaciones; `css/api.css` lo propio de `/docs`.
-- `examples/pizzeria.json`: agente de ejemplo que se copia al arrancar sin agentes.
+- `examples/pizzeria.json` (pequeño, para aprender) y `examples/hotel.json` (88 intenciones, más de
+  2.000 frases, para enseñar el potencial): se copian una vez cada uno al arrancar
+  (`server.py:seed_examples`, marca en `data/seeded_examples.json`; un ejemplo borrado no vuelve).
+  Se generan con `tools/build_pizzeria.py` y `tools/build_hotel.py`: no editar el JSON a mano.
 - `tests/casos_pizzeria.py`: frases de calibración (en dominio, con contexto, fuera de dominio).
+  `tests/casos_hotel.py` y `tests/test_hotel.py`: lo mismo para el hotel, más conversaciones.
+- La consola abre en la lista de agentes (`#/agents`), no en un agente.
 
 ## Convenciones
 
@@ -88,6 +95,14 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - Los turnos de slot filling / cancelación / evento se registran con `review='none'` (no aparecen
   en Revisión).
 - El corrector no cambia la primera letra (salvo «h» muda).
+- El texto libre (`@sys.any` y demás `ANY_LIKE`) cuenta como palabras al entrenar, no como entidad:
+  al preguntar nunca se detecta. Al extraerlo se corta antes de otro dato de la intención y sin
+  muletillas delante.
+- Una plantilla con comodín no gana si el modelo ve más probable el fallback.
+- Parámetros del mismo tipo: se reparten por lo que llevaban a los lados en las anotaciones;
+  «un/una» solo es número si lo de detrás encaja.
+- Medir con frases nuevas escritas aparte (comprobando que no están ya en el entrenamiento): la
+  validación cruzada es pesimista con frases variadas (hotel: 65 % frente a 91,5 %).
 - Detalles y números de cada decisión: `CONTRIBUTING.md`.
 
 ## Entorno del ordenador original (Windows 11)
@@ -110,3 +125,5 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 4. Entidades compuestas; diccionarios para `@sys.geo-city` / `@sys.given-name`.
 5. Más idiomas (stemmers Snowball ya disponibles para fr/it/pt/de/ca/nl; faltan números y fechas).
 6. En la página Entrenar: animar también el examen ronda a ronda.
+7. Lista de intenciones agrupada por prefijo (`reserva.*`, `charla.*`…): con las 88 del hotel se
+   hace larga.

@@ -123,6 +123,7 @@
 
 /* ------------------------------------------------------------------- base */
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -831,6 +832,7 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 .agent-card.new .plus { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
   background: var(--panel-2); border: 1px solid var(--border); transition: transform .3s var(--spring); }
 .agent-card.new:hover .plus { transform: rotate(90deg); }
+.tpl-list { display: grid; gap: 8px; }
 .tpl-card { display: flex; gap: 11px; align-items: flex-start; padding: 12px; border: 1px solid var(--border-strong); border-radius: 12px;
   cursor: pointer; font-weight: 400; transition: border-color .15s, box-shadow .15s, background-color .15s; }
 .tpl-card:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border-strong)); }

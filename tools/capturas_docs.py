@@ -186,6 +186,22 @@ def scenes(browser, base, only):
         shot(page, "oscuro")
         page.context.close()
 
+    if want("hotel"):  # el ejemplo grande: reserva con resumen, un cambio y una avería
+        ctx = browser.new_context(viewport=SIZE, locale="es-ES")
+        page = ctx.new_page()
+        page.goto(base + "/#/a/hotel/intents")
+        page.wait_for_selector(".list-item")
+        for text in ["Quiero una suite del 3 al 6 de diciembre para 2 personas", "mejor para 3 personas",
+                     "no se enciende la tele de la 215"]:
+            before = page.locator(".sim .msg.bot").count()
+            page.fill(".sim-foot input", text)
+            page.press(".sim-foot input", "Enter")
+            # la primera respuesta tarda más: entrena el modelo del hotel
+            page.wait_for_function(f"document.querySelectorAll('.sim .msg.bot').length > {before}", timeout=30000)
+            page.wait_for_timeout(700)
+        shot(page, "hotel")
+        ctx.close()
+
     if want("api"):
         ctx = browser.new_context(viewport=SIZE, locale="es-ES")
         page = ctx.new_page()

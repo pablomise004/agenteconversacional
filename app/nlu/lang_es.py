@@ -104,6 +104,17 @@ CURRENCY_WORDS = {
 }
 PERCENT_WORDS = ("por ciento", "porciento", "%")
 
+# Si la frase habla de la mañana («despiértame a las 7», «desayuno a las 7»), «a las N»
+# no se pasa a la tarde. Son comienzos de palabra (sin tildes).
+MORNING_CUES = ("despert", "despiert", "levant", "madrug", "desayun", "tempran", "amanec")
+# Y al revés: «cenar a las 9» son las 21:00 (palabras completas: «3 noches» no cuenta)
+EVENING_CUES = frozenset({"cena", "cenar", "cenamos", "ceno", "cenaremos", "cenando", "noche"})
+
+# Muletillas que no forman parte de un texto libre (@sys.any) si van delante: en «oye, la luz
+# del baño no va» lo que no funciona es «la luz del baño»
+LEADING_FILLERS = frozenset({"oye", "oiga", "hola", "mira", "mire", "perdona", "perdone", "disculpa",
+                             "disculpe", "buenas", "bueno", "pues", "vale", "eh", "ey", "porfa"})
+
 # Palabras con las que el usuario abandona el relleno de parámetros (slot filling).
 # Solo cuentan si el mensaje entero está formado por estas palabras y las de relleno.
 CANCEL_WORDS = frozenset({

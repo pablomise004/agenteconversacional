@@ -36,6 +36,8 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = ROOT / "web"
 DOCS_DIR = ROOT / "docs"
 EXAMPLES_DIR = ROOT / "examples"
+# agentes de ejemplo (examples/<id>.json): la pizzería para aprender y el hotel para ver hasta dónde llega
+EXAMPLES = ("pizzeria", "hotel")
 
 APP_NAME = "Lince"
 mimetypes.add_type("application/manifest+json", ".webmanifest")
@@ -100,7 +102,8 @@ class CreateAgent(BaseModel):
     language: str = Field("es", description="Idioma: es o en")
     description: str = ""
     timezone: str = Field("Europe/Madrid", description="Zona horaria para «mañana», «el lunes»…")
-    template: str = Field("blank", description="blank (vacío) o pizzeria (copia del ejemplo)")
+    template: str = Field("blank", description="blank (vacío), pizzeria (copia del ejemplo para aprender) "
+                                               "u hotel (copia del ejemplo grande)")
 
     model_config = {"json_schema_extra": {"examples": [
         {"name": "Atención al cliente", "language": "es", "description": "Dudas sobre pedidos y envíos", "template": "blank"}]}}
@@ -172,13 +175,40 @@ class ReviewRequest(BaseModel):
     model_config = {"json_schema_extra": {"examples": [{"action": "approve"}, {"action": "assign", "intentId": "i019"}]}}
 
 
+def seed_examples(storage: Storage, data_dir: Path) -> None:
+    """Copia cada agente de ejemplo la primera vez que arranca el servidor con él.
+
+    En data/seeded_examples.json se apunta cuáles se han copiado ya, así que un ejemplo
+    borrado no vuelve al reiniciar. Las instalaciones de antes de esta marca ya tenían la
+    pizzería (se copiaba siempre que no había agentes) y reciben solo los nuevos.
+    """
+    marker = data_dir / "seeded_examples.json"
+    try:
+        seeded = set(json.loads(marker.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        seeded = {"pizzeria"} if storage.list_agents() else set()
+    changed = False
+    for name in EXAMPLES:
+        path = EXAMPLES_DIR / f"{name}.json"
+        if name in seeded or not path.exists():
+            continue
+        agent = json.loads(path.read_text(encoding="utf-8"))
+        if storage.has_agent(agent["id"]):  # el usuario ya tiene uno con ese id: no se pisa
+            agent["id"] = storage.unique_id(agent["name"])
+        storage.save_agent(agent)
+        seeded.add(name)
+        changed = True
+    if changed or not marker.exists():
+        try:
+            marker.write_text(json.dumps(sorted(seeded)) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+
+
 def create_app(data_dir: Path | None = None) -> FastAPI:
     data_dir = Path(data_dir or os.environ.get("AGENTE_DATA_DIR") or ROOT / "data")
     storage = Storage(data_dir)
-    if not storage.list_agents():
-        example = EXAMPLES_DIR / "pizzeria.json"
-        if example.exists():
-            storage.save_agent(json.loads(example.read_text(encoding="utf-8")))
+    seed_examples(storage, data_dir)
     engines = EngineCache(storage)
     dialog = DialogManager(storage, engines)
     admin_token = os.environ.get("AGENTE_ADMIN_TOKEN", "").strip()
@@ -293,9 +323,10 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     @app.post("/api/agents", tags=["agentes"], dependencies=ADMIN, status_code=201, summary="Crear un agente")
     def create_agent(req: CreateAgent):
-        """Crea un agente vacío (bienvenida y fallback) o una copia del ejemplo de la pizzería."""
-        if req.template == "pizzeria" and (EXAMPLES_DIR / "pizzeria.json").exists():
-            agent = json.loads((EXAMPLES_DIR / "pizzeria.json").read_text(encoding="utf-8"))
+        """Crea un agente vacío (bienvenida y fallback) o una copia de un ejemplo: la pizzería o el hotel."""
+        example = EXAMPLES_DIR / f"{req.template}.json"
+        if req.template in EXAMPLES and example.exists():
+            agent = json.loads(example.read_text(encoding="utf-8"))
             agent["name"] = req.name
         else:
             agent = blank_agent(req.name, req.language if req.language in SUPPORTED_LANGUAGES else "es",

@@ -17,12 +17,37 @@ def client(tmp_path, monkeypatch):
     return TestClient(create_app(tmp_path))
 
 
-def test_arranca_con_agente_de_ejemplo(client):
+def test_arranca_con_agentes_de_ejemplo(client):
     agents = client.get("/api/agents").json()
-    assert [a["id"] for a in agents] == ["pizzeria"]
+    assert sorted(a["id"] for a in agents) == ["hotel", "pizzeria"]
     assert client.get("/").status_code == 200
     assert client.get("/widget.js").status_code == 200
     assert client.get("/chat").status_code == 200
+
+
+def test_ejemplos_se_copian_una_vez(tmp_path, monkeypatch):
+    monkeypatch.delenv("AGENTE_ADMIN_TOKEN", raising=False)
+    c = TestClient(create_app(tmp_path))
+    assert c.delete("/api/agents/hotel").status_code in (200, 204)
+    c = TestClient(create_app(tmp_path))  # reiniciar no devuelve el ejemplo borrado
+    assert [a["id"] for a in c.get("/api/agents").json()] == ["pizzeria"]
+
+
+def test_instalacion_anterior_recibe_solo_el_hotel(tmp_path, monkeypatch):
+    """Antes solo se copiaba la pizzería (sin marca); si se borró, no vuelve, pero llega el hotel."""
+    monkeypatch.delenv("AGENTE_ADMIN_TOKEN", raising=False)
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "agents" / "mio.json").write_text(json.dumps({"id": "mio", "name": "Mío", "intents": []}),
+                                                   encoding="utf-8")
+    c = TestClient(create_app(tmp_path))
+    assert sorted(a["id"] for a in c.get("/api/agents").json()) == ["hotel", "mio"]
+
+
+def test_crear_agente_desde_ejemplo(client):
+    res = client.post("/api/agents", json={"name": "Mi hotel", "template": "hotel"})
+    assert res.status_code == 201
+    agent = res.json()
+    assert agent["id"] == "mi-hotel" and agent["name"] == "Mi hotel" and len(agent["intents"]) > 80
 
 
 def test_consola_api_y_recursos(client):

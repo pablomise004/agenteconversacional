@@ -503,6 +503,8 @@ async function start() {
   try { serverInfo = await getJSON("/api/info"); } catch (e) { serverInfo = null; }
   const loadAgents = async () => {
     try { agents = await getJSON("/api/agents"); } catch (e) { agents = []; }
+    // los ejemplos de esta página están escritos para la pizzería: si existe, va la primera
+    agents.sort((a, b) => (b.id === "pizzeria") - (a.id === "pizzeria"));
     agentDetails.clear();
   };
   await loadAgents();

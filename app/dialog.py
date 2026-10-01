@@ -20,6 +20,7 @@ from collections import defaultdict
 
 from . import webhook
 from .nlu.engine import Analysis, NLUEngine, entity_kind
+from .nlu.sys_entities import ANY_LIKE
 from .responses import build_messages, fulfillment_text, render
 from .storage import Storage
 
@@ -149,6 +150,11 @@ class DialogManager:
                 pending = pdefs.get(slot.get("param"))
                 got = engine.fill_slot(pending, a) if pending else None
                 extra, extra_orig = engine.extract_parameters(sf_intent, a)
+                # texto libre («a nombre de Laura Gómez»): si las frases de ejemplo enseñan
+                # dónde va el valor, mejor eso que el mensaje entero
+                if got and pending and pending["name"] in extra \
+                        and entity_kind(pending.get("entity", "")) in ANY_LIKE:
+                    got = (extra[pending["name"]], extra_orig.get(pending["name"], extra[pending["name"]]))
                 if got:
                     slot["params"][pending["name"]] = got[0]
                     slot["originals"][pending["name"]] = got[1]
@@ -212,7 +218,7 @@ class DialogManager:
                     turn["messages"] = self._prompt(p, state["slot"], lang, render_ctx)
                     turn["allRequired"] = False
                 else:
-                    self._complete(agent, engine, intent, turn, render_ctx, settings)
+                    self._complete(agent, engine, intent, turn, render_ctx, settings, state)
         turn["action"] = (intent or {}).get("action", "")
 
         # ------------------------------------------------ 4. webhook
@@ -356,7 +362,7 @@ class DialogManager:
                 turn["params"][name] = value
                 turn["originals"].setdefault(name, value if isinstance(value, str) else dv)
 
-    def _complete(self, agent, engine, intent, turn, render_ctx, settings) -> None:
+    def _complete(self, agent, engine, intent, turn, render_ctx, settings, state=None) -> None:
         """La intención tiene todo lo necesario: contextos de salida y respuesta."""
         lang = agent.get("language", "es")
         if intent.get("resetContexts"):
@@ -374,6 +380,19 @@ class DialogManager:
                 render_ctx[name] = turn["set_contexts"][name]
         turn["messages"] = build_messages(intent, turn["params"], turn["originals"], render_ctx, lang,
                                           self.rng)
+        # con varias variantes, no repetir la de la última vez («otro chiste» cuenta otro)
+        if state is not None:
+            said = state.setdefault("said", {})
+            variants = sum(len(r.get("variants") or []) for r in intent.get("responses") or []
+                           if r.get("type") == "text")
+            first = lambda: next((m["text"] for m in turn["messages"] if m["type"] == "text"), None)  # noqa: E731
+            for _ in range(6):
+                if variants < 2 or first() != said.get(intent["id"]):
+                    break
+                turn["messages"] = build_messages(intent, turn["params"], turn["originals"], render_ctx,
+                                                  lang, self.rng)
+            if first():
+                said[intent["id"]] = first()
         if not turn["messages"] and intent.get("isFallback"):
             turn["messages"] = [{"type": "text", "text": engine.language.res.TEXTS["fallback"]}]
         turn["end"] = bool(intent.get("endConversation"))

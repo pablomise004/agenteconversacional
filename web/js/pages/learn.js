@@ -18,14 +18,15 @@ function tile(ic, label, value, fmt, sub) {
 export async function render(el, _params, query) {
   const agentId = state.agent.id;
   const page = h("div", { class: "page learn" });
-  el.append(page);
   let model;
   try {
-    model = await api.model(agentId);
+    model = await api.model(agentId);  // mientras llega, el router enseña el esqueleto de carga
   } catch (e) {
+    el.append(page);
     page.append(h("div", { class: "notice danger" }, icon("alert"), e.message));
     return null;
   }
+  el.append(page);
   let explained = null;
   let mapA = null;
   let mapB = null;
@@ -72,6 +73,13 @@ export async function render(el, _params, query) {
     try { return await api.explain(agentId, text); } catch (e) { return null; }
   }
 
+  // «doble» y «suite» pasan a ser «@habitacion»: con una entidad del propio agente si la hay
+  function entitySample() {
+    const ent = (state.agent.entities || []).find((e) => (e.entries || []).length >= 2);
+    if (!ent) return "«mañana» y «el lunes» pasan a ser «@sys.date»";
+    return `«${ent.entries[0].value}» y «${ent.entries[1].value}» pasan a ser «@${ent.name}»`;
+  }
+
   async function drawSteps() {
     const r = model.report;
     const ex = r.example ? await exampleExplain(r.example) : null;
@@ -102,7 +110,7 @@ export async function render(el, _params, query) {
         title: "Marcar las entidades",
         time: null,
         text: `${int(r.annotations)} entidades anotadas en las frases.`,
-        more: "Lo marcado como entidad se sustituye por su tipo: «una barbacoa» y «una hawaiana» pasan a ser «una @pizza». Así aprende la estructura de la frase y no cada valor por separado.",
+        more: `Lo marcado como entidad se sustituye por su tipo: ${entitySample()}. Así aprende la estructura de la frase y no cada valor por separado.`,
         viz: () => ex ? placeholderView(ex) : null,
       },
       {
@@ -287,17 +295,40 @@ export async function render(el, _params, query) {
     includeChars = e.target.checked;
     try { model = await api.model(agentId, { chars: includeChars }); drawLearned(); } catch (err) { errorToast(err); }
   } }), "Incluir trozos de letras");
+  // con muchas intenciones se ven primero las que tienen más frases, con un buscador
+  const LEARNED_LIMIT = 12;
+  let learnedAll = false;
+  const learnedSearch = h("input", { type: "search", placeholder: "Buscar intención…", "aria-label": "Buscar intención",
+    style: { width: "250px", maxWidth: "100%" }, oninput: () => drawLearned() });
+  const learnedNote = h("span", { class: "faint small" });
+  const learnedTools = h("div", { class: "row wrap", style: { gap: "12px", marginBottom: "14px" } }, learnedSearch, learnedNote);
+  const learnedMore = h("button", { class: "btn sm", type: "button", style: { marginTop: "14px" },
+    onclick: () => { learnedAll = true; drawLearned(); } });
   page.append(h("div", { class: "card" },
     h("div", { class: "card-head" }, icon("cpu"), h("h2", null, "Lo que ha aprendido cada intención"), h("span", { class: "spacer" }), charsToggle),
     h("div", { class: "card-body" },
       h("p", { class: "muted small", style: { margin: "0 0 12px" } }, "Los rasgos con más peso a favor de cada intención: cuanto más larga la barra, más empuja una frase hacia ella. Si ves palabras poco útiles (como «lo» o «con»), añade frases más variadas."),
-      learnedBox)));
+      learnedTools, learnedBox, learnedMore)));
 
   function drawLearned() {
     clear(learnedBox);
     const items = model.topFeatures.filter((i) => i.features.length);
+    const many = items.length > LEARNED_LIMIT + 3;
+    learnedTools.hidden = !many;
+    learnedMore.hidden = true;
     if (!items.length) { learnedBox.append(h("div", { class: "notice" }, icon("info"), "Hacen falta al menos dos intenciones con frases para que haya algo que aprender.")); return; }
-    learnedBox.append(h("div", { class: "multiples" }, items.map((it) => h("div", { class: "multiple" },
+    const q = learnedSearch.value.trim().toLowerCase();
+    let shown = items.filter((it) => !q || it.name.toLowerCase().includes(q));
+    const limited = many && !learnedAll && !q;
+    if (limited) {
+      shown = [...shown].sort((a, b) => b.phrases - a.phrases).slice(0, LEARNED_LIMIT);
+      learnedMore.hidden = false;
+      learnedMore.textContent = `Ver las ${int(items.length)} intenciones`;
+    }
+    learnedNote.textContent = limited ? `Las ${LEARNED_LIMIT} con más frases de ${int(items.length)}`
+      : q ? `${int(shown.length)} de ${int(items.length)}` : "";
+    if (!shown.length) { learnedBox.append(h("div", { class: "notice" }, icon("info"), "Ninguna intención se llama así.")); return; }
+    learnedBox.append(h("div", { class: "multiples" }, shown.map((it) => h("div", { class: "multiple" },
       h("div", { class: "row" }, h("a", { href: agentPath("intents/" + encodeURIComponent(it.id)), class: "multiple-title" }, it.name),
         h("span", { class: "spacer" }), h("span", { class: "faint small" }, it.isFallback ? "negativos" : `${it.phrases} frases`)),
       barList({ items: it.features.slice(0, 6).map((f) => ({ label: f.label, sub: KIND_SHORT[f.kind], value: f.weight,
@@ -323,10 +354,12 @@ export async function render(el, _params, query) {
   function drawMap() {
     const pts = model.projection.points;
     const intents = state.agent.intents.filter((i) => pts.some((p) => p.intentId === i.id)).sort((x, y) => x.name.localeCompare(y.name));
-    if (!mapA && intents.length) {
+    if (!mapA && intents.length) {  // la intención con más puntos (sin contar los ejemplos negativos)
       const counts = {};
       pts.forEach((p) => { counts[p.intentId] = (counts[p.intentId] || 0) + 1; });
-      mapA = intents.reduce((best, i) => (counts[i.id] > (counts[best] || 0) ? i.id : best), intents[0].id);
+      const pool = intents.filter((i) => !i.isFallback);
+      const candidates = pool.length ? pool : intents;
+      mapA = candidates.reduce((best, i) => (counts[i.id] > (counts[best] || 0) ? i.id : best), candidates[0].id);
     }
     const fill = (sel, value, allowEmpty) => {
       clear(sel);
@@ -347,11 +380,13 @@ export async function render(el, _params, query) {
   page.append(h("div", { class: "card" },
     h("div", { class: "card-head" }, icon("target"), h("h2", null, "Examen: ¿acierta con frases que no ha visto?"), h("span", { class: "spacer" }), examBtn),
     h("div", { class: "card-body col", style: { gap: "14px" } },
-      h("p", { class: "muted small", style: { margin: 0 } }, "Validación cruzada: esconde 1 de cada 5 frases, entrena con el resto y comprueba si acierta las escondidas. Lo repite 5 veces para que todas las frases se examinen una vez. Es la mejor estimación de cómo funcionará con usuarios reales."),
+      h("p", { class: "muted small", style: { margin: 0 } }, "Validación cruzada: esconde 1 de cada 5 frases, entrena con el resto y comprueba si acierta las escondidas. Lo repite 5 veces para que todas las frases se examinen una vez. Es una estimación prudente: si una frase escondida era la única de su estilo, el modelo duda, se queda por debajo del umbral y cuenta como fallo aunque eligiera bien la intención."),
       examBox)));
 
   async function runExam() {
-    clear(examBox).append(h("div", { class: "notice" }, h("span", { class: "spinner" }), "Examinando… (entrena el modelo 5 veces)"));
+    const phrases = state.agent.intents.reduce((n, i) => n + (i.trainingPhrases || []).length, 0);
+    const wait = phrases > 800 ? `; con ${int(phrases)} frases tarda unos ${Math.round(phrases / 120)} segundos` : "";
+    clear(examBox).append(h("div", { class: "notice" }, h("span", { class: "spinner" }), `Examinando… (entrena el modelo 5 veces${wait})`));
     try {
       model.evaluation = await busy(examBtn, () => api.evaluate(agentId));
       drawExam();
@@ -376,6 +411,7 @@ export async function render(el, _params, query) {
     stagger(tiles);
     examBox.append(dataTable({
       rows: ev.perIntent,
+      scroll: ev.perIntent.length > 15,
       sort: { col: 2, dir: "asc" },
       columns: [
         { label: "Intención", key: "name", render: (r) => r.id === "__fallback__" ? r.name : h("a", { href: agentPath("intents/" + encodeURIComponent(r.id)) }, r.name) },
@@ -392,7 +428,9 @@ export async function render(el, _params, query) {
       h("div", { class: "muted small", style: { margin: "8px 0" } }, "Cada fila es la intención real y cada columna lo que entendió. Lo ideal es que todo esté en la diagonal."),
       heatmap({ labels: ev.matrix.labels, counts: ev.matrix.counts })));
     if (ev.errors.length) {
-      examBox.append(h("div", { class: "section-title" }, `Frases que ha fallado (${ev.errors.length})`),
+      const listed = Math.min(ev.errors.length, 60);
+      examBox.append(h("div", { class: "section-title" }, `Frases que ha fallado (${int(ev.errors.length)}` +
+        (listed < ev.errors.length ? `; aquí las ${listed} primeras)` : ")")),
         dataTable({
           rows: ev.errors.slice(0, 60), scroll: true,
           columns: [

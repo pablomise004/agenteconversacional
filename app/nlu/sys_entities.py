@@ -490,6 +490,8 @@ class SysEntityExtractor:
         today = c.today
         if w == "hoy":
             return i + 1, today
+        if w == "esta" and c.w(i + 1) in ("manana", "tarde", "noche"):  # «esta noche» es hoy
+            return i + 2, today
         if w == "pasado" and c.w(i + 1) == "manana":
             return i + 2, today + timedelta(days=2)
         if w == "manana" and c.w(i - 1) not in ("la", "esta", "cada", "las", "una"):
@@ -582,7 +584,8 @@ class SysEntityExtractor:
                     nm = _add_months(c.today.replace(day=1), 1)
                     d = _safe_date(nm.year, nm.month, day)
                 return (j, d) if d else None
-            return None
+            d = self._range_day_es(c, i, j, day)
+            return (j, d) if d else None
         j = k + 1
         year = None
         k = j + 1 if c.w(j) in ("de", "del") else j
@@ -595,6 +598,99 @@ class SysEntityExtractor:
         else:
             d = _upcoming(c.today, month, day)
         return (j, d) if d else None
+
+    # palabras que, delante de «el N», indican que N es un día del mes
+    _DAY_CUES = frozenset({"para", "desde", "hasta", "llegamos", "llego", "llegaremos", "llegare",
+                           "llegaria", "llegariamos", "entramos", "entro", "salimos", "salgo",
+                           "volvemos", "vuelvo", "venimos", "vengo", "vamos", "voy", "marcho",
+                           "marchamos"})
+    _RANGE_OPEN = ("del", "desde", "entre")
+    _RANGE_JOIN = [("al",), ("y", "el"), ("y",), ("hasta", "el"), ("hasta",)]
+
+    def _range_day_es(self, c: _Ctx, i: int, j: int, day: int) -> date | None:
+        """¿Es una fecha un día sin mes? Solo con pistas claras:
+
+        - rango con el mes en un extremo: «del 12 al 15 de octubre», «entre el 12 y el 15
+          de octubre», «del 12 de octubre al 15», «llegamos el 12 de octubre y nos vamos el 15»;
+        - rango sin mes: «del 12 al 15», «desde el 12 hasta el 15» (próximos días 12 y 15);
+        - «para el 12», «a partir del 12», «llegamos el 12» (el próximo día 12).
+        «del 12» suelto o «12 años» no son fechas."""
+        if getattr(c, "in_range", False):  # al mirar el otro extremo, ese tiene que llevar mes
+            return None
+        c.in_range = True
+        try:
+            return self._bare_day(c, i, j, day)
+        finally:
+            c.in_range = False
+
+    @staticmethod
+    def _next_day(today: date, day: int) -> date | None:
+        """El próximo día `day` del mes: este mes si aún no ha pasado, si no el siguiente."""
+        d = _safe_date(today.year, today.month, day)
+        if d is None or d < today:
+            nm = _add_months(today.replace(day=1), 1)
+            d = _safe_date(nm.year, nm.month, day)
+        return d
+
+    def _bare_day(self, c: _Ctx, i: int, j: int, day: int) -> date | None:
+        start = i + 1 if c.w(i) == "el" else i  # posición del número
+        p = start - 1  # palabra de delante (saltando «el»)
+        article = c.w(p) == "el"
+        if article:
+            p -= 1
+        # 1. el mes viene detrás: «12 al 15 de octubre»
+        k = c.any_seq(j, self._RANGE_JOIN)
+        later_day = c.int_at(k, 1, 31) if k is not None else None
+        if later_day:
+            later = self._abs_date_es(c, k)
+            if later:
+                end = later[1]
+                d = _safe_date(end.year, end.month, day)
+                if d and d > end:  # «del 30 al 2 de noviembre»: el 30 es de octubre
+                    prev = _add_months(end.replace(day=1), -1)
+                    d = _safe_date(prev.year, prev.month, day)
+                return d
+        # 2. el mes iba delante: «12 de octubre al 15», «el 12 de octubre y nos vamos el 15»
+        connector = c.w(p) in ("al", "y", "hasta")
+        if connector or article:
+            window = 6 if connector else 9
+            for back in range(p - 1, max(p - window, -1), -1):
+                if self.res.MONTHS.get(c.w(back)) is None:
+                    continue
+                first = None
+                for s in range(back - 1, max(back - 4, -1), -1):  # el día de ese mes
+                    r = self._abs_date_es(c, s)
+                    if r and r[0] > back:
+                        first = r[1]
+                        break
+                if first is None:
+                    break
+                d = _safe_date(first.year, first.month, day)
+                if d and d < first:  # «del 30 de octubre al 2»: el 2 es de noviembre
+                    nxt = _add_months(first.replace(day=1), 1)
+                    d = _safe_date(nxt.year, nxt.month, day)
+                return d
+        # 3. rango sin mes: primer extremo («del 12 al 15») ...
+        if c.w(p) in self._RANGE_OPEN and later_day and later_day[1] > day:
+            return self._next_day(c.today, day)
+        # ... y segundo extremo (el mes del primero)
+        if connector:
+            q = p - 1
+            while q >= 0 and c.t[q].kind == "symbol":
+                q -= 1
+            first_day = c.int_at(q, 1, 31)
+            o = q - 1
+            if c.w(o) == "el":
+                o -= 1
+            if first_day and first_day[0] == p and c.w(o) in self._RANGE_OPEN and day > first_day[1]:
+                first = self._next_day(c.today, first_day[1])
+                return _safe_date(first.year, first.month, day) if first else None
+        # 4. un día suelto con pista: «para el 12», «a partir del 12», «llegamos el 12»
+        if article and c.w(p) in self._DAY_CUES:
+            return self._next_day(c.today, day)
+        if c.w(p) == "del" and c.w(p - 1) == "partir":
+            return self._next_day(c.today, day)
+        return None
 
     def _rel_offset(self, c: _Ctx, i: int):
         sign = 1
@@ -815,7 +911,7 @@ class SysEntityExtractor:
         return best
 
     @staticmethod
-    def _apply_qualifier(h: int, q: str | None, heuristic: bool) -> int:
+    def _apply_qualifier(h: int, q: str | None, heuristic: bool, part: str | None = None) -> int:
         if q == "am":
             return 0 if h == 12 else h
         if q == "pm":
@@ -828,9 +924,23 @@ class SysEntityExtractor:
             return h + 12 if 1 <= h <= 4 else h
         if q in ("madrugada", "manana"):
             return 0 if (q == "madrugada" and h == 12) else h
-        if q is None and heuristic and 1 <= h <= 7:
-            return h + 12  # "a las 5" -> 17:00 (lo más habitual en conversación)
+        if q is None and heuristic and part != "morning":
+            if 1 <= h <= 7:
+                return h + 12  # "a las 5" -> 17:00 (lo más habitual en conversación)
+            if part == "evening" and 8 <= h <= 11:
+                return h + 12  # "cenar a las 9" -> 21:00
         return h
+
+    def _day_part(self, c: _Ctx) -> str | None:
+        """¿Habla la frase de la mañana o de la noche? «despiértame a las 7» son las 7:00
+        y «cenar a las 9», las 21:00. Si habla de las dos cosas, no se decide."""
+        words = [t.norm for t in c.t if t.kind == "word"]
+        morning_cues = getattr(self.res, "MORNING_CUES", ())
+        morning = bool(morning_cues) and any(w.startswith(morning_cues) for w in words)
+        evening = any(w in getattr(self.res, "EVENING_CUES", ()) for w in words)
+        if morning != evening:
+            return "morning" if morning else "evening"
+        return None
 
     def _time_es(self, c: _Ctx, i: int):
         w = c.w(i)
@@ -899,7 +1009,8 @@ class SysEntityExtractor:
             return None
         if q is None and not explicit and j < c.n and c.t[j].kind == "word"                 and c.w(j) not in self._time_follow:
             return None  # "quiero las dos pizzas" no es una hora
-        h = self._apply_qualifier(h, q, heuristic=has_las and not explicit)
+        heuristic = has_las and not explicit
+        h = self._apply_qualifier(h, q, heuristic, self._day_part(c) if heuristic else None)
         if minutes < 0:
             h, minutes = (h - 1) % 24, 60 + minutes
         if not (0 <= h <= 24 and 0 <= minutes < 60):

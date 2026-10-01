@@ -1,6 +1,7 @@
-"""Prueba rápida del motor de NLU con el agente de ejemplo.
+"""Prueba rápida del motor de NLU con un agente de ejemplo (la pizzería si no se dice otro).
 
 Uso: python tools/probar_nlu.py "quiero una pizza barbacoa familiar"
+     python tools/probar_nlu.py --agente hotel "no se enciende la tele de la 215"
 """
 import json
 import sys
@@ -9,10 +10,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.nlu.engine import NLUEngine  # noqa: E402
 
-agent = json.loads((Path(__file__).resolve().parent.parent / "examples" / "pizzeria.json")
+args = sys.argv[1:]
+nombre = "pizzeria"
+if len(args) >= 2 and args[0] in ("--agente", "-a"):
+    nombre, args = args[1], args[2:]
+agent = json.loads((Path(__file__).resolve().parent.parent / "examples" / f"{nombre}.json")
                    .read_text(encoding="utf-8"))
 engine = NLUEngine(agent)
-texto = " ".join(sys.argv[1:]) or "quiero reservar mesa para 4 mañana a las 9 de la noche"
+texto = " ".join(args) or "quiero reservar mesa para 4 mañana a las 9 de la noche"
 a = engine.analyze(texto, neighbors=3)
 print("Texto:", texto)
 print("Tokens:", " | ".join(t.norm + (f"->{t.corrected}" if t.corrected else "") for t in a.tokens))
