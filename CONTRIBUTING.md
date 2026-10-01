@@ -1,8 +1,35 @@
-# Arquitectura
+# Arquitectura y guía para desarrolladores
 
-Referencia técnica para desarrollar el proyecto: cómo está organizado, cómo funciona cada pieza,
-qué formato tienen los datos y por qué se tomó cada decisión. Para usarlo, mejor la
-[guía de uso](GUIA.md).
+Todo lo necesario para entender el código y seguir desarrollándolo: cómo está organizado, cómo
+funciona cada pieza, qué formato tienen los datos y por qué se tomó cada decisión. Para *usar* la
+aplicación, mejor la [guía de uso](docs/GUIA.md).
+
+> GitHub muestra este fichero en la pestaña **Contributing** de la portada del repositorio (solo
+> admite pestañas con nombres fijos: README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT y SECURITY).
+
+## Cómo desarrollar
+
+1. Prepara el entorno:
+
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate          # Linux/macOS: source .venv/bin/activate
+   pip install -r requirements-dev.txt
+   ```
+
+2. Arranca la consola con `python -m app` (<http://localhost:8000>). Tras cambiar código Python
+   reinicia el servidor; para los cambios en `web/` basta con recargar el navegador.
+3. Antes de subir cambios, pasa las pruebas (detalles en [Pruebas](#pruebas)):
+   - `python -m pytest`: deben pasar todas.
+   - Si tocas la consola: `pip install playwright` y `python -m pytest tests/e2e -m e2e`.
+   - Si tocas el clasificador: `python tools/benchmark_massive.py` y compara con 59 % (10 frases
+     por intención) y 65,6 % (20 frases).
+4. Convenciones:
+   - identificadores en inglés; comentarios, textos de la interfaz y documentación en español;
+   - sin dependencias pesadas (ni scikit-learn ni frameworks de JavaScript);
+   - todo agente pasa por `normalize_agent()`; en la web el DOM se crea con `h()`, nunca con
+     `innerHTML` a partir de datos del usuario;
+   - commits en español que expliquen el cambio y el motivo.
 
 ## Visión general
 

@@ -26,7 +26,7 @@ abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada fras
 - [Hoja de ruta](#hoja-de-ruta)
 
 Documentación completa: **[Guía de uso](docs/GUIA.md)** (también dentro de la aplicación, en
-*Guía*) y **[Arquitectura](docs/ARQUITECTURA.md)** (detalles técnicos para desarrollar).
+*Guía*) y **[Arquitectura y guía para desarrolladores](CONTRIBUTING.md)** (pestaña *Contributing*).
 
 ## Qué incluye
 
@@ -226,7 +226,7 @@ en español, muchas muy parecidas entre sí): **65 % de acierto con 20 frases po
 mucho más: con el de ejemplo, 74 de 76 frases de prueba nunca vistas (con faltas y sin tildes), y
 rechaza 22 de 25 frases fuera de tema.
 
-Más detalles (fórmulas, decisiones de diseño, formato de datos): [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
+Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Desarrollo
 
@@ -252,7 +252,7 @@ app/
   validation.py    avisos de calidad del agente
   nlu/             motor de lenguaje: tokenizador, stemmer, entidades, clasificador, motor, insights
 web/               consola (HTML/CSS/JS sin compilación), widget.js y chat.html
-docs/              guía de uso, arquitectura e imágenes
+docs/              guía de uso e imágenes (la arquitectura está en CONTRIBUTING.md)
 examples/          agente de ejemplo (pizzería)
 tests/             pruebas automáticas (tests/e2e: navegador)
 tools/             benchmark, generador del ejemplo, prueba rápida del NLU

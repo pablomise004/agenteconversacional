@@ -11,7 +11,8 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
   documentación y los mensajes van en español.
 - Trabaja desde varios ordenadores: el contexto del proyecto vive en este fichero, en
   `README.md`, `docs/GUIA.md` (guía de uso, también se muestra dentro de la consola) y
-  `docs/ARQUITECTURA.md` (referencia técnica detallada: léela antes de tocar el NLU).
+  `CONTRIBUTING.md` (arquitectura y referencia técnica detallada: léela antes de tocar el NLU;
+  se llama así para que GitHub la muestre como pestaña junto al README).
 - Preferencias ya expresadas: modo oscuro **clásico** (grises neutros, sin tintes azulados);
   quiere poder ver y entender el entrenamiento; quiere todo subido a GitHub.
 
@@ -67,7 +68,7 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - Los turnos de slot filling / cancelación / evento se registran con `review='none'` (no aparecen
   en Revisión).
 - El corrector no cambia la primera letra (salvo «h» muda).
-- Detalles y números de cada decisión: `docs/ARQUITECTURA.md`.
+- Detalles y números de cada decisión: `CONTRIBUTING.md`.
 
 ## Entorno del ordenador original (Windows 11)
 
