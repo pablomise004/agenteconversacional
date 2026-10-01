@@ -3,77 +3,60 @@
 Alternativa libre y local a Dialogflow ES. Interfaz y documentación en español; identificadores
 de código en inglés, comentarios en español. Python 3.11+ (probado 3.13, Windows 11).
 
-## Decisiones de diseño (ya tomadas)
+## Estado (versión 0.2.0)
 
-- **Backend**: FastAPI + uvicorn. Sin Node: la consola web será HTML/CSS/JS vanilla (módulos ES,
-  sin paso de compilación) servida por FastAPI desde `web/`.
-- **Almacenamiento**: cada agente en `data/agents/<id>.json` (fácil de versionar/exportar);
-  conversaciones, logs y sesiones en SQLite `data/runtime.sqlite3`. `data/` va en .gitignore.
-  Al arrancar sin agentes, copiar `examples/pizzeria.json`.
-- **NLU propio** (en `app/nlu/`, hecho y probado a mano):
-  - Texto normalizado sin tildes (ñ→n), elongaciones y risas normalizadas, abreviaturas de chat.
-  - Stemmer español propio sobre texto sin tildes (consistencia con/sin tildes).
-  - Entidades de sistema en `sys_entities.py` (fechas relativas/absolutas, horas con
-    "de la tarde", "menos cuarto", duraciones, moneda, %, teléfono, email, url, ordinales,
-    números en palabras). "a las 5" sin calificador → 17:00 (1-7 → tarde). Probado con muchas
-    frases en español e inglés.
-  - Clasificador: TF-IDF con IDF por intención, bloque de palabras+bigramas+entidades y bloque
-    de n-gramas de letras (peso 0.45) → regresión logística softmax por SGD (15 épocas,
-    lr 0.5, reg 1e-4). Benchmark MASSIVE-es 20-shot: 69.7% (centroide 65%, kNN 62%,
-    perceptrón 63%). Confianza = prob × sqrt(min(1, similitud/0.55)) → **falta calibrar**.
-  - Las frases de la intención fallback se entrenan como clase negativa (`__fallback__:<id>`).
-  - Plantillas: una frase de entrenamiento que coincide exactamente (por raíces, con entidades
-    como huecos y @sys.any como comodín) da confianza 1.0 y los valores de sus parámetros.
-  - Parámetros del mismo tipo se reparten usando la palabra anterior aprendida
-    ("de @ciudad a @ciudad").
-- **Formato del agente** (ver `examples/pizzeria.json`): `intents[]` con `inputContexts`,
-  `outputContexts[{name,lifespan}]`, `events`, `parameters[{name,entity,required,isList,prompts,
-  defaultValue}]`, `trainingPhrases[{id,text,annotations[{start,end,entity,param}]}]`
-  (`annotations: null` = auto-anotar al entrenar), `responses[{type:text,variants}|
-  {type:quickReplies,items}|{type:payload,payload}]`, `webhook`, `endConversation`,
-  `resetContexts`, `isFallback`. `entities[]` con `kind` map|list|regex, `fuzzy`, `autoExpand`,
-  `entries[{value,synonyms}]`. `settings`: threshold (0.3), defaultLifespan, spellCorrection,
-  normalization (mapa propio de palabras), webhook {url,headers,timeout}, apiKey.
+Funciona de punta a punta: motor NLU, diálogo, API, consola web, widget, tests (77) y lanzadores.
 
-## Pendiente (en este orden)
+- `app/nlu/`: tokenizador (posiciones, normalización sin tildes, abreviaturas de chat, reglas
+  propias del agente), stemmer español propio, corrector SymSpell (no cambia la primera letra salvo
+  "h" muda), entidades de sistema (`sys_entities.py`), entidades propias (exacta → raíz → corregida →
+  regex), clasificador y motor (`engine.py`).
+- Clasificador (`classifier.py`): TF-IDF con IDF por intención (bloque palabras+bigramas+entidades y
+  bloque de n-gramas de letras con peso 0.45) → regresión logística softmax por SGD; la probabilidad
+  se mezcla 85/15 con una "probabilidad por parecido" (softmax de similitud/0.1). La intención se
+  ELIGE por probabilidad y se ACEPTA por confianza = sqrt(prob) × min(1, sim/0.65)²; umbral 0.3.
+  Las intenciones con contexto de entrada activo y confianza ≥ 0.5 tienen prioridad. Una frase de
+  entrenamiento que coincide exactamente (plantilla) da confianza 1.0 y sus parámetros.
+- Calidad: MASSIVE-es (60 intenciones) 65.3 % con 20 frases/intención, 59.2 % con 10. Agente de
+  ejemplo: 74/76 en dominio, 22/25 fuera de dominio rechazadas (`tests/casos_pizzeria.py`).
+- `@sys.any` sin plantilla exacta: anclas izquierda/derecha aprendidas de las anotaciones.
+- `app/dialog.py`: sesiones en SQLite (20 min), contextos (decrementan cada turno; los puestos en el
+  turno conservan su duración; lifespan 0 borra), eventos, slot filling (cancelar solo si TODO el
+  mensaje son palabras de cancelación; otra intención ≥ 0.8 interrumpe), defaultValue con
+  `#ctx.param`, fallback contextual, endConversation (borra contextos), webhook Dialogflow ES
+  (`app/webhook.py`, urllib) con followupEventInput.
+- Registro de mensajes: los turnos de slot filling, cancelación y evento se guardan con
+  review='none' (no aparecen en Entrenamiento).
+- `app/server.py`: API REST (ver /docs), endpoint compatible `:detectIntent`, import JSON/ZIP de
+  Dialogflow (`app/importer.py`), validación (`app/validation.py`), token de admin opcional
+  (`AGENTE_ADMIN_TOKEN`), clave de API por agente (`X-Api-Key`).
+- `web/`: consola en JS vanilla con módulos ES (sin compilación). `js/app.js` (rutas por hash,
+  estado), `js/ui.js` (h() crea DOM sin innerHTML con datos del usuario), `js/annotate.js`
+  (anotar seleccionando texto), `js/simulator.js`, `js/pages/*.js`. `widget.js` usa Shadow DOM.
+- Verificación de la interfaz: Playwright con Edge instalado (`channel="msedge"`), sin descargar
+  navegadores. Ojo: en este equipo `NoDefaultCurrentDirectoryInExePath=1`, así que para lanzar
+  `iniciar.bat` desde otra terminal hay que usar la ruta completa.
 
-1. **Calibrar confianza/fallback** con el agente de ejemplo: escribir `tests/` con frases de
-   prueba en dominio (paráfrasis, faltas) y fuera de dominio ("¿capital de Francia?",
-   "reservar un vuelo"…) y ajustar `NLUEngine.confidence` y el umbral por defecto.
-2. `app/dialog.py`: gestor de diálogo. Sesiones (SQLite, caducan a los 20 min), contextos
-   (decremento de lifespan por turno, parámetros en contextos, lifespan 0 = borrar,
-   resetContexts), eventos (WELCOME), slot filling (preguntar `prompts` de los parámetros
-   obligatorios; "cancelar" usando CANCEL_WORDS+CANCEL_FILLER; salir si otra intención
-   supera 0.8), defaultValue con `#contexto.param`, fallback contextual, endConversation.
-3. Respuestas: variante aleatoria; `$param` (fechas/horas formateadas en humano),
-   `$param.original`, `$param.value`, `#contexto.param`; listas "a, b y c".
-4. Webhook compatible con Dialogflow ES (request `queryResult`…, response `fulfillmentText`,
-   `fulfillmentMessages`, `outputContexts`, `followupEventInput`). Usar urllib (sin deps).
-5. `app/server.py` (FastAPI): CRUD agentes/intenciones/entidades, `/analyze` (sin sesión),
-   `/annotate` (auto-anotar frase), `/detect` (con sesión), logs + feedback
-   (aprobar / reasignar intención / corregir anotaciones / añadir sinónimo / regla de
-   normalización), historial, import/export JSON, importar zip de Dialogflow ES,
-   endpoint `/v2/projects/{agent}/agent/sessions/{session}:detectIntent`. Reentrenar de forma
-   perezosa cuando el agente cambia. CORS abierto; token de admin opcional por variable de
-   entorno. `python -m app` arranca y abre el navegador.
-6. Consola web `web/`: lista y editor de intenciones (frases con anotaciones de colores,
-   seleccionar texto → elegir entidad), entidades (tabla valor/sinónimos, edición masiva),
-   simulador lateral con detalles (intención, confianza, parámetros, contextos, tokens) y
-   botones ✓/✗, página "Tokenizador/Análisis", "Entrenamiento" (logs para revisar),
-   historial, integraciones (API, widget), ajustes. Tema claro/oscuro, escapar siempre HTML.
-7. `web/widget.js` (burbuja de chat incrustable) y `web/chat.html` (demo a pantalla completa).
-8. Tests con pytest (NLU, diálogo, API con TestClient), `iniciar.bat`/`iniciar.sh`,
-   Dockerfile, completar README.
-9. Opcional: embeddings multilingües (onnxruntime) como modo avanzado; validación del agente
-   (frases duplicadas entre intenciones, validación cruzada por intención).
+## Ideas pendientes (por orden de utilidad)
+
+1. Respuestas condicionales (p. ej. según `$entrega`) y respuestas por canal.
+2. Exportar a ZIP de Dialogflow ES (ahora solo se importa).
+3. Embeddings multilingües opcionales (onnxruntime + MiniLM) como "modo avanzado" para subir el
+   acierto con pocas frases; mantener el modo actual como predeterminado (sin dependencias pesadas).
+4. Validación cruzada por intención en la consola (qué frases se confunden entre sí).
+5. Entidades compuestas y `@sys.geo-city` con diccionario.
+6. Más idiomas (hay stemmer Snowball para fr/it/pt/de/ca/nl, faltan números y fechas).
 
 ## Comandos útiles
 
 ```bash
-python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
+python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
+python -m app                     # consola en http://localhost:8000 (--port, --host, --data, --no-browser)
+python -m pytest                  # 77 pruebas
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"
-python tools/build_pizzeria.py   # regenera examples/pizzeria.json desde notación [texto](param)
+python tools/build_pizzeria.py    # regenera examples/pizzeria.json desde notación [texto](param)
 ```
 
 Benchmark: dataset MASSIVE es (https://huggingface.co/datasets/mteb/amazon_massive_intent,
-ficheros `train/es.json.gz` y `test/es.json.gz`).
+ficheros `train/es.json.gz` y `test/es.json.gz`): crear un agente con N frases por intención
+(`annotations: None`) y medir `engine.analyze(texto).best["id"]` sobre el test.

@@ -194,8 +194,8 @@ def _step3(w: str, rv: int) -> str:
 def stem(word: str) -> str:
     if len(word) < 3 or not word.isalpha():
         return word
-    if len(word) > 5 and word.endswith("des"):
-        # ciudades -> ciudad, verdes -> verd(e): Snowball los trata distinto al singular
+    if len(word) > 5 and word.endswith(("des", "ares", "eres", "ires")):
+        # ciudades -> ciudad, familiares -> familiar: Snowball los trata distinto al singular
         word = word[:-2]
     r1, r2, rv = _regions(word)
     w = _step0(word, rv)

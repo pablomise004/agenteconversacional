@@ -69,11 +69,13 @@ class SpellCorrector:
         for cand in candidates:
             if len(cand) < self.MIN_LEN:
                 continue
+            # la primera letra casi nunca se escribe mal, salvo la "h" muda (abla -> habla)
+            if cand[0] != word[0] and cand != "h" + word and word != "h" + cand:
+                continue
             d = edit_distance(word, cand, max_d)
             if d > max_d:
                 continue
-            # misma primera letra suele ser más fiable
-            key = (d, word[0] != cand[0], -self.vocab[cand], cand)
+            key = (d, -self.vocab[cand], cand)
             if best_key is None or key < best_key:
                 best, best_key = cand, key
         return best

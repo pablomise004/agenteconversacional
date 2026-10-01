@@ -1,93 +1,188 @@
-# Agente conversacional (alternativa libre a Dialogflow)
+# Agente conversacional
 
-Plataforma para crear chatbots como en Dialogflow, pero gratis y en tu propio ordenador o servidor:
-intenciones, frases de entrenamiento, entidades, contextos, parámetros obligatorios, respuestas…
-y una vista para ver **cómo ha tokenizado y entendido** cada frase y **corregirlo** para que aprenda.
+**Alternativa libre a Dialogflow para crear chatbots**, que funciona en tu propio ordenador o servidor,
+sin cuentas, sin límites y sin pagar por mensaje.
 
-> **Estado: en desarrollo.** El motor de lenguaje (NLU) ya funciona. Faltan la API, el gestor de
-> diálogo y la consola web. Ver [Estado y hoja de ruta](#estado-y-hoja-de-ruta).
+Defines **intenciones** con frases de ejemplo, **entidades** con sinónimos, **contextos** para guiar
+la conversación y **respuestas**. El bot entiende lo que escribe la gente (con faltas, sin tildes,
+abreviaturas de chat…) y tú puedes ver **cómo ha tokenizado y entendido cada frase** y **corregirlo
+con un clic** para que aprenda.
 
-## Qué va a tener (lo básico de Dialogflow)
+![Editor de intenciones](docs/img/editor.png)
 
-| Función | Estado |
+## Qué incluye
+
+| | |
 |---|---|
-| Tokenizador con posiciones (tildes, mayúsculas, "holaaaa", abreviaturas de chat: "xq", "xfa", "q"…) | ✅ |
-| Stemmer español (raíces: reservar/reserva/reservas → `reserv`) | ✅ |
-| Corrección ortográfica contra el vocabulario del agente ("rezervar" → "reservar") | ✅ |
-| Entidades de sistema: `@sys.number`, `@sys.date`, `@sys.time`, `@sys.date-time`, `@sys.duration`, `@sys.unit-currency`, `@sys.percentage`, `@sys.email`, `@sys.phone-number`, `@sys.url`, `@sys.ordinal`, `@sys.any` | ✅ |
-| Entidades propias con sinónimos, plurales, errores tipográficos y regex | ✅ |
-| Clasificador de intenciones (TF-IDF + regresión logística + similitud) | ✅ |
-| Coincidencia exacta por plantillas (como el modo por reglas de Dialogflow) | ✅ |
-| Extracción de parámetros (incluye varios del mismo tipo: "de Madrid a Sevilla") | ✅ |
-| Contextos de entrada/salida con duración (lifespan) | 🔧 en el motor, falta el gestor de diálogo |
-| Parámetros obligatorios con preguntas (slot filling) | ⏳ |
-| Respuestas con variantes, `$parametro`, `#contexto.param`, respuestas rápidas | ⏳ |
-| Consola web (intenciones, entidades, simulador "Pruébalo") | ⏳ |
-| Vista de tokenización + botones ✓/✗ para decirle si lo ha entendido bien o mal | ⏳ |
-| Entrenamiento a partir de conversaciones reales (como "Training" de Dialogflow) | ⏳ |
-| Webhook (fulfillment) compatible con Dialogflow ES | ⏳ |
-| API REST + endpoint compatible con `detectIntent` de Dialogflow | ⏳ |
-| Widget de chat para incrustar en cualquier web | ⏳ |
-| Importar agentes exportados de Dialogflow ES (.zip) | ⏳ |
-
-## Requisitos
-
-- Python 3.11 o superior (probado con 3.13 en Windows 11)
-- Sin servicios externos ni claves de API: todo funciona en local
+| **Intenciones** | Frases de entrenamiento, anotación de entidades seleccionando texto (como en Dialogflow), acción y parámetros, respuestas con variantes, respuestas rápidas y payload JSON, eventos (`WELCOME`), fallback |
+| **Entidades** | Propias con sinónimos, listas o expresiones regulares; tolerancia a faltas y plurales; expansión automática. Del sistema: `@sys.number`, `@sys.date`, `@sys.time`, `@sys.date-time`, `@sys.duration`, `@sys.unit-currency`, `@sys.percentage`, `@sys.email`, `@sys.phone-number`, `@sys.url`, `@sys.ordinal`, `@sys.any`… |
+| **Contextos** | De entrada y de salida con duración en turnos; intenciones de seguimiento («sí»/«no» solo cuentan tras una pregunta) |
+| **Parámetros obligatorios** | Si falta un dato, el bot lo pregunta (slot filling) y entiende «cancelar» o un cambio de tema |
+| **Analizador** | Muestra tokens, forma normalizada, raíz, correcciones, entidades, intenciones candidatas con su confianza y las frases de entrenamiento más parecidas |
+| **Aprendizaje** | Botones 👍/👎 en el simulador, pantalla de **Entrenamiento** con los mensajes reales, corrección de intención y entidades, añadir sinónimos y reglas de normalización |
+| **Simulador** | Panel «Pruébalo» con detalles de cada turno: intención, confianza, parámetros, contextos |
+| **Integraciones** | Widget de chat para cualquier web (una línea), API REST, API compatible con `detectIntent` de Dialogflow ES, webhook con el formato de Dialogflow |
+| **Migración** | Importa agentes exportados de Dialogflow ES (ZIP) |
+| **Idiomas** | Español (completo) e inglés |
 
 ## Instalación
+
+Necesitas **Python 3.11 o superior** ([descargar](https://www.python.org/downloads/); en Windows marca
+«Add python.exe to PATH»).
+
+### Windows
+
+Descarga o clona el proyecto y haz **doble clic en `iniciar.bat`**. La primera vez prepara el entorno
+(un minuto) y después abre la consola en el navegador: <http://localhost:8000>.
+
+### Linux / macOS
 
 ```bash
 git clone https://github.com/pablomise004/agenteconversacional.git
 cd agenteconversacional
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux / macOS:
-source .venv/bin/activate
-pip install -r requirements.txt
+./iniciar.sh
 ```
 
-## Probar el motor de NLU (lo que ya funciona)
+### A mano
 
 ```bash
-python tools/probar_nlu.py "quiero reservar mesa para 4 mañana a las 9 de la noche"
+python -m venv .venv
+.venv\Scripts\activate          # Windows   (Linux/macOS: source .venv/bin/activate)
+pip install -r requirements.txt
+python -m app                   # opciones: --port 8000 --host 0.0.0.0 --no-browser --data carpeta
 ```
 
-Muestra los tokens, las entidades detectadas, el ranking de intenciones con su confianza y los
-parámetros extraídos, usando el agente de ejemplo [examples/pizzeria.json](examples/pizzeria.json)
-(19 intenciones, 174 frases: pedidos, reservas, carta, horarios…).
+Al arrancar por primera vez se crea el agente de ejemplo **Pizzería** (pedidos, reservas, carta,
+horarios) para que puedas trastear desde el principio. Los datos se guardan en la carpeta `data/`.
 
-## Estructura
+## Primeros pasos
+
+1. Abre <http://localhost:8000> y escribe en el panel **Pruébalo**: «hola», «quiero una pizza»,
+   «una barbacoa», «grande»… Pulsa el nombre de la intención bajo cada respuesta para ver qué entendió.
+2. Si se equivoca, pulsa 👎 y elige la intención correcta: la frase se añade al entrenamiento y el
+   modelo se actualiza al instante.
+3. En **Analizador** escribe cualquier frase para ver la tokenización completa.
+4. En **Intenciones** crea las tuyas: escribe frases de ejemplo (mejor 10 o más), selecciona palabras
+   con el ratón para marcarlas como entidades y añade respuestas.
+5. En **Entrenamiento** revisa lo que escribe la gente de verdad y aprueba o corrige.
+
+![Analizador](docs/img/analizador.png)
+
+## Conceptos (igual que en Dialogflow)
+
+- **Intención**: lo que quiere el usuario («pedir una pizza»). Tiene frases de entrenamiento y respuestas.
+- **Entidad**: un tipo de dato dentro de la frase (`@pizza`, `@sys.date`). Las propias se definen con
+  un valor de referencia y sinónimos («familiar» ← «grande», «XL»).
+- **Parámetro**: el valor de una entidad que extrae la intención (`$tamano = familiar`). Si es
+  obligatorio y falta, el bot pregunta.
+- **Contexto**: memoria de la conversación. Una intención con contexto de **salida** `pedido` (dura 5
+  turnos) permite que otra con contexto de **entrada** `pedido` solo se active después.
+- **Evento**: activa una intención sin texto; `WELCOME` se lanza al abrir el chat.
+- **Fallback**: la intención que responde cuando no se entiende la frase. Sus frases de entrenamiento
+  sirven como ejemplos negativos.
+- **Umbral de confianza** (Ajustes): por debajo, responde el fallback. Por defecto 0,30.
+
+En las respuestas puedes usar `$parametro` (formateado: «viernes 2 de octubre», «21:30», «a, b y c»),
+`$parametro.original` (lo que escribió el usuario), `$parametro.value` (valor en bruto) y
+`#contexto.parametro`.
+
+## Conectarlo a tu web o aplicación
+
+**Widget de chat** — pega esto antes de `</body>` (lo genera la página *Integraciones*):
+
+```html
+<script src="http://localhost:8000/widget.js" data-agent="pizzeria" data-title="Pizzería"></script>
+```
+
+Hay también una página de chat completa en `/chat?agent=pizzeria`.
+
+![Chat](docs/img/chat.png)
+
+**API REST**:
+
+```bash
+curl -X POST http://localhost:8000/api/agents/pizzeria/detect \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId": "usuario-123", "text": "quiero una pizza barbacoa familiar"}'
+```
+
+Devuelve la intención, la confianza, los parámetros, los contextos y los mensajes de respuesta.
+La documentación interactiva de toda la API está en <http://localhost:8000/docs>.
+
+**Compatible con Dialogflow**: `POST /v2/projects/{agente}/agent/sessions/{sesión}:detectIntent` acepta
+y devuelve el mismo JSON que la API v2 de Dialogflow ES.
+
+**Webhook**: configura la URL en *Ajustes* y activa «Llamar al webhook» en las intenciones. Recibe la
+misma petición que mandaría Dialogflow ES (`queryResult` con intención, parámetros y contextos) y puede
+responder con `fulfillmentText`, `fulfillmentMessages`, `outputContexts` o `followupEventInput`, así que
+los webhooks escritos para Dialogflow funcionan sin cambios.
+
+## Migrar desde Dialogflow
+
+En la consola de Dialogflow ES: *Configuración del agente → Exportar e importar → Exportar como ZIP*.
+Aquí: *Agentes → Importar* y elige el ZIP. Se conservan intenciones, frases con anotaciones, entidades,
+contextos, parámetros con sus preguntas, respuestas de texto y rápidas, eventos y la URL del webhook.
+
+## Ponerlo en un servidor
+
+Con Docker:
+
+```bash
+docker build -t agente .
+docker run -d -p 8000:8000 -v agente-datos:/data -e AGENTE_ADMIN_TOKEN=pon-aqui-un-secreto agente
+```
+
+O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --no-browser`.
+
+| Variable | Para qué |
+|---|---|
+| `AGENTE_ADMIN_TOKEN` | Protege la consola y la API de administración (se pide al entrar). Muy recomendable si el servidor es público |
+| `AGENTE_DATA_DIR` | Carpeta de datos (por defecto `./data`) |
+| `HOST` / `PORT` | Dirección y puerto |
+
+Cada agente puede tener además una **clave de API** (Ajustes → Seguridad) que exige la cabecera
+`X-Api-Key` para hablar con el bot.
+
+## Cómo funciona por dentro
+
+Todo el procesamiento del lenguaje es propio y local (no usa servicios externos):
+
+1. **Tokenización** con posiciones: minúsculas, sin tildes, «holaaaa» → «hola», abreviaturas de chat
+   («xq», «xfa», «finde»…) y tus reglas de normalización.
+2. **Corrección ortográfica** contra el vocabulario del agente (algoritmo SymSpell).
+3. **Raíces** con un stemmer español (Snowball adaptado a texto sin tildes).
+4. **Entidades** del sistema (fechas relativas, horas con «de la tarde» o «menos cuarto», números en
+   palabras…) y propias (sinónimos, plurales, faltas, regex).
+5. **Clasificación**: TF-IDF por intención con palabras, pares de palabras, entidades y trozos de
+   letras → regresión logística entrenada con SGD, combinada con la similitud con las frases de
+   entrenamiento. Si la frase coincide exactamente con una de entrenamiento, confianza 100 %.
+6. **Contextos y diálogo**: filtra intenciones por contexto, rellena parámetros y genera la respuesta.
+
+Calidad medida con el dataset público MASSIVE (Amazon, 60 intenciones de asistente doméstico en
+español, muchas muy parecidas entre sí): **65 % de acierto con 20 frases por intención** (59 % con
+10), entrenando en un par de segundos. Con agentes normales, de intenciones más distintas, acierta
+mucho más: con el de ejemplo, 74 de 76 frases de prueba nunca vistas (con faltas y sin tildes), y
+rechaza 22 de 25 frases fuera de tema.
+
+## Desarrollo
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest                 # 77 pruebas: NLU, diálogo, webhook, API, importación
+python tools/probar_nlu.py "quiero una pizza barbacoa familiar"
+```
 
 ```
-app/nlu/
-  text.py            tokenizador y normalización
-  stemmer_es.py      stemmer español (Snowball adaptado a texto sin tildes)
-  lang_es.py         recursos del español (números, meses, abreviaturas de chat…)
-  lang_en.py         recursos del inglés
-  languages.py       registro de idiomas
-  sys_entities.py    entidades de sistema (@sys.*)
-  entities.py        entidades propias (sinónimos, raíces, errores, regex)
-  spelling.py        corrector ortográfico (SymSpell)
-  features.py        rasgos para el clasificador
-  classifier.py      TF-IDF por clases + regresión logística (SGD) + similitud
-  engine.py          une todo: analizar frase, plantillas, parámetros, auto-anotación
-examples/pizzeria.json   agente de ejemplo
-tools/                   scripts de apoyo
+app/
+  nlu/            motor de lenguaje (tokenizador, stemmer, entidades, clasificador)
+  dialog.py       gestor de diálogo: sesiones, contextos, slot filling, webhook
+  server.py       API REST (FastAPI) y servidor de la consola
+  storage.py      agentes en JSON y conversaciones en SQLite
+  importer.py     importación de JSON y ZIP de Dialogflow
+web/              consola (HTML/CSS/JS sin compilación), widget.js y chat.html
+examples/         agente de ejemplo
+tests/            pruebas automáticas
 ```
-
-## Calidad del clasificador
-
-Medido con el dataset público MASSIVE (Amazon, español, 60 intenciones de asistente doméstico,
-muy exigente) entrenando con solo 20 frases por intención: **69,7 % de acierto**, entrenando en
-medio segundo. Con agentes normales (intenciones más distintas entre sí, como el de ejemplo)
-el acierto es mucho mayor.
-
-## Estado y hoja de ruta
-
-Ver [CLAUDE.md](CLAUDE.md): contiene el diseño completo, las decisiones tomadas y la lista
-de tareas pendientes en orden, para poder seguir el desarrollo desde cualquier equipo.
 
 ## Licencia
 

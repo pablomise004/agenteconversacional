@@ -55,6 +55,9 @@ class Vectorizer:
 
 
 class IntentClassifier:
+    LR_WEIGHT = 0.85
+    KNN_TEMPERATURE = 0.1
+
     def __init__(self, epochs: int = 15, lr0: float = 0.5, reg: float = 1e-4, seed: int = 0):
         self.epochs, self.lr0, self.reg, self.seed = epochs, lr0, reg, seed
         self.labels: list[str] = []
@@ -147,14 +150,21 @@ class IntentClassifier:
         best_ex: dict[str, list[float]] = defaultdict(list)
         for j, s in sims.items():
             best_ex[self.example_labels[j]].append(s)
-        out = []
+        rows = []
         for pi, i in zip(p, allowed):
             label = self.labels[i]
             ss = sorted(best_ex.get(label, [0.0]), reverse=True)
             knn = 0.7 * ss[0] + 0.3 * (ss[1] if len(ss) > 1 else ss[0])
             cent = sum(v * self.centroids[label].get(f, 0.0) for f, v in x.items())
-            out.append({"intent": label, "prob": float(pi), "sim": float(max(knn, cent)),
-                        "top": float(ss[0])})
+            rows.append((label, float(pi), float(max(knn, cent))))
+        # Con pocas frases el vecino más cercano es una pista muy fiable: se mezcla
+        # la probabilidad del modelo (85 %) con una "probabilidad por parecido" (15 %).
+        ex = [math.exp(s / self.KNN_TEMPERATURE) for _, _, s in rows]
+        total = sum(ex)
+        out = []
+        for (label, pi, sim), e in zip(rows, ex):
+            mixed = self.LR_WEIGHT * pi + (1 - self.LR_WEIGHT) * e / total
+            out.append({"intent": label, "prob": mixed, "sim": sim, "lr": pi})
         out.sort(key=lambda r: r["prob"], reverse=True)
         return out
 
