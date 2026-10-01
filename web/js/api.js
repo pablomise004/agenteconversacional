@@ -96,4 +96,8 @@ export const api = {
   conversations: (id, params = {}) => request("GET", `${A(id)}/conversations?` + new URLSearchParams(params)),
   conversation: (id, sessionId) => request("GET", `${A(id)}/conversations/${enc(sessionId)}`),
   stats: (id) => request("GET", A(id) + "/stats"),
+  model: (id, params = {}) => request("GET", `${A(id)}/model?` + new URLSearchParams(params)),
+  explain: (id, text, contexts) => request("POST", A(id) + "/explain", { text, contexts }),
+  evaluate: (id, folds = 5) => request("POST", A(id) + "/evaluate", { folds }),
+  guide: () => request("GET", "/guia/GUIA.md", undefined, { raw: true }),
 };

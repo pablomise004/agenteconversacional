@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -109,7 +110,10 @@ class NLUEngine:
         self.templates: list[Template] = []
         self.left_context: dict[tuple[str, str], Counter] = defaultdict(Counter)
         self.any_patterns: dict[tuple[str, str], list] = defaultdict(list)
+        self.stem_words: dict[str, Counter] = defaultdict(Counter)  # raíz -> palabras reales
         feats, labels = [], []
+        n_tokens = n_annotations = 0
+        t_start = time.perf_counter()
         for intent in self.intents.values():
             label = FALLBACK_PREFIX + intent["id"] if intent.get("isFallback") else intent["id"]
             params = {p["name"]: p for p in intent.get("parameters") or []}
@@ -120,26 +124,71 @@ class NLUEngine:
                 tokens = self.tokenizer.tokenize(text)
                 if not tokens:
                     continue
-                vocab.update(t.norm for t in tokens if t.kind == "word")
+                for t in tokens:
+                    if t.kind == "word":
+                        vocab[t.norm] += 1
+                        self.stem_words[t.stem][t.norm] += 1
+                n_tokens += len(tokens)
                 if ph.get("annotations") is None:
                     anns = self.auto_annotate(text, intent)["annotations"]
                 else:
                     anns = ph["annotations"]
                 spans = annotation_spans(tokens, anns)
+                n_annotations += len(spans)
                 spans4 = [(s, e, entity_kind(ent), p) for s, e, ent, p in spans]
                 feats.append(featurize(tokens, [(s, e, ent) for s, e, ent, _ in spans4],
                                        self.feature_config))
                 labels.append(label)
                 self.examples.append({"intent": intent["id"], "phrase": ph.get("id"),
-                                      "text": text, "fallback": bool(intent.get("isFallback"))})
+                                      "text": text, "fallback": bool(intent.get("isFallback")),
+                                      "annotations": len(spans)})
                 if not intent.get("isFallback"):
                     self._add_template(intent, ph, tokens, spans4, params)
+        t_prepare = time.perf_counter() - t_start
+        t0 = time.perf_counter()
         self.corrector = SpellCorrector(vocab) if self.spell_enabled else None
         self.vocab = vocab
         self.vectorizer = Vectorizer().fit(feats, labels)
         X = [self.vectorizer.transform(f) for f in feats]
+        t_vectorize = time.perf_counter() - t0
         self.classifier = IntentClassifier().fit(X, labels)
         self.labels = set(labels)
+
+        kinds = Counter(f.split(":", 1)[0] for f in self.vectorizer.idf)
+        timing = self.classifier.timing
+        self.report = {
+            "intents": len({e["intent"] for e in self.examples if not e["fallback"]}),
+            "intentsTotal": len(self.intents),
+            "phrases": len(self.examples),
+            "negativePhrases": sum(1 for e in self.examples if e["fallback"]),
+            "tokens": n_tokens,
+            "annotations": n_annotations,
+            "vocabulary": len({w for c in self.stem_words.values() for w in c}),
+            "stems": len(self.stem_words),
+            "features": len(self.vectorizer.idf),
+            "featureKinds": {"words": kinds.get("w", 0), "pairs": kinds.get("b", 0),
+                             "entities": kinds.get("e", 0), "chars": kinds.get("c", 0),
+                             "other": kinds.get("p", 0)},
+            "templates": len(self.templates),
+            "epochs": self.classifier.epochs,
+            "learningRate": self.classifier.lr0,
+            "history": self.classifier.history,
+            "timing": {"prepare": t_prepare, "vectorize": t_vectorize,
+                       "sgd": timing.get("sgd", 0.0), "index": timing.get("index", 0.0)},
+            "example": self._example_phrase(),
+        }
+
+    def _example_phrase(self) -> str:
+        """Una frase de entrenamiento representativa (con entidades) para las explicaciones."""
+        best = None
+        for e in self.examples:
+            if e["fallback"]:
+                continue
+            words = len(e["text"].split())
+            score = (e["annotations"] > 0, 4 <= words <= 9, -abs(words - 6))
+            if best is None or score > best[0]:
+                best = (score, e["text"])
+        return best[1] if best else ""
 
     def _add_template(self, intent, phrase, tokens, spans, params) -> None:
         units = []

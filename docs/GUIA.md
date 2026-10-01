@@ -1,0 +1,290 @@
+# Guía de uso
+
+Esta guía explica cómo crear un chatbot con el **Agente conversacional**, qué significa cada
+concepto y, sobre todo, **cómo aprende el agente** cuando lo entrenas. Si vienes de Dialogflow,
+casi todo te sonará: los conceptos son los mismos.
+
+> **Consejo:** mientras lees, ten abierta la consola. La página **Entrenar** enseña paso a paso,
+> con gráficos, todo lo que se explica en la sección «Cómo aprende el agente».
+
+## Primeros pasos
+
+1. **Arranca la aplicación** con doble clic en `iniciar.bat` (Windows) o `./iniciar.sh`
+   (Linux/macOS). Se abre <http://localhost:8000> con el agente de ejemplo **Pizzería**.
+2. **Habla con él** en el panel **Pruébalo** (a la derecha): «hola», «quiero una pizza»,
+   «barbacoa», «grande». Verás que pregunta lo que falta y recuerda lo que ya le has dicho.
+3. **Mira qué ha entendido**: pulsa el nombre de la intención que aparece bajo cada respuesta.
+4. **Corrígelo** cuando se equivoque: 👎 y eliges la intención correcta. Aprende al instante.
+5. **Crea tu propio agente** en *Agentes → Crear agente* y empieza por 3 o 4 intenciones.
+
+## Los conceptos
+
+### Agente
+
+El chatbot completo. Cada agente tiene sus intenciones, entidades, ajustes y conversaciones.
+Puedes tener varios (uno por proyecto) y exportarlos o importarlos como JSON.
+
+### Intención
+
+Lo que quiere conseguir el usuario: *pedir una pizza*, *reservar mesa*, *saber el horario*.
+Cada intención tiene:
+
+- **Frases de entrenamiento**: ejemplos de cómo lo diría la gente. Con ellas aprende.
+- **Parámetros**: datos que hay que sacar de la frase (qué pizza, de qué tamaño).
+- **Respuestas**: lo que contesta el bot (puede haber varias variantes; elige una al azar).
+- **Contextos** y **eventos** (más abajo).
+
+### Frase de entrenamiento
+
+Un ejemplo real de cómo se pide algo: «me pones una margarita familiar», «quiero pedir pizza».
+Cuantas más y más variadas, mejor: **apunta a 10-20 por intención**. No hace falta escribir
+todas las combinaciones de palabras; el agente generaliza.
+
+### Entidad
+
+Un tipo de dato que aparece dentro de las frases:
+
+- **Del sistema** (ya vienen hechas): `@sys.number` (12, doce), `@sys.date` (mañana, el lunes,
+  15 de marzo), `@sys.time` (a las 5, 17:30), `@sys.duration`, `@sys.unit-currency` (20 €),
+  `@sys.email`, `@sys.phone-number`, `@sys.url`, `@sys.any` (cualquier texto)…
+- **Propias**: las defines tú. Por ejemplo `@pizza` con los valores *margarita*, *barbacoa*…
+  Cada valor puede tener **sinónimos**: «familiar» ← «grande», «XL», «enorme».
+
+El agente reconoce las entidades aunque estén en plural, en otro género o con alguna falta
+(«pizas barbacoa familiares»).
+
+### Parámetro
+
+Es el valor de una entidad que se queda guardado al entender la frase. En «una barbacoa
+grande», el parámetro `pizza` vale *barbacoa* y `tamano` vale *familiar* (el valor de
+referencia del sinónimo «grande»).
+
+- Se crean solos al **anotar** una entidad en una frase (seleccionas la palabra con el ratón).
+- Si un parámetro es **obligatorio** y el usuario no lo ha dicho, el bot lo **pregunta** con
+  las preguntas que hayas escrito. Esto se llama *slot filling*.
+- En las respuestas se usan así: `$pizza`, `$fecha` (se escribe bonito: «viernes 2 de octubre»),
+  `$fecha.original` (lo que escribió el usuario: «pasado mañana»).
+
+### Contexto
+
+La memoria a corto plazo de la conversación. Sirve para que una intención **solo** se active
+después de otra:
+
+- La intención *pedido.pizza* tiene un **contexto de salida** `pedido-entrega` que dura 2 turnos.
+- La intención *pedido.entrega* («a domicilio», «para recoger») tiene ese contexto como
+  **contexto de entrada**: solo puede activarse mientras esté vivo.
+
+Así, un «sí» o un «no» suelto se entiende según lo que se acaba de preguntar. El número de un
+contexto de salida es cuántos turnos dura (0 = borrarlo).
+
+### Evento
+
+Activa una intención sin texto. El más habitual es `WELCOME`: se lanza cuando alguien abre el
+chat, para que el bot salude primero.
+
+### Fallback
+
+La intención que responde cuando el bot **no entiende** la frase («Perdona, no te he
+entendido…»). Sus frases de entrenamiento son **ejemplos negativos**: cosas que NO deben
+confundirse con otra intención (por ejemplo, «reservar un vuelo» en una pizzería).
+
+### Umbral de confianza
+
+Cada vez que el agente elige una intención calcula una **confianza** entre 0 y 1. Si queda por
+debajo del umbral (por defecto **0,30**, en *Ajustes*), responde el fallback. Súbelo si
+prefieres que diga «no te he entendido» antes que equivocarse; bájalo si es demasiado prudente.
+
+## Cómo entiende una frase
+
+Cuando alguien escribe, la frase pasa por estos pasos (puedes verlos todos en el **Analizador**):
+
+| Paso | Qué hace | Ejemplo con «Me pones 2 pizas barbacoa xfa» |
+|---|---|---|
+| 1. Tokenizar | Separa las palabras y signos, guardando su posición | me · pones · 2 · pizas · barbacoa · xfa |
+| 2. Normalizar | Minúsculas, sin tildes, abreviaturas de chat y tus reglas | xfa → por favor |
+| 3. Corregir faltas | Compara con las palabras que conoce el agente | pizas → pizzas |
+| 4. Raíces | Reduce cada palabra a su raíz para que cuenten igual sus variantes | pones → pon, pizzas → pizz |
+| 5. Entidades | Busca fechas, números y tus entidades | 2 = `@sys.number`, barbacoa = `@pizza` |
+| 6. Rasgos | Convierte la frase en una lista de rasgos con peso | «pon», «pizz», «@pizza», «pon pizz»… |
+| 7. Clasificar | Puntúa cada intención y elige la más probable | *pedido.pizza* 96 % |
+| 8. Parámetros | Saca los valores para la intención elegida | cantidad = 2, pizza = barbacoa |
+| 9. Diálogo | Contextos, preguntas pendientes y respuesta | «¿De qué tamaño la quieres?» |
+
+## Cómo aprende el agente
+
+Esta es la parte interesante. «Entrenar» significa construir, a partir de tus frases de
+ejemplo, un **modelo** capaz de puntuar frases nuevas que nunca ha visto. El agente se
+reentrena solo cada vez que guardas un cambio; en la página **Entrenar** puedes lanzarlo a mano
+y verlo paso a paso.
+
+### Los seis pasos del entrenamiento
+
+1. **Reunir los ejemplos.** Junta todas las frases de entrenamiento con su intención. Las del
+   fallback se guardan como ejemplos negativos.
+2. **Trocear y normalizar.** Cada frase pasa por los pasos 1-4 de la tabla anterior.
+3. **Marcar las entidades.** Lo anotado como entidad se sustituye por su tipo: «una barbacoa»
+   y «una hawaiana» se convierten en «una @pizza». Así el modelo aprende la **estructura** de la
+   frase y no cada valor por separado.
+4. **Convertir cada frase en números.** Cada frase se transforma en una lista de **rasgos**:
+   - palabras (su raíz): «reserv», «mesa»
+   - parejas de palabras seguidas: «quiero reservar», «mesa para»
+   - entidades: «@sys.date»
+   - trozos de 3-4 letras («…serv…»), que ayudan con las faltas de ortografía.
+
+   Cada rasgo recibe un peso **TF-IDF**: pesa más cuantas **menos intenciones** lo usan.
+   «quiero» aparece en muchas intenciones y apenas cuenta; «reservar» aparece solo en una,
+   así que es una pista muy fuerte.
+5. **Aprender los pesos** (regresión logística, la parte de *machine learning*). El modelo tiene
+   un peso por cada combinación de rasgo e intención. Al principio todos valen 0. Luego da
+   varias vueltas (**épocas**) a las frases; con cada frase:
+   - calcula la puntuación de cada intención sumando los pesos de los rasgos de la frase,
+   - convierte las puntuaciones en probabilidades (función *softmax*),
+   - compara con la intención correcta y **ajusta un poco los pesos** para que la próxima vez
+     la probabilidad de la correcta sea mayor y la de las demás menor.
+
+   El **error** (entropía cruzada) mide lo lejos que está de acertar con seguridad. En la
+   página Entrenar verás la curva: empieza alto (no sabe nada) y baja época a época.
+
+   ![Curva de aprendizaje en la página Entrenar](img/curva.png)
+6. **Preparar la memoria.** Guarda cada frase como **plantilla exacta** (si alguien escribe
+   justo una frase de entrenamiento, la confianza es 100 %) y un índice para encontrar las
+   frases más parecidas a cualquier mensaje nuevo.
+
+### Cómo decide con una frase nueva
+
+1. La convierte en rasgos igual que las frases de entrenamiento (los rasgos que nunca ha visto
+   se ignoran).
+2. Para cada intención suma *peso TF-IDF del rasgo × peso aprendido*. La página Entrenar
+   muestra estas aportaciones: barras azules las que **empujan** hacia la intención y rojas las
+   que **restan**.
+3. Convierte las sumas en probabilidades y elige la más probable.
+4. Calcula la **confianza**: la probabilidad, moderada por cuánto se parece de verdad la frase
+   a las de entrenamiento. Sin esto, una frase sin relación («¿cuál es la capital de
+   Francia?») podría salir con mucha probabilidad simplemente porque hay pocas intenciones
+   donde elegir.
+5. Si una intención espera un **contexto** que está activo, tiene prioridad.
+6. Si la confianza no llega al umbral, responde el fallback.
+
+![Recorrido de una frase en la página Entrenar](img/explicar.png)
+
+### ¿Ha aprendido bien? El examen
+
+Que el agente acierte sus propias frases no demuestra nada: se las sabe de memoria. Lo que
+importa es cómo funciona con **frases nuevas**. El **examen** de la página Entrenar hace una
+**validación cruzada**:
+
+1. Esconde 1 de cada 5 frases.
+2. Entrena con el resto.
+3. Comprueba cuántas de las escondidas acierta.
+4. Repite cinco veces, para que todas las frases se examinen una vez.
+
+El resultado es una buena estimación del acierto real. Además te dice **qué frases falla** y
+**con qué intención las confunde** (la matriz de confusión).
+
+> Un examen bajo en una intención casi siempre significa que necesita **más frases y más
+> variadas**. Si dos intenciones se confunden entre sí, sus frases se parecen demasiado:
+> cámbialas o separa el flujo con contextos.
+
+### El mapa de frases
+
+En la página Entrenar cada frase de entrenamiento es un punto, colocado según cómo la puntúa el
+modelo: las que el modelo ve parecidas quedan juntas (técnica *t-SNE*). Puedes resaltar dos
+intenciones para ver si sus grupos están separados (bien) o mezclados (se confundirán). Tu
+frase de prueba aparece marcada para ver en qué zona cae.
+
+![Mapa de frases con dos intenciones resaltadas](img/mapa.png)
+
+## Consejos para entrenar bien
+
+- **10-20 frases por intención**, variadas: distintos verbos, órdenes, formal e informal,
+  cortas y largas. «Quiero reservar», «¿tenéis mesa?», «reserva para dos el viernes».
+- **No repitas la misma frase en dos intenciones** (la página de intenciones avisa).
+- **Anota las entidades siempre igual.** Si en una frase marcas «el sábado» como fecha,
+  márcalo también en las demás.
+- **Usa entidades en vez de listas de frases.** Mejor «quiero una @pizza» con la entidad bien
+  rellena que veinte frases, una por pizza.
+- **Añade ejemplos negativos al fallback** para cosas que se parecen pero no son lo tuyo
+  («reservar un vuelo», «comprar un coche»).
+- **Revisa las conversaciones reales** en *Revisión*: lo que escribe la gente de verdad es el
+  mejor material de entrenamiento.
+- **Haz el examen** de vez en cuando y fíjate en las intenciones con peor acierto.
+
+## Diseñar conversaciones
+
+### Pedir los datos que faltan
+
+Marca un parámetro como **obligatorio** y escribe una o varias preguntas. Si el usuario dice
+«quiero una pizza», el bot preguntará «¿Qué pizza te apetece?» y esperará la respuesta. Si
+dice «olvídalo» o «cancelar», abandona la pregunta; si cambia de tema claramente, atiende lo
+nuevo.
+
+### Preguntas de sí o no
+
+1. En la intención que pregunta («¿Quieres algo de beber?») añade un **contexto de salida**,
+   por ejemplo `pedido-bebida` con duración 2.
+2. Crea dos intenciones, «sí» y «no», con `pedido-bebida` como **contexto de entrada** y frases
+   como «sí», «vale», «claro» / «no», «no gracias».
+
+Fuera de ese momento, un «sí» suelto no las activará.
+
+### Respuestas dinámicas (webhook)
+
+Para consultar una base de datos, el estado de un pedido o cualquier cosa variable, configura
+un **webhook** en *Ajustes* y actívalo en la intención. Recibe la misma petición que mandaría
+Dialogflow (intención, parámetros, contextos) y puede devolver el texto de la respuesta. La
+página *Integraciones* tiene ejemplos en Python y Node.js.
+
+## Las pantallas de la consola
+
+| Pantalla | Para qué sirve |
+|---|---|
+| **Intenciones** | Crear y editar intenciones: frases (selecciona texto para anotar entidades), parámetros, respuestas, contextos, eventos y webhook |
+| **Entidades** | Tus entidades con sus valores y sinónimos; edición masiva tipo CSV; lista de entidades del sistema |
+| **Analizador** | Ver cómo entiende una frase (tokens, entidades, intenciones candidatas, frases parecidas) y corregirlo: intención, anotaciones, sinónimos y reglas de normalización |
+| **Entrenar** | Ver el entrenamiento paso a paso, la curva de aprendizaje, qué ha aprendido cada intención, el mapa de frases y el examen |
+| **Revisión** | Los mensajes reales de los usuarios: apruébalos o corrígelos para que se conviertan en frases de entrenamiento |
+| **Historial** | Las conversaciones completas y estadísticas de uso |
+| **Integraciones** | Código para poner el chat en una web, usar la API o un webhook |
+| **Ajustes** | Umbral, corrección ortográfica, reglas de normalización, webhook, clave de API, exportar y borrar |
+| **Pruébalo** | El chat de la derecha, con detalles de cada turno y botones 👍/👎 |
+
+## Problemas frecuentes
+
+**No entiende una frase que debería entender.** Ábrela en el *Analizador*. Mira si los tokens y
+las entidades son correctos y qué intención se le parece. Pulsa «No, corregir», elige la
+intención y guárdala: ya la tendrá en cuenta.
+
+**Confunde dos intenciones.** Haz el examen en *Entrenar* y mira la matriz de confusión. Resalta
+las dos intenciones en el mapa: si sus puntos están mezclados, sus frases se parecen demasiado.
+
+**Responde cosas que no son de su tema.** Añade esas frases al fallback como ejemplos negativos
+(👎 → elegir el fallback) o sube un poco el umbral.
+
+**Lee mal una palabra** (jerga, abreviaturas, errores típicos). En el *Analizador*, «¿Ha
+tokenizado algo mal?», añade una regla: «pizzeta» → «pizza».
+
+**«a las 5» lo entiende como las 17:00.** Las horas de 1 a 7 sin «de la mañana» se interpretan
+como tarde, que es lo más habitual en una conversación; de 8 a 12 se dejan tal cual. Si
+necesitas otra cosa, pregunta «¿de la mañana o de la tarde?».
+
+**Una entidad no reconoce un valor.** Añade el valor o un sinónimo en *Entidades*, o desde el
+Analizador al anotar la palabra («Añadir sinónimo»).
+
+## Glosario
+
+| Término | Significado |
+|---|---|
+| Token | Cada trozo en que se divide una frase (palabra, número, signo) |
+| Normalizar | Pasar a minúsculas, quitar tildes y expandir abreviaturas |
+| Raíz (stem) | La parte común de una palabra y sus variantes: reserv-ar, reserv-a |
+| Rasgo (feature) | Cada pista que el modelo usa: una raíz, una pareja de palabras, una entidad, un trozo de letras |
+| TF-IDF | Forma de dar más peso a los rasgos poco comunes entre intenciones |
+| Regresión logística | El modelo de *machine learning* que aprende un peso por rasgo e intención |
+| Época | Una vuelta completa del entrenamiento a todas las frases |
+| Error / pérdida | Cuánto se equivoca el modelo; baja durante el entrenamiento |
+| Softmax | Fórmula que convierte puntuaciones en probabilidades que suman 1 |
+| Confianza | Probabilidad ajustada por el parecido con las frases conocidas |
+| Validación cruzada | Examen con frases escondidas para medir el acierto real |
+| Sobreajuste | Saberse de memoria las frases de entrenamiento sin generalizar a frases nuevas |
+| Slot filling | Preguntar los parámetros obligatorios que faltan |
+| Webhook | Tu propio servidor, al que el agente llama para dar respuestas dinámicas |

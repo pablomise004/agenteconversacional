@@ -1,4 +1,4 @@
-// Entrenamiento: revisar mensajes reales y enseñar al bot.
+// Revisión: revisar mensajes reales y enseñar al bot.
 import { api } from "../api.js";
 import { h, icon, clear, append, toast, errorToast, timeAgo, fullDate, pct, debounce, confirmDialog } from "../ui.js";
 import { annotatedPhrase, colorMap, suggestParam } from "../annotate.js";
@@ -135,7 +135,7 @@ export async function render(el) {
   drawTabs();
   el.append(h("div", { class: "page" },
     h("div", { class: "page-head" },
-      h("div", { class: "grow" }, h("h1", null, "Entrenamiento"),
+      h("div", { class: "grow" }, h("h1", null, "Revisión de mensajes"),
         h("div", { class: "sub" }, "Lo que han escrito los usuarios. Aprueba lo que acertó y corrige lo que no: cada revisión se convierte en una frase de entrenamiento.")),
       search,
       h("button", { class: "btn ghost sm icon-only", type: "button", title: "Actualizar", "aria-label": "Actualizar", onclick: () => load(true) }, icon("refresh")),

@@ -11,6 +11,8 @@ import * as trainingPage from "./pages/training.js";
 import * as historyPage from "./pages/history.js";
 import * as integrationsPage from "./pages/integrations.js";
 import * as settingsPage from "./pages/settings.js";
+import * as learnPage from "./pages/learn.js";
+import * as guidePage from "./pages/guide.js";
 
 export const state = {
   info: null,
@@ -23,14 +25,20 @@ const NAV = [
   { key: "intents", label: "Intenciones", icon: "chat" },
   { key: "entities", label: "Entidades", icon: "tag" },
   { key: "analyzer", label: "Analizador", icon: "text" },
-  { key: "training", label: "Entrenamiento", icon: "training", badge: true },
+  { key: "learn", label: "Entrenar", icon: "pulse" },
+  { key: "training", label: "Revisión", icon: "training", badge: true },
   { key: "history", label: "Historial", icon: "history" },
   { key: "integrations", label: "Integraciones", icon: "plug" },
   { key: "settings", label: "Ajustes", icon: "settings" },
+  { sep: true },
+  { key: "guide", label: "Guía", icon: "book" },
 ];
 
 const ROUTES = [
   [/^agents$/, () => agentsPage],
+  [/^guide$/, () => guidePage],
+  [/^a\/([^/]+)\/guide$/, () => guidePage],
+  [/^a\/([^/]+)\/learn$/, () => learnPage],
   [/^a\/([^/]+)\/intents$/, () => intentsPage],
   [/^a\/([^/]+)\/intents\/([^/]+)$/, () => intentEditor],
   [/^a\/([^/]+)\/entities$/, () => entitiesPage],
@@ -175,10 +183,12 @@ function renderNav(active) {
   active = navEl.dataset.active || "";
   clear(navEl);
   if (!state.agent) {
-    navEl.append(h("a", { href: "#/agents", class: "active" }, icon("layers"), "Agentes"));
+    navEl.append(h("a", { href: "#/agents", class: active === "guide" ? "" : "active" }, icon("layers"), "Agentes"),
+      h("a", { href: "#/guide", class: active === "guide" ? "active" : "" }, icon("book"), "Guía"));
     return;
   }
   for (const item of NAV) {
+    if (item.sep) { navEl.append(h("div", { class: "nav-sep" })); continue; }
     navEl.append(h("a", { href: agentPath(item.key), class: active === item.key ? "active" : "" },
       icon(item.icon), item.label,
       item.badge && state.pending ? h("span", { class: "badge primary" }, String(state.pending)) : null));
@@ -232,7 +242,7 @@ async function route() {
     state.agent = null;
   }
   renderAgentPicker();
-  const section = path.startsWith("a/") ? path.split("/")[2] : "";
+  const section = path.startsWith("a/") ? path.split("/")[2] : path === "guide" ? "guide" : "";
   renderNav(section);
   topTitle.textContent = state.agent ? state.agent.name : "Agentes";
   if (current && current.destroy) current.destroy();

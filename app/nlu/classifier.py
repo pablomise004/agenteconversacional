@@ -10,6 +10,7 @@ Combina dos modelos sobre vectores TF-IDF:
 """
 
 import math
+import time
 from collections import defaultdict
 
 import numpy as np
@@ -68,6 +69,8 @@ class IntentClassifier:
         self.example_labels: list[str] = []
         self.inverted: dict[str, list[tuple[int, float]]] = {}
         self.centroids: dict[str, dict] = {}
+        self.history: list[dict] = []
+        self.timing: dict[str, float] = {}
 
     # ------------------------------------------------------------ training
     def fit(self, X: list[dict], y: list[str]) -> "IntentClassifier":
@@ -83,10 +86,15 @@ class IntentClassifier:
         k, nf = len(self.labels), len(self.fidx)
         W = np.zeros((nf, k))
         b = np.zeros(k)
+        self.history = []
+        t0 = time.perf_counter()
         if k > 1:
             yi = [li[label] for label in y]
             rng = np.random.default_rng(self.seed)
             order = np.arange(len(X))
+            # muestra fija para medir el error tras cada época (curva de aprendizaje)
+            probe = rng.choice(len(X), size=min(len(X), 400), replace=False)
+            self.history.append(self._measure(rows, yi, probe, W, b, 0))
             for epoch in range(self.epochs):
                 rng.shuffle(order)
                 lr = self.lr0 / (1 + 0.02 * epoch)
@@ -102,8 +110,11 @@ class IntentClassifier:
                     p[yi[n]] -= 1.0
                     W[idx] = wi - lr * (np.outer(v, p) + self.reg * wi)
                     b -= lr * p
+                self.history.append(self._measure(rows, yi, probe, W, b, epoch + 1))
         self.W, self.b = W, b
+        self.timing = {"sgd": time.perf_counter() - t0}
 
+        t0 = time.perf_counter()
         inverted = defaultdict(list)
         cents = defaultdict(lambda: defaultdict(float))
         for j, (x, label) in enumerate(zip(X, y)):
@@ -112,7 +123,24 @@ class IntentClassifier:
                 cents[label][f] += v
         self.inverted = dict(inverted)
         self.centroids = {label: _l2(c) for label, c in cents.items()}
+        self.timing["index"] = time.perf_counter() - t0
         return self
+
+    @staticmethod
+    def _measure(rows, yi, probe, W, b, epoch: int) -> dict:
+        """Error medio (entropía cruzada) y aciertos sobre una muestra fija."""
+        loss = 0.0
+        hits = 0
+        for n in probe:
+            idx, v = rows[n]
+            z = (v @ W[idx] + b) if len(idx) else b.copy()
+            z = z - z.max()
+            p = np.exp(z)
+            p /= p.sum()
+            loss -= math.log(max(p[yi[n]], 1e-12))
+            hits += int(np.argmax(z) == yi[n])
+        count = max(1, len(probe))
+        return {"epoch": epoch, "loss": loss / count, "accuracy": hits / count}
 
     # ---------------------------------------------------------- prediction
     def logits(self, x: dict) -> np.ndarray:

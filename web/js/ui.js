@@ -63,6 +63,8 @@ const ICONS = {
   thumbUp: '<path d="M7 10v11M2 12v7a2 2 0 0 0 2 2h12.3a2 2 0 0 0 2-1.7l1.4-8A2 2 0 0 0 17.7 9H14V5a3 3 0 0 0-3-3l-4 8"/>',
   thumbDown: '<path d="M17 14V3M22 12V5a2 2 0 0 0-2-2H7.7a2 2 0 0 0-2 1.7l-1.4 8A2 2 0 0 0 6.3 15H10v4a3 3 0 0 0 3 3l4-8"/>',
   key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M17 6l3 3M14 9l2 2"/>',
+  pulse: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  book: '<path d="M2 4h7a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H2zM22 4h-7a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h8z"/>',
 };
 
 export function icon(name, cls = "") {

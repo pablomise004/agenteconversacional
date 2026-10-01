@@ -22,6 +22,7 @@ from . import __version__
 from .agents import blank_agent, new_id, normalize_entity, normalize_intent, normalize_phrase
 from .dialog import DialogManager, EngineCache, analysis_dict
 from .importer import ImportError_, import_bytes
+from .nlu import insights
 from .nlu.languages import SUPPORTED_LANGUAGES
 from .nlu.sys_entities import SYSTEM_ENTITIES
 from .nlu.text import normalize_text
@@ -30,6 +31,7 @@ from .validation import validate
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = ROOT / "web"
+DOCS_DIR = ROOT / "docs"
 EXAMPLES_DIR = ROOT / "examples"
 
 
@@ -73,6 +75,15 @@ class SynonymRequest(BaseModel):
     synonym: str
 
 
+class ExplainRequest(BaseModel):
+    text: str
+    contexts: list[str] | None = None
+
+
+class EvaluateRequest(BaseModel):
+    folds: int = Field(5, ge=2, le=10)
+
+
 class ReviewRequest(BaseModel):
     action: str  # approve | assign | ignore | reopen
     intentId: str | None = None
@@ -90,6 +101,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     engines = EngineCache(storage)
     dialog = DialogManager(storage, engines)
     admin_token = os.environ.get("AGENTE_ADMIN_TOKEN", "").strip()
+    evaluations: dict[str, dict] = {}  # último examen por agente
 
     app = FastAPI(
         title="Agente conversacional",
@@ -254,8 +266,38 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def train(agent_id: str):
         get_agent(agent_id)
         engines.drop(agent_id)
-        engines.get(agent_id)
-        return engine_status(agent_id)
+        engine = engines.get(agent_id)
+        return dict(engine_status(agent_id), report=engine.report)
+
+    @app.get("/api/agents/{agent_id}/model", tags=["entrenamiento"], dependencies=[Depends(admin)])
+    def model_info(agent_id: str, k: int = Query(8, ge=1, le=30), chars: bool = False):
+        """Lo que ha aprendido el modelo: informe, rasgos por intención y mapa de frases."""
+        agent = get_agent(agent_id)
+        engine = engines.get(agent_id)
+        last = evaluations.get(agent_id)
+        return {
+            "status": engine_status(agent_id),
+            "report": engine.report,
+            "threshold": agent["settings"]["threshold"],
+            "topFeatures": insights.top_features(engine, k=k, include_chars=chars),
+            "projection": insights.public_projection(engine),
+            "evaluation": last["result"] if last and last["version"] == agent["version"] else None,
+        }
+
+    @app.post("/api/agents/{agent_id}/explain", tags=["entrenamiento"], dependencies=[Depends(admin)])
+    def explain(agent_id: str, req: ExplainRequest):
+        """Recorrido completo de una frase por dentro del modelo."""
+        agent = get_agent(agent_id)
+        engine = engines.get(agent_id)
+        return insights.explain(engine, req.text[:1000], req.contexts or [], agent["settings"]["threshold"])
+
+    @app.post("/api/agents/{agent_id}/evaluate", tags=["entrenamiento"], dependencies=[Depends(admin)])
+    def evaluate(agent_id: str, req: EvaluateRequest | None = None):
+        """Examen con validación cruzada: acierto con frases que el modelo no ha visto."""
+        agent = get_agent(agent_id)
+        result = insights.evaluate(agent, folds=(req.folds if req else 5))
+        evaluations[agent_id] = {"version": agent["version"], "result": result}
+        return result
 
     @app.get("/api/agents/{agent_id}/status", tags=["entrenamiento"], dependencies=[Depends(admin)])
     def status(agent_id: str):
@@ -550,6 +592,8 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     async def not_found(_request, _exc):
         return JSONResponse({"detail": "No encontrado"}, status_code=404)
 
+    if DOCS_DIR.exists():  # guía de uso (Markdown) e imágenes
+        app.mount("/guia", StaticFiles(directory=DOCS_DIR), name="guia")
     if WEB_DIR.exists():
         app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
     return app
