@@ -1,13 +1,8 @@
+# Todo en LF, como en el repositorio, aunque Git esté configurado con core.autocrlf=true (lo normal
+# en Windows): así ni Git ni el editor avisan de que van a cambiar los finales de línea. Solo los .bat
+# van en CRLF, que es lo que espera cmd.exe.
+* text=auto eol=lf
 *.bat text eol=crlf
-*.sh text eol=lf
-*.py text eol=lf
-*.js text eol=lf
-*.css text eol=lf
-*.html text eol=lf
-*.json text eol=lf
-*.md text eol=lf
 *.png binary
-*.svg text eol=lf
-*.webmanifest text eol=lf
 *.ico binary
 *.woff2 binary

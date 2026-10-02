@@ -15,12 +15,19 @@ la conversación y **respuestas**. El bot entiende lo que escribe la gente (con 
 abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada frase**, puedes
 **corregirlo con un clic** y puedes **ver paso a paso cómo aprende** al entrenarlo.
 
+> **Pruébalo en internet:** <https://linceflow.duckdns.org>. **¿Estás en el instituto?** La red de
+> Educacyl bloquea los dominios `duckdns.org`, así que seguramente no abrirá: instala Lince en tu
+> ordenador siguiendo la [instalación en Windows, paso a paso](#instalación-en-windows-paso-a-paso).
+> Son tres pasos y después funciona sin internet.
+
 ![Editor de intenciones con el simulador](docs/img/editor.png)
 
 ## Índice
 
 - [Qué incluye](#qué-incluye)
-- [Instalación](#instalación)
+- [Pruébalo en internet](#pruébalo-en-internet)
+- [Instalación en Windows, paso a paso](#instalación-en-windows-paso-a-paso)
+- [Linux, macOS o a mano](#linux-macos-o-a-mano)
 - [Primeros pasos](#primeros-pasos)
 - [Los agentes de ejemplo](#los-agentes-de-ejemplo)
 - [Ver cómo aprende](#ver-cómo-aprende)
@@ -53,17 +60,107 @@ Documentación completa: **[Guía de uso](docs/GUIA.md)** (también dentro de la
 | **Consola** | Diseño moderno con microanimaciones, tablas ordenables, tema claro y oscuro, búsqueda y atajos con **Ctrl+K**, adaptable a móvil, instalable como aplicación y guía de uso integrada |
 | **Idiomas** | Español (completo) e inglés |
 
-## Instalación
+## Pruébalo en internet
 
-Necesitas **Python 3.11 o superior** ([descargar](https://www.python.org/downloads/); en Windows
-marca «Add python.exe to PATH» al instalarlo). No hace falta nada más: ni Node, ni bases de datos,
-ni claves de API.
+Hay una versión de Lince en internet: **<https://linceflow.duckdns.org>**.
 
-**Windows:** descarga el proyecto (botón verde *Code → Download ZIP*, o `git clone`) y haz **doble
-clic en `iniciar.bat`**. La primera vez prepara el entorno (un minuto) y después abre la consola en
-el navegador: <http://localhost:8000>.
+> ⚠️ **Desde la red del instituto lo más probable es que no abra.** La red de Educacyl bloquea los
+> dominios `duckdns.org`. Desde casa o con los datos del móvil sí funciona. Para usarlo en clase,
+> instálalo en tu ordenador: [instalación en Windows, paso a paso](#instalación-en-windows-paso-a-paso).
 
-**Linux / macOS:**
+- **Hablar con los bots de ejemplo** (sin instalar nada):
+  [hotel](https://linceflow.duckdns.org/chat?agent=hotel) y
+  [pizzería](https://linceflow.duckdns.org/chat?agent=pizzeria).
+- **La consola** (crear y cambiar agentes) es la misma para todos los que entran, así que está
+  protegida con un *token de administración*. Para crear **tus propios agentes**, instala Lince en
+  tu ordenador: allí todo es tuyo y no hace falta ningún token.
+
+## Instalación en Windows, paso a paso
+
+Solo se hace **una vez** y tarda unos cinco minutos. La primera vez necesitas internet; después
+Lince funciona sin conexión, también en el instituto.
+
+### Paso 1. Instala Python
+
+Python es el programa con el que funciona Lince. Si ya lo tienes (la versión 3.11 o una más nueva),
+pasa al paso 2. Hay dos formas de instalarlo; elige **una**:
+
+**Opción A: desde la web de Python**
+
+1. Entra en <https://www.python.org/downloads/> y pulsa el botón amarillo **Download Python**.
+2. Abre el archivo que se ha descargado (está en la carpeta *Descargas*).
+3. **Muy importante:** en la primera pantalla, marca abajo la casilla **«Add python.exe to PATH»**.
+4. Pulsa **Install Now** y espera a que termine. Después, pulsa **Close**.
+
+> ¿Ordenador del instituto o sin permisos de administrador? En esa primera pantalla desmarca
+> también **«Use admin privileges when installing py.exe»**: así se instala solo para tu usuario y
+> no pide contraseña. O usa la opción B.
+
+**Opción B: desde la Microsoft Store** (la más sencilla: no pide permisos ni hay casillas que marcar)
+
+1. Abre la **Microsoft Store** (búscala en el menú Inicio).
+2. Busca **Python** y elige la versión más nueva que publica *Python Software Foundation* (se llama
+   «Python 3.13», «Python 3.14»…).
+3. Pulsa **Obtener** (o **Instalar**) y espera a que termine.
+
+### Paso 2. Descarga Lince
+
+1. Entra en <https://github.com/pablomise004/agenteconversacional>.
+2. Pulsa el botón verde **<> Code** y, en el menú que se abre, **Download ZIP**.
+3. Ve a *Descargas*, haz **clic derecho** sobre `agenteconversacional-main.zip` y elige **Extraer
+   todo…** y luego **Extraer**.
+4. Se abre la carpeta `agenteconversacional-main`. Puedes moverla donde quieras: *Documentos*, el
+   *Escritorio*…
+
+> ⚠️ **Extrae el ZIP antes de usarlo.** Si haces doble clic en el ZIP, Windows te enseña lo que hay
+> dentro, pero desde ahí Lince no funciona.
+
+### Paso 3. Arranca Lince
+
+1. Dentro de la carpeta, haz **doble clic en `iniciar.bat`**. Si no ves las extensiones de los
+   archivos, se llama `iniciar` y su tipo es *Archivo por lotes de Windows*.
+2. Si aparece **«Windows protegió su PC»**, pulsa **Más información** y luego **Ejecutar de todas
+   formas**. Sale con los archivos descargados de internet; este es el que arranca Lince.
+3. Se abre una **ventana negra**. La primera vez prepara todo lo que necesita: verás cómo descarga
+   cosas durante uno o dos minutos.
+4. Cuando termina, se abre solo el navegador con Lince en **<http://localhost:8000>**. ¡Ya está!
+
+**Mientras uses Lince, deja abierta la ventana negra:** es el motor que hace que funcione. Para
+terminar, ciérrala. Las siguientes veces solo tienes que hacer **doble clic en `iniciar.bat`**:
+arranca en unos segundos y ya no necesita internet.
+
+> **Truco:** con Lince abierto en Edge o Chrome, pulsa el icono de *Instalar* de la barra de
+> direcciones (o el menú *Aplicaciones → Instalar Lince*) y lo tendrás como una aplicación más,
+> con el icono del lince. Recuerda que necesita la ventana negra abierta.
+
+### Si algo no funciona
+
+La ventana negra explica qué ha pasado: léela antes de cerrarla.
+
+| Lo que dice o lo que pasa | Qué hacer |
+|---|---|
+| «No se ha encontrado Python» | Instala Python (paso 1: desde la web marcando «Add python.exe to PATH», o desde la Microsoft Store) y vuelve a abrir `iniciar.bat` |
+| «Tu Python es la versión 3.x y Lince necesita la 3.11 o superior» | Instala la versión más nueva (paso 1) y vuelve a abrir `iniciar.bat` |
+| «Falta el resto de Lince junto a este archivo» | Lo has abierto desde dentro del ZIP: extráelo (paso 2) y abre el `iniciar.bat` de la carpeta extraída |
+| «No se ha podido instalar lo que necesita Lince» | No hay internet o la red no deja descargar. Prueba en casa o con los datos del móvil: solo hace falta la primera vez |
+| «Lince ya estaba en marcha» o «El puerto 8000 ya lo está usando otro programa» | Ya tienes Lince abierto en otra ventana negra: usa esa o ciérrala y vuelve a empezar |
+| El navegador no se abre solo | Abre tú la dirección <http://localhost:8000> |
+| El ordenador no deja instalar programas | Usa tu portátil o pide ayuda al profesor |
+
+### Tus agentes y las versiones nuevas
+
+- Lo que creas se guarda en la carpeta **`data`**, dentro de la carpeta de Lince. Para tener una
+  copia de seguridad, copia esa carpeta, o descarga cada agente en *Ajustes → Exportar JSON* (luego
+  se recupera con *Agentes → Importar*).
+- **Para actualizar a una versión nueva:** cierra la ventana negra, descarga el ZIP nuevo y
+  extráelo (paso 2), copia dentro la carpeta `data` de tu versión anterior y abre el `iniciar.bat`
+  nuevo. La primera vez vuelve a preparar todo (uno o dos minutos con internet).
+- Los agentes de tu ordenador y los de la web de internet son independientes. Para pasar uno de un
+  sitio a otro: *Ajustes → Exportar JSON* en uno y *Agentes → Importar* en el otro.
+
+## Linux, macOS o a mano
+
+Con **Python 3.11 o superior**. No hace falta nada más: ni Node, ni bases de datos, ni claves de API.
 
 ```bash
 git clone https://github.com/pablomise004/agenteconversacional.git
@@ -71,7 +168,7 @@ cd agenteconversacional
 ./iniciar.sh
 ```
 
-**A mano** (cualquier sistema):
+A mano, en cualquier sistema:
 
 ```bash
 python -m venv .venv
@@ -84,10 +181,6 @@ Al arrancar por primera vez se crean dos [agentes de ejemplo](#los-agentes-de-ej
 **Pizzería**, pequeña y fácil de seguir para aprender, y el **Hotel**, grande, para ver hasta dónde
 llega. Salen aparte, en *Ejemplos*, debajo de *Tus agentes* (que empieza vacío). Tus datos se
 guardan en la carpeta `data/` (no se sube a Git).
-
-**Como aplicación:** en Edge o Chrome, con la consola abierta, usa *Instalar Lince* (el icono de
-instalar de la barra de direcciones o el menú *Aplicaciones*). Se abre en su propia ventana, con el
-icono del lince, cada vez que el servidor esté en marcha.
 
 **Al actualizar** (`git pull` o un ZIP nuevo) **reinicia el servidor**: cierra su ventana (o
 Ctrl+C) y vuelve a arrancarlo (`iniciar.bat`, `./iniciar.sh` o `python -m app`). La consola se
@@ -233,12 +326,24 @@ la URL del webhook.
 
 ## Ponerlo en un servidor
 
-Con Docker:
+Con Docker (la imagen corre sin privilegios y trae comprobación de salud en `/api/info`):
 
 ```bash
 docker build -t lince .
 docker run -d -p 8000:8000 -v lince-datos:/data -e AGENTE_ADMIN_TOKEN=pon-aqui-un-secreto lince
 ```
+
+Con **[Coolify](https://coolify.io)** (así está la versión de <https://linceflow.duckdns.org>):
+
+1. *New Resource → Public Repository*: `https://github.com/pablomise004/agenteconversacional`,
+   rama `main`.
+2. *Build Pack*: **Dockerfile**. *Ports Exposes*: **8000**.
+3. *Domains*: tu dominio con `https://` delante (Coolify pide el certificado solo; el dominio tiene
+   que apuntar a la IP del servidor y los puertos 80 y 443 tienen que estar abiertos).
+4. *Environment Variables*: `AGENTE_ADMIN_TOKEN` con un secreto largo.
+5. *Persistent Storage → Volume Mount* con destino **`/data`**. Sin él, cada despliegue empieza de
+   cero y se pierden los agentes.
+6. *Deploy*. Para actualizar después de un `git push`: *Redeploy* (o activa el despliegue automático).
 
 O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --no-browser`.
 
@@ -290,7 +395,7 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 131 pruebas: NLU, diálogo, webhook, API, importación, modelo, hotel
+python -m pytest                            # 134 pruebas: NLU, diálogo, webhook, API, importación, modelo, hotel
 pip install playwright
 python -m pytest tests/e2e -m e2e           # 27 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)

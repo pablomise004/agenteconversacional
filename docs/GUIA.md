@@ -10,7 +10,9 @@ conceptos son los mismos.
 ## Primeros pasos
 
 1. **Arranca la aplicación** con doble clic en `iniciar.bat` (Windows) o `./iniciar.sh`
-   (Linux/macOS). Se abre <http://localhost:8000> en la lista de agentes: arriba, **Tus agentes**
+   (Linux/macOS). Si es la primera vez, sigue la
+   [instalación en Windows, paso a paso](https://github.com/pablomise004/agenteconversacional#instalación-en-windows-paso-a-paso).
+   Se abre <http://localhost:8000> en la lista de agentes: arriba, **Tus agentes**
    (vacío al principio) y debajo, **Ejemplos**, con la **Pizzería** y el **Hotel**. Entra en la
    Pizzería.
 2. **Habla con él** en el panel **Pruébalo** (a la derecha): «hola», «quiero una pizza»,
