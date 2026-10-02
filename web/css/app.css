@@ -267,16 +267,16 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 
 .main { overflow-y: auto; min-width: 0; position: relative;
   background: radial-gradient(900px 340px at 50% -160px, var(--glow), transparent 70%) no-repeat; }
-.page { max-width: 1080px; margin: 0 auto; padding: 26px 32px 72px; animation: page-in .34s var(--ease) backwards; }
+.page { max-width: 1360px; margin: 0 auto; padding: 26px 32px 72px; animation: page-in .34s var(--ease) backwards; }
 /* aviso de servidor desactualizado (arriba, con el mismo ancho que la página) */
-.version-notice { max-width: 1080px; margin: 0 auto; padding: 18px 32px 0; animation: page-in .34s var(--ease) backwards; }
+.version-notice { max-width: 1360px; margin: 0 auto; padding: 18px 32px 0; animation: page-in .34s var(--ease) backwards; }
 .version-notice .notice { align-items: center; }
 .page-head { display: flex; align-items: center; gap: 12px 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .head-main { flex: 1 1 380px; min-width: 0; display: flex; align-items: center; gap: 14px; }
 .head-text { flex: 1; min-width: 0; }
 .head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .page-head h1 { font-size: 23px; font-weight: 700; letter-spacing: -.025em; }
-.page-head .sub { color: var(--muted); font-size: 13.5px; margin-top: 3px; max-width: 70ch; }
+.page-head .sub { color: var(--muted); font-size: 13.5px; margin-top: 3px; }
 .page-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex: none;
   background: linear-gradient(135deg, color-mix(in srgb, var(--brand-1) 16%, var(--panel)), color-mix(in srgb, var(--brand-2) 14%, var(--panel)));
   color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); }
@@ -468,7 +468,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 5px var(--
   background: var(--panel-2); border: 1px solid var(--border); margin-bottom: 6px; animation: float 4s ease-in-out infinite; }
 .empty-icon { display: grid; place-items: center; padding: 0; }
 .empty-icon svg.icon { width: 24px; height: 24px; }
-.empty p { margin: 0; max-width: 46ch; }
+.empty p { margin: 0; max-width: 100ch; }
 .empty .btn { margin-top: 10px; }
 .empty-title { font-weight: 650; color: var(--text); font-size: 15px; }
 
@@ -573,7 +573,7 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 /* esqueletos de carga */
 .skel { border-radius: 8px; background: linear-gradient(90deg, var(--panel-3) 25%, var(--panel-2) 45%, var(--panel-3) 65%);
   background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-.skel-page { max-width: 1080px; margin: 0 auto; padding: 26px 32px; animation: fade .3s var(--ease) .1s backwards; }
+.skel-page { max-width: 1360px; margin: 0 auto; padding: 26px 32px; animation: fade .3s var(--ease) .1s backwards; }
 .skel-head { display: flex; gap: 14px; align-items: center; margin-bottom: 24px; }
 
 /* ---------------------------------------------------- frases y anotaciones */
@@ -853,7 +853,7 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 .section-head h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
 .section-head h2 svg.icon { width: 17px; height: 17px; color: var(--accent-text); }
 .section-head .badge { height: 20px; padding: 0 7px; font-variant-numeric: tabular-nums; }
-.section-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 78ch; }
+.section-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .agents-empty { border-style: dashed; border-width: 1.5px; background: transparent; box-shadow: none; }
 .agents-empty .empty { padding: 30px 18px; }
 .tpl-list { display: grid; gap: 8px; }
@@ -1190,12 +1190,13 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .kf-cell { font-size: 11.5px; text-align: center; padding: 5px 0; border-radius: 6px; color: var(--accent-text);
   background: color-mix(in srgb, var(--series-1) 16%, var(--panel)); }
 .kf-cell.test { background: color-mix(in srgb, var(--series-2) 30%, var(--panel)); color: var(--text); font-weight: 650; }
+/* «Por dentro» y la Guía: con la zona central estrecha, el índice pasa arriba como etiquetas */
 @container (max-width: 900px) {
-  .inside .guide-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .inside .toc { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px; }
-  .inside .toc-title { width: 100%; padding-bottom: 2px; }
-  .inside .toc a { border: 1px solid var(--border); border-radius: 999px; margin: 0; padding: 3px 10px; font-size: 12px; }
-  .inside .toc a.active { border-color: var(--primary); }
+  .cq .guide-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .cq .toc { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px; border-left: 0; padding-left: 0; }
+  .cq .toc-title { width: 100%; padding-bottom: 2px; }
+  .cq .toc a { border: 1px solid var(--border); border-radius: 999px; margin: 0; padding: 3px 10px; font-size: 12px; }
+  .cq .toc a.active { border-color: var(--primary); }
 }
 @container (max-width: 560px) {
   .sym-legend { grid-template-columns: 1fr; }
@@ -1298,7 +1299,7 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .toc a:hover { background: var(--panel-2); color: var(--text); text-decoration: none; }
 .toc a.active { color: var(--accent-text); border-left-color: var(--primary); font-weight: 600; }
 .toc-title { font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); padding: 0 10px 6px; }
-.md { max-width: 760px; font-size: 15px; line-height: 1.7; }
+.md { font-size: 15px; line-height: 1.7; }
 .md h1 { font-size: 30px; margin: 0 0 12px; letter-spacing: -.03em; }
 .md h2 { font-size: 21px; margin: 38px 0 10px; padding-top: 10px; border-top: 1px solid var(--border); letter-spacing: -.02em; scroll-margin-top: 16px; }
 .md h3 { font-size: 16.5px; margin: 24px 0 8px; scroll-margin-top: 16px; }
@@ -1349,7 +1350,7 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
   .page-head.sticky { margin: -16px -14px 16px; padding: 12px 14px; top: 0; }
   .grid-2, .grid-3 { grid-template-columns: 1fr !important; }
   .flow { grid-template-columns: 1fr; }
-  .guide-layout { grid-template-columns: 1fr; }
+  .guide-layout { grid-template-columns: minmax(0, 1fr); }
   .toc { position: static; }
   .page-head h1 { font-size: 20px; }
   .page-icon { display: none; }

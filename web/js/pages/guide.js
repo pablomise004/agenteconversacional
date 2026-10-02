@@ -5,7 +5,7 @@ import { renderMarkdown } from "../markdown.js";
 import { agentPath, state } from "../app.js";
 
 export async function render(el) {
-  const page = h("div", { class: "page guide" });
+  const page = h("div", { class: "page guide cq" });
   el.append(page);
   let md;
   try {
