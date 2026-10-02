@@ -85,7 +85,14 @@ Lince funciona sin conexión, también en el instituto.
 Python es el programa con el que funciona Lince. Si ya lo tienes (la versión 3.11 o una más nueva),
 pasa al paso 2. Hay dos formas de instalarlo; elige **una**:
 
-**Opción A: desde la web de Python**
+**Opción A: desde la Microsoft Store** (la más sencilla: no pide permisos ni hay casillas que marcar)
+
+1. Abre la **Microsoft Store** (búscala en el menú Inicio).
+2. Busca **Python** y elige la versión más nueva que publica *Python Software Foundation* (se llama
+   «Python 3.13», «Python 3.14»…).
+3. Pulsa **Obtener** (o **Instalar**) y espera a que termine.
+
+**Opción B: desde la web de Python**
 
 1. Entra en <https://www.python.org/downloads/> y pulsa el botón amarillo **Download Python**.
 2. Abre el archivo que se ha descargado (está en la carpeta *Descargas*).
@@ -94,14 +101,7 @@ pasa al paso 2. Hay dos formas de instalarlo; elige **una**:
 
 > ¿Ordenador del instituto o sin permisos de administrador? En esa primera pantalla desmarca
 > también **«Use admin privileges when installing py.exe»**: así se instala solo para tu usuario y
-> no pide contraseña. O usa la opción B.
-
-**Opción B: desde la Microsoft Store** (la más sencilla: no pide permisos ni hay casillas que marcar)
-
-1. Abre la **Microsoft Store** (búscala en el menú Inicio).
-2. Busca **Python** y elige la versión más nueva que publica *Python Software Foundation* (se llama
-   «Python 3.13», «Python 3.14»…).
-3. Pulsa **Obtener** (o **Instalar**) y espera a que termine.
+> no pide contraseña. O usa la opción A.
 
 ### Paso 2. Descarga Lince
 
@@ -139,7 +139,7 @@ La ventana negra explica qué ha pasado: léela antes de cerrarla.
 
 | Lo que dice o lo que pasa | Qué hacer |
 |---|---|
-| «No se ha encontrado Python» | Instala Python (paso 1: desde la web marcando «Add python.exe to PATH», o desde la Microsoft Store) y vuelve a abrir `iniciar.bat` |
+| «No se ha encontrado Python» | Instala Python (paso 1: desde la Microsoft Store, o desde la web marcando «Add python.exe to PATH») y vuelve a abrir `iniciar.bat` |
 | «Tu Python es la versión 3.x y Lince necesita la 3.11 o superior» | Instala la versión más nueva (paso 1) y vuelve a abrir `iniciar.bat` |
 | «Falta el resto de Lince junto a este archivo» | Lo has abierto desde dentro del ZIP: extráelo (paso 2) y abre el `iniciar.bat` de la carpeta extraída |
 | «No se ha podido instalar lo que necesita Lince» | No hay internet o la red no deja descargar. Prueba en casa o con los datos del móvil: solo hace falta la primera vez |

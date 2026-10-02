@@ -25,8 +25,8 @@ if not exist ".venv\Scripts\python.exe" (
 if not exist ".venv\Scripts\python.exe" (
   echo.
   echo  No se ha encontrado Python. Instalalo de una de estas dos formas:
-  echo   - desde https://www.python.org/downloads/ marcando la casilla "Add python.exe to PATH"
-  echo   - o desde la Microsoft Store: busca Python y pulsa Obtener
+  echo   - desde la Microsoft Store: busca Python y pulsa Obtener
+  echo   - o desde https://www.python.org/downloads/ marcando la casilla "Add python.exe to PATH"
   echo  Despues vuelve a abrir iniciar.bat.
   echo.
   pause
