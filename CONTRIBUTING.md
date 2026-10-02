@@ -485,7 +485,7 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
   Nada de píldoras (`border-radius: 999px`); los círculos, solo para lo que es redondo de verdad
   (puntos de estado, interruptores, el tirador del deslizador). El chat (simulador, `widget.js` y su
   vista previa en Integraciones) sigue lo mismo: caja de escribir con el botón dentro, respuestas
-  rápidas como botones teñidos de la marca, avisos como una línea fina con el texto en medio y el
+  rápidas como botones teñidos de la marca (con una flecha que se forma al pasar el ratón: `ICONS.go`), avisos como una línea fina con el texto en medio y el
   lince (o la inicial del chat) junto a cada respuesta. El icono de enviar es propio: un avión de
   papel en dos tonos con las esquinas suaves (`ICONS.send` en `ui.js` y `ICON_SEND` en `widget.js`).
 - Los `title` se muestran como tooltips propios (`initTooltips()`): basta con poner `title` a un

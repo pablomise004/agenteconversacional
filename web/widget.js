@@ -111,9 +111,13 @@
     ".quick button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--tline);color:var(--ink);background:var(--tint);",
     "border-radius:10px;padding:7px 10px 7px 12px;font-size:13.5px;font-weight:600;cursor:pointer;",
     "transition:background-color .15s,color .15s,border-color .15s,box-shadow .2s,transform .2s}",
-    ".quick button::after{content:'\\2192';opacity:.55;transition:transform .2s,opacity .15s}",
+    // la flecha se forma al pasar el ratón: en reposo, un cheurón fino; luego avanza y le sale el trazo
+    ".quick button .go{width:14px;height:14px;margin-right:-3px;opacity:.6;transition:opacity .15s}",
+    ".go .tip{transform:translateX(-3px);transition:transform .28s cubic-bezier(.34,1.45,.64,1)}",
+    ".go .line{opacity:0;transform:scaleX(0);transform-box:fill-box;transform-origin:left center;",
+    "transition:opacity .15s,transform .28s cubic-bezier(.34,1.45,.64,1)}",
     ".quick button:hover{background:var(--c);border-color:var(--c);color:#fff;transform:translateY(-1px);box-shadow:0 8px 16px -8px var(--c)}",
-    ".quick button:hover::after{opacity:1;transform:translateX(2px)}",
+    ".quick button:hover .go{opacity:1}.quick button:hover .go .tip,.quick button:hover .go .line{opacity:1;transform:none}",
     ".typing{position:relative;margin-left:36px;align-self:flex-start;display:flex;gap:4px;padding:12px 14px;background:var(--card);",
     "border:1px solid var(--line);border-radius:14px;animation:msg .2s ease}",
     ".typing i{width:7px;height:7px;border-radius:50%;background:var(--c);animation:b 1s infinite}",
@@ -143,6 +147,8 @@
   var ICON_SEND = '<svg viewBox="0 0 24 24"><g class="plane">' +
     '<path d="M20.4 3.2 3.6 9.9c-.9.4-.9 1.6 0 2l6.2 2.4 2.4 6.2c.4.9 1.6.9 2 0z" fill="currentColor" opacity=".55" stroke="currentColor" stroke-opacity=".55" stroke-width="1.4" stroke-linejoin="round"/>' +
     '<path d="M20.4 3.2 9.8 14.3l-6.2-2.4c-.9-.4-.9-1.6 0-2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></g></svg>';
+  var ICON_GO = '<svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" ' +
+    'stroke-linejoin="round" aria-hidden="true"><path class="line" d="M4.5 12h11"/><path class="tip" d="M10.5 6.5 16 12l-5.5 5.5"/></svg>';
   var ICON_RESET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>';
 
   var host = document.createElement("div");
@@ -216,6 +222,7 @@
         var b = document.createElement("button");
         b.type = "button";
         b.textContent = q;
+        b.insertAdjacentHTML("beforeend", ICON_GO);  // marcado constante
         b.addEventListener("click", function () { send(q); });
         el.appendChild(b);
       });

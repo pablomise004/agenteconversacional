@@ -797,13 +797,18 @@ button:hover:not(:disabled) svg.icon .send-plane { transform: translate(1.5px, -
   background: color-mix(in srgb, var(--primary) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--primary) 26%, transparent);
   animation: msg-in .3s var(--spring) backwards;
   transition: color .15s, background-color .15s, border-color .15s, box-shadow .2s, transform .2s var(--spring); }
-.quick button::after { content: "→"; font-weight: 500; opacity: .5; transition: transform .2s var(--spring), opacity .15s; }
+/* la flecha se forma al pasar el ratón: en reposo, un cheurón fino; luego avanza y le sale el trazo */
+.quick button svg.icon.go { width: 14px; height: 14px; margin-right: -3px; stroke-width: 2.4; opacity: .6; transition: opacity .15s; }
+svg.icon.go .go-tip { transform: translateX(-3px); transition: transform .28s var(--spring); }
+svg.icon.go .go-line { opacity: 0; transform: scaleX(0); transform-box: fill-box; transform-origin: left center;
+  transition: opacity .15s, transform .28s var(--spring); }
 .quick button:nth-child(2) { animation-delay: 40ms; } .quick button:nth-child(3) { animation-delay: 80ms; }
 .quick button:nth-child(4) { animation-delay: 120ms; } .quick button:nth-child(n+5) { animation-delay: 160ms; }
 .quick button:hover { color: #fff; border-color: transparent; transform: translateY(-1px);
   background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
   box-shadow: 0 8px 16px -8px color-mix(in srgb, var(--brand-2) 85%, transparent); }
-.quick button:hover::after { opacity: 1; transform: translateX(2px); }
+.quick button:hover svg.icon.go { opacity: 1; }
+.quick button:hover svg.icon.go .go-tip, .quick button:hover svg.icon.go .go-line { opacity: 1; transform: none; }
 .turn-meta { align-self: flex-start; display: flex; align-items: center; gap: 6px; font-size: 12px;
   color: var(--muted); flex-wrap: wrap; max-width: 100%; animation: fade .3s var(--ease) .1s backwards; }
 .turn-meta .intent-link { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border);
@@ -1032,7 +1037,10 @@ input[type=text].cp-hex.bad { border-color: var(--danger); box-shadow: 0 0 0 3px
   background: var(--c) linear-gradient(135deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, 0) 60%); }
 .wp-msg.user::before { display: none; }
 .wp-quick { display: flex; gap: 4px; flex-wrap: wrap; margin-left: 22px; }
-.wp-quick span { border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); color: var(--w-ink); border-radius: 6px; padding: 2px 6px; font-size: 10px;
+.wp-quick span svg.icon { width: 9px; height: 9px; stroke-width: 2.6; opacity: .6; }
+.wp-quick span svg.icon .go-tip { transform: translateX(-3px); }
+.wp-quick span svg.icon .go-line { opacity: 0; }
+.wp-quick span { display: inline-flex; align-items: center; gap: 2px; border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); color: var(--w-ink); border-radius: 6px; padding: 2px 5px 2px 6px; font-size: 10px;
   font-weight: 600; background: color-mix(in srgb, var(--c) 9%, var(--w-card)); transition: background-color .3s; }
 .wp-input { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-top: 1px solid var(--w-line); color: var(--w-muted);
   background: var(--w-bg); transition: background-color .3s; }

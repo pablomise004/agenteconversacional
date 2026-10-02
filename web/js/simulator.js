@@ -67,7 +67,7 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     body.append(h("div", { class: "sim-empty" }, logo(),
       h("b", null, `Habla con «${agent.name}»`),
       h("p", null, "Bajo cada respuesta verás qué ha entendido. Si se equivoca, pulsa 👎 y enséñale la intención correcta."),
-      examples.length ? h("div", { class: "quick" }, examples.map((t) => h("button", { type: "button", onclick: () => send(t) }, t))) : null));
+      examples.length ? h("div", { class: "quick" }, examples.map((t) => h("button", { type: "button", onclick: () => send(t) }, t, icon("go", "go")))) : null));
   }
 
   async function reset(silent = false) {
@@ -122,7 +122,7 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     for (const m of r.messages || []) {
       if (m.type === "text") col.append(later(h("div", { class: "msg bot" }, m.text)));
       else if (m.type === "quickReplies") {
-        col.append(h("div", { class: "quick" }, m.items.map((q) => h("button", { type: "button", onclick: () => send(q) }, q))));
+        col.append(h("div", { class: "quick" }, m.items.map((q) => h("button", { type: "button", onclick: () => send(q) }, q, icon("go", "go")))));
       } else if (m.type === "payload") {
         col.append(later(h("div", { class: "payload" }, h("div", { class: "small faint" }, "Payload personalizado"),
           h("pre", null, JSON.stringify(m.payload, null, 2)))));
