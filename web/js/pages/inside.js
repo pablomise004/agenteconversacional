@@ -2,7 +2,7 @@
 // cuenta qué hace, la fórmula (MathML, ver math.js), qué significa cada símbolo, lo que le pasa a
 // una frase de ejemplo del agente con sus números reales y dónde está en el código.
 import { api } from "../api.js";
-import { h, icon, clear, errorToast, pageHead, busy } from "../ui.js";
+import { h, icon, clear, errorToast, pageHead, busy, tocNav } from "../ui.js";
 import { barList, format } from "../charts.js";
 import { fitFormulas, tex } from "../math.js";
 import { state } from "../app.js";
@@ -432,16 +432,11 @@ export async function render(el) {
     sub: "Cómo funciona el motor de lenguaje de Lince, paso a paso: qué hace, con qué fórmulas y con los números de verdad de una frase de tu agente." }));
 
   // ---------------------------------------------------------------- índice
-  const links = new Map();
-  const toc = h("nav", { class: "toc", "aria-label": "Índice" }, h("div", { class: "toc-title" }, "Contenido"),
-    SECTIONS.map(([id, title], i) => {
-      const a = h("a", { href: "#", onclick: (e) => { e.preventDefault(); go(id); } }, i ? `${i}. ${title}` : title);
-      links.set(id, a);
-      return a;
-    }));
-  const go = (id) => document.getElementById("in-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const toc = tocNav({ label: "Índice", scroller: el.closest(".main"),
+    items: SECTIONS.map(([id, title], i) => ({ text: i ? `${i}. ${title}` : title, target: () => document.getElementById("in-" + id) })) });
+  const go = (id) => toc.go(document.getElementById("in-" + id));
   const content = h("div", { class: "in-content" });
-  page.append(h("div", { class: "guide-layout" }, toc, content));
+  page.append(h("div", { class: "guide-layout" }, toc.el, content));
 
   const section = (id, n, lead, ...body) => h("section", { class: "card in-sec", id: "in-" + id },
     h("div", { class: "card-head" }, h("span", { class: "sec-num" }, String(n)), h("h2", null, SECTIONS[n][1])),
@@ -805,24 +800,6 @@ export async function render(el) {
   drawConf();
   if (agent) run();
 
-  // resalta en el índice la sección que se está leyendo
-  const main = el.closest(".main");
-  let frame = 0;
-  const spy = () => {
-    frame = 0;
-    if (!main) return;
-    const top = main.getBoundingClientRect().top + 120;
-    let current = SECTIONS[0][0];
-    for (const [id] of SECTIONS) {
-      const node = document.getElementById("in-" + id);
-      if (node && node.getBoundingClientRect().top <= top) current = id;
-    }
-    for (const [id, a] of links) a.classList.toggle("active", id === current);
-  };
-  const onScroll = () => { if (!frame) frame = requestAnimationFrame(spy); };
-  if (main) main.addEventListener("scroll", onScroll, { passive: true });
-  spy();
-
   // en el móvil, las fórmulas que no caben se encogen y el texto de los gráficos no: al cambiar el ancho
   // y cada vez que se dibuja lo de «Con tu frase»
   let fitFrame = 0, lastWidth = 0;
@@ -843,7 +820,7 @@ export async function render(el) {
   document.fonts.ready.then(refit);
   return {
     destroy: () => {
-      if (main) main.removeEventListener("scroll", onScroll);
+      toc.destroy();
       resized.disconnect();
       redrawn.disconnect();
       cancelAnimationFrame(fitFrame);

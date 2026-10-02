@@ -67,6 +67,31 @@ def test_crear_agente_desde_ejemplo(client):
     assert "example" not in agent  # la copia es un agente propio
 
 
+def test_crear_agente_como_copia_de_otro(client):
+    """«Copia de un agente» en la consola: de uno propio o de uno de ejemplo, con todo lo que tenga."""
+    client.patch("/api/agents/pizzeria", json={"description": "La mía, cambiada"})
+    res = client.post("/api/agents", json={"name": "Mi pizzería", "copyOf": "pizzeria", "language": "en"})
+    assert res.status_code == 201
+    copy = res.json()
+    original = client.get("/api/agents/pizzeria").json()
+    assert copy["id"] == "mi-pizzeria" and copy["name"] == "Mi pizzería" and "example" not in copy
+    assert copy["language"] == original["language"] == "es"  # el idioma es el del agente copiado
+    assert copy["description"] == "La mía, cambiada"  # sin descripción nueva se queda la suya
+    assert len(copy["intents"]) == len(original["intents"]) and len(copy["entities"]) == len(original["entities"])
+    # de una copia propia, y con descripción nueva
+    again = client.post("/api/agents", json={"name": "Otra", "copyOf": copy["id"], "description": "Nueva"}).json()
+    assert again["description"] == "Nueva" and len(again["intents"]) == len(copy["intents"])
+    assert client.post("/api/agents", json={"name": "X", "copyOf": "no-existe"}).status_code == 404
+    # los ejemplos tal como vienen, para copiarlos aunque se haya borrado el suyo
+    examples = {e["id"]: e for e in client.get("/api/info").json()["examples"]}
+    listed = {a["id"]: a for a in client.get("/api/agents").json()}
+    assert set(examples) == {"pizzeria", "hotel"}
+    assert examples["hotel"]["name"] == listed["hotel"]["name"] and examples["hotel"]["intents"] == listed["hotel"]["intents"]
+    client.delete("/api/agents/hotel")
+    restored = client.post("/api/agents", json={"name": "Hotel", "template": "hotel"}).json()
+    assert len(restored["intents"]) == examples["hotel"]["intents"]
+
+
 def test_copias_de_un_ejemplo_son_propias(client):
     assert client.patch("/api/agents/pizzeria", json={"description": "Cambiada"}).json()["example"] is True
     copy = client.post("/api/agents/pizzeria/duplicate").json()
@@ -102,6 +127,16 @@ def test_version_de_la_consola_coincide():
 
     js = (Path(__file__).resolve().parent.parent / "web" / "js" / "app.js").read_text(encoding="utf-8")
     assert re.search(r'APP_VERSION = "([^"]+)"', js).group(1) == __version__
+
+
+def test_novedades_de_la_version_actual(client):
+    """Al subir la versión hay que contar qué trae en docs/NOVEDADES.md (la consola lo enseña al
+    pulsar el número de versión)."""
+    from app import __version__
+
+    res = client.get("/guia/NOVEDADES.md")
+    assert res.status_code == 200
+    assert f"\n## {__version__} · " in res.text
 
 
 def test_logotipo_igual_en_la_consola():

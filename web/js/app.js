@@ -7,6 +7,7 @@ import {
 import { createSimulator } from "./simulator.js";
 import { openPalette } from "./palette.js";
 import { signIn, userButton } from "./account.js";
+import { versionButton } from "./notes.js";
 import * as agentsPage from "./pages/agents.js";
 import * as intentsPage from "./pages/intents.js";
 import * as intentEditor from "./pages/intent-editor.js";
@@ -23,7 +24,7 @@ import * as sharedPage from "./pages/shared.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.7.0";
+export const APP_VERSION = "0.8.0";
 
 export const state = {
   info: null,
@@ -193,7 +194,7 @@ function buildLayout() {
       state.info && state.info.accounts ? userButton()
         : h("a", { class: "btn ghost sm", href: "#/agents", title: "Todos los agentes" }, icon("layers"), "Agentes"),
       h("span", { class: "spacer" }),
-      h("span", { class: "version", title: "Versión de " + APP_NAME }, state.info ? "v" + state.info.version : "")));
+      state.info ? versionButton(state.info.version) : null));
   topTitle = h("span", { class: "title grow ellipsis" }, "");
   const topbar = h("div", { class: "topbar" },
     h("button", { class: "btn ghost icon-only", type: "button", "aria-label": "Menú",

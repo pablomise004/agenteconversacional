@@ -27,7 +27,8 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
   const body = h("div", { class: "sim-body", "aria-live": "polite" });
   const input = h("input", { type: "text", placeholder: "Escribe un mensaje…", "aria-label": "Mensaje", maxlength: "1000", autocomplete: "off" });
   const sendBtn = h("button", { class: "btn primary icon-only", type: "submit", "aria-label": "Enviar" }, icon("send"));
-  const form = h("form", { class: "sim-foot", onsubmit: (e) => { e.preventDefault(); send(input.value); } }, input, sendBtn);
+  const form = h("form", { class: "sim-foot", onsubmit: (e) => { e.preventDefault(); send(input.value); } },
+    h("div", { class: "composer" }, input, sendBtn));
   const sub = h("div", { class: "sub ellipsis" });
 
   const el = h("aside", { class: "sim", "aria-label": "Probar el agente" },

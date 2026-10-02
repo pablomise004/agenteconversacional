@@ -10,6 +10,7 @@ body.docs-body::before { content: ""; position: fixed; inset: 0 0 auto 0; height
   background: color-mix(in srgb, var(--bg) 80%, transparent); border-bottom: 1px solid var(--border);
   backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); }
 .docs-top .brand { padding: 0; margin-right: 6px; }
+.docs-top .version.new::after { box-shadow: 0 0 0 2px var(--bg); }
 .docs-search { position: relative; width: min(380px, 38vw); }
 .docs-search input { width: 100%; padding-right: 40px; }
 .docs-search kbd { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); pointer-events: none; }
@@ -30,7 +31,7 @@ body.docs-body::before { content: ""; position: fixed; inset: 0 0 auto 0; height
 
 /* portada */
 .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--accent-text); background: var(--primary-soft); padding: 4px 10px; border-radius: 999px;
+  text-transform: uppercase; color: var(--accent-text); background: var(--primary-soft); padding: 4px 9px; border-radius: 7px;
   border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent); }
 .docs-hero { animation: page-in .4s var(--ease) backwards; }
 .docs-hero h1 { font-size: 38px; letter-spacing: -.035em; font-weight: 750; margin: 14px 0 10px; line-height: 1.1; }
@@ -118,7 +119,7 @@ body.docs-body::before { content: ""; position: fixed; inset: 0 0 auto 0; height
 .try .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .resp { display: flex; flex-direction: column; gap: 8px; animation: rise .3s var(--ease); min-width: 0; }
 .resp-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
-.status-pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; font-weight: 650;
+.status-pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 6px; font-weight: 650;
   font-size: 12px; font-family: var(--mono); animation: pop-in .25s var(--spring); }
 .status-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .status-pill.ok { background: var(--success-soft); color: var(--success); }

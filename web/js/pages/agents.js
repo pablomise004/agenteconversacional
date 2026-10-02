@@ -1,46 +1,99 @@
 // Lista de agentes: crear, importar (JSON o ZIP de Dialogflow) y abrir.
 import { api } from "../api.js";
-import { h, icon, avatar, modal, toast, errorToast, timeAgo, fullDate, pageHead, emptyState, stagger } from "../ui.js";
+import { h, icon, avatar, clear, modal, popover, closePopover, optionList, toast, errorToast, timeAgo, fullDate, pageHead,
+  emptyState, stagger } from "../ui.js";
 import { navigate, refreshAgents, state } from "../app.js";
 
-const TEMPLATES = [
-  { value: "blank", icon: "sparkle", title: "Vacío", text: "Solo bienvenida y fallback. Para empezar de cero." },
-  { value: "pizzeria", icon: "chat", title: "Copia de la pizzería", text: "Pequeña y fácil de seguir: pedidos, reservas y carta. Para aprender." },
-  { value: "hotel", icon: "key", title: "Copia del hotel", text: "El ejemplo grande: 88 intenciones y más de 2.000 frases. Para ver hasta dónde llega." },
+// Un agente nuevo empieza vacío o como copia de otro: de los tuyos, de uno de ejemplo o, si borraste
+// un ejemplo, del original tal como viene (state.info.examples).
+const STARTS = [
+  { value: "blank", icon: "sparkle", title: "Vacío", text: "Solo bienvenida y fallback, para empezar de cero." },
+  { value: "copy", icon: "copy", title: "Copia de un agente", text: "De uno tuyo o de un ejemplo, con todo lo que tiene." },
 ];
 
+// Lo que se puede copiar, por grupos, como en el menú de agentes
+function copySources() {
+  const { mine, examples } = splitAgents(state.agents);
+  const sub = (n, lang) => `${n} ${n === 1 ? "intención" : "intenciones"} · ${(lang || "es").toUpperCase()}`;
+  const option = (a) => ({ value: "agent:" + a.id, label: a.name, avatar: a.name, sub: sub(a.intents, a.language), example: !!a.example });
+  const originals = ((state.info && state.info.examples) || [])
+    .filter((t) => !examples.some((a) => a.id === t.id || a.name === t.name))
+    .map((t) => ({ value: "template:" + t.id, label: t.name, avatar: t.name, sub: "Original · " + sub(t.intents, t.language), example: true }));
+  return [{ title: "Tus agentes", options: mine.map(option) }, { title: "Ejemplos", options: [...examples.map(option), ...originals] }]
+    .filter((g) => g.options.length);
+}
+
+// Nombre que se propone para la copia: el del ejemplo sin «(ejemplo)» o el del agente con «(copia)»
+const copyName = (o) => (o.example ? o.label.replace(/\s*\(ejemplo\)\s*$/i, "") : o.label + " (copia)");
+
 export async function createAgentDialog() {
-  const name = h("input", { type: "text", placeholder: "Por ejemplo: Atención al cliente" });
-  const lang = h("select", null, Object.entries(state.info.languages).map(([k, v]) => h("option", { value: k }, v)));
+  const name = h("input", { type: "text" });
   const desc = h("input", { type: "text", placeholder: "Opcional" });
-  let template = "blank";
-  const tplBox = h("div", { class: "tpl-list", role: "radiogroup", "aria-label": "Plantilla" }, TEMPLATES.map((t) => {
-    const radio = h("input", { type: "radio", name: "tpl", value: t.value, checked: t.value === template, class: "sr-only",
-      onchange: () => { template = t.value; paint(); } });
-    return h("label", { class: "tpl-card" + (t.value === template ? " on" : ""), dataset: { value: t.value } }, radio,
+  const lang = h("select", null, Object.entries(state.info.languages).map(([k, v]) => h("option", { value: k }, v)));
+  const groups = copySources();
+  const sources = groups.flatMap((g) => g.options);
+  let start = "blank";
+  let source = sources[0] || null;
+
+  // el agente que se copia se elige como en el menú de agentes: con buscador y por grupos
+  const pick = h("button", { class: "agent-switch source-pick", type: "button", "aria-haspopup": "listbox", "aria-expanded": "false",
+    onclick: () => popover(pick, h("div", { class: "agent-menu" }, optionList({
+      groups: groups.map((g) => ({ ...g, options: g.options.map((o) => ({ ...o, selected: o === source })) })),
+      placeholder: "Buscar agente…",
+      onPick: (value) => { source = sources.find((o) => o.value === value) || source; closePopover(); paint(); pick.focus(); },
+    })), { width: pick.offsetWidth }) });
+  const langField = h("label", { class: "field swap" }, "Idioma", lang);
+  const sourceField = h("div", { class: "field swap" }, h("span", null, "Copiar de"), pick,
+    h("span", { class: "hint" }, "La copia es tuya: lo que cambies en ella no toca el original."));
+  const cards = h("div", { class: "tpl-list two", role: "radiogroup", "aria-label": "Punto de partida" }, STARTS.map((t) => {
+    const radio = h("input", { type: "radio", name: "start", value: t.value, checked: t.value === start, class: "sr-only",
+      disabled: t.value === "copy" && !source, onchange: () => { start = t.value; paint(); } });
+    return h("label", { class: "tpl-card", dataset: { value: t.value } }, radio,
       h("span", { class: "li-icon primary" }, icon(t.icon)),
       h("span", null, h("b", null, t.title), h("span", { class: "muted small", style: { display: "block" } }, t.text)));
   }));
-  const paint = () => tplBox.querySelectorAll(".tpl-card").forEach((c) => c.classList.toggle("on", c.dataset.value === template));
+  function paint() {
+    const copy = start === "copy";
+    cards.querySelectorAll(".tpl-card").forEach((c) => c.classList.toggle("on", c.dataset.value === start));
+    langField.hidden = copy;
+    sourceField.hidden = !copy;
+    name.placeholder = copy ? copyName(source) : "Por ejemplo: Atención al cliente";
+    if (source) {
+      clear(pick);
+      pick.append(avatar(source.label), h("span", { class: "grow" }, h("div", { class: "name ellipsis" }, source.label),
+        h("div", { class: "meta ellipsis" }, source.sub)), icon("chevUpDown"));
+    }
+  }
+  paint();
   const result = await modal({
     title: "Nuevo agente",
     body: [
       h("label", { class: "field" }, "Nombre", name),
       h("label", { class: "field" }, "Descripción", desc),
-      h("label", { class: "field" }, "Idioma", lang),
-      h("div", { class: "field" }, h("span", null, "Plantilla"), tplBox),
+      h("div", { class: "field" }, h("span", null, "Punto de partida"), cards),
+      langField,
+      sourceField,
     ],
     actions: [
       { label: "Cancelar", value: null },
-      { label: "Crear agente", primary: true, validate: () => { if (!name.value.trim()) { name.focus(); return false; } return true; },
-        value: () => ({ name: name.value.trim(), language: lang.value, description: desc.value.trim(), template }) },
+      { label: "Crear agente", primary: true,
+        validate: () => { if (start === "blank" && !name.value.trim()) { name.focus(); return false; } return true; },
+        value: () => {
+          const body = { name: name.value.trim(), description: desc.value.trim() };
+          if (start === "blank") return { ...body, language: lang.value, template: "blank" };
+          // en una copia, sin nombre vale el que se propone
+          body.name = body.name || copyName(source);
+          const cut = source.value.indexOf(":");
+          const [kind, id] = [source.value.slice(0, cut), source.value.slice(cut + 1)];
+          return kind === "agent" ? { ...body, copyOf: id } : { ...body, template: id };
+        } },
     ],
   });
   if (!result) return;
   try {
     const agent = await api.createAgent(result);
     await refreshAgents();
-    toast("Agente creado", "success");
+    toast(result.template === "blank" ? "Agente creado" : "Copia creada", "success");
     navigate(`#/a/${encodeURIComponent(agent.id)}/intents`);
   } catch (e) { errorToast(e); }
 }

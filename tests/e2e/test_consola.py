@@ -313,6 +313,72 @@ def test_crear_agente_y_conversar(base_url, page):
     assert "router" in page.locator(".sim .msg.bot").last.inner_text()
 
 
+def test_crear_agente_como_copia(base_url, page):
+    """«Copia de un agente»: se elige cualquiera de los que hay (tuyos o de ejemplo) con su buscador."""
+    page.goto(f"{base_url}/#/agents")
+    page.locator("button", has_text="Crear agente").first.click()
+    page.locator(".tpl-card", has_text="Copia de un agente").click()
+    assert page.locator(".modal select").is_hidden()  # el idioma es el del agente que se copia
+    page.locator(".source-pick").click()
+    page.locator(".popover input").fill("hotel")
+    page.keyboard.press("Escape")  # cierra la lista, no la ventana
+    assert page.locator(".modal").count() == 1 and page.locator(".popover").count() == 0
+    page.locator(".source-pick").click()
+    page.locator(".popover .opt", has_text="Hotel").click()
+    page.locator(".modal input").first.fill("Hotel copiado e2e")
+    page.locator(".modal button.primary").click()
+    page.wait_for_url("**/intents")
+    page.wait_for_selector(".list-item")
+    copy, hotel = api(base_url, "/api/agents/hotel-copiado-e2e"), api(base_url, "/api/agents/hotel")
+    assert copy["name"] == "Hotel copiado e2e" and "example" not in copy
+    assert len(copy["intents"]) == len(hotel["intents"]) > 80
+    assert page.errors == []
+
+
+def test_notas_de_la_version(base_url, browser):
+    """El número de versión abre las novedades; un punto avisa de que hay una versión nueva sin ver."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900}, locale="es-ES")
+    ctx.add_init_script("localStorage.getItem('agente.seenVersion') || localStorage.setItem('agente.seenVersion', '0.1.0')")
+    page = ctx.new_page()
+    page.goto(f"{base_url}/#/agents")
+    page.wait_for_selector(".sidebar .version.new")
+    page.locator(".sidebar .version").click()
+    page.wait_for_selector(".note-rel")
+    first = page.locator(".note-rel").first
+    assert first.locator(".note-ver").inner_text() == api(base_url, "/api/info")["version"]
+    assert "Tu versión" in first.inner_text() and page.locator(".note-rel").count() >= 9
+    page.keyboard.press("Escape")
+    page.reload()
+    page.wait_for_selector(".sidebar .version")
+    assert page.locator(".sidebar .version.new").count() == 0  # ya vistas
+    ctx.close()
+
+
+def test_indice_desplegable_con_poco_sitio(base_url, browser):
+    """Con la zona central estrecha, el índice de la Guía es una barra que dice en qué sección estás y
+    despliega la lista; al saltar, la sección queda debajo de la barra, no tapada por ella."""
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="es-ES", is_mobile=True, has_touch=True)
+    ctx.add_init_script("localStorage.setItem('agente.sim', '0')")
+    page = ctx.new_page()
+    page.goto(f"{base_url}/#/guide")
+    page.wait_for_selector(".md h2")
+    assert page.locator(".toc-toggle").is_visible() and page.locator(".toc-list").is_hidden()
+    page.locator(".toc-toggle").click()
+    page.locator(".toc-list a", has_text="Problemas frecuentes").click()
+    assert page.locator(".toc-list").is_hidden()
+    playwright.expect(page.locator(".toc-now")).to_have_text("Problemas frecuentes", timeout=5000)
+    page.wait_for_timeout(1500)  # se corrige si las imágenes de arriba cambian de alto al cargarse
+    tops = page.evaluate("""() => {
+        const h2 = [...document.querySelectorAll('.md h2')].find((x) => x.textContent === 'Problemas frecuentes');
+        return [document.querySelector('.toc').getBoundingClientRect().bottom, h2.getBoundingClientRect().top];
+    }""")
+    assert tops[0] <= tops[1] <= tops[0] + 30
+    page.set_viewport_size({"width": 1440, "height": 900})  # con sitio, la lista va fija al lado
+    page.wait_for_timeout(300)
+    assert page.locator(".toc-toggle").is_hidden() and page.locator(".toc-list").is_visible()
+    ctx.close()
+
+
 def test_tema_oscuro(base_url, page):
     page.goto(f"{base_url}/#/a/pizzeria/intents")
     page.wait_for_selector(".list-item")

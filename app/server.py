@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import __version__
-from .agents import blank_agent, new_id, normalize_entity, normalize_intent, normalize_phrase, slugify
+from .agents import blank_agent, new_id, normalize_entity, normalize_intent, normalize_phrase, slugify, summary
 from .dialog import analysis_dict
 from .importer import ImportError_, import_bytes
 from .nlu import insights
@@ -109,14 +109,17 @@ DETECT_RESPONSE = {
 # ---------------------------------------------------------------- modelos
 class CreateAgent(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="Nombre visible del agente")
-    language: str = Field("es", description="Idioma: es o en")
-    description: str = ""
+    language: str = Field("es", description="Idioma: es o en (en una copia, el del agente copiado)")
+    description: str = Field("", description="Descripción (en una copia, si va vacía se queda la del agente copiado)")
     timezone: str = Field("Europe/Madrid", description="Zona horaria para «mañana», «el lunes»…")
-    template: str = Field("blank", description="blank (vacío), pizzeria (copia del ejemplo para aprender) "
-                                               "u hotel (copia del ejemplo grande)")
+    copyOf: str | None = Field(None, description="Id de uno de tus agentes (o de uno de ejemplo) del que hacer una "
+                                                 "copia con este nombre. Si se da, no se mira `template`")
+    template: str = Field("blank", description="blank (vacío), pizzeria u hotel: copia del ejemplo tal como viene, "
+                                               "aunque ya no lo tengas en la lista (ver `examples` en /api/info)")
 
     model_config = {"json_schema_extra": {"examples": [
-        {"name": "Atención al cliente", "language": "es", "description": "Dudas sobre pedidos y envíos", "template": "blank"}]}}
+        {"name": "Atención al cliente", "language": "es", "description": "Dudas sobre pedidos y envíos", "template": "blank"},
+        {"name": "Mi pizzería", "copyOf": "pizzeria"}]}}
 
 
 class DetectRequest(BaseModel):
@@ -199,6 +202,18 @@ class ReviewRequest(BaseModel):
     model_config = {"json_schema_extra": {"examples": [{"action": "approve"}, {"action": "assign", "intentId": "i019"}]}}
 
 
+def example_templates() -> list[dict]:
+    """Los agentes de ejemplo tal como vienen (resumen): se puede crear una copia aunque se haya
+    borrado la de la lista."""
+    out = []
+    for name in EXAMPLES:
+        path = EXAMPLES_DIR / f"{name}.json"
+        if path.exists():
+            agent = json.loads(path.read_text(encoding="utf-8"))
+            out.append({k: v for k, v in summary(dict(agent, id=name)).items() if k in ("id", "name", "language", "intents")})
+    return out
+
+
 def seed_examples(storage: Storage, data_dir: Path) -> None:
     """Copia cada agente de ejemplo la primera vez que arranca el servidor con él.
 
@@ -260,6 +275,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         seed_examples(single.storage, data_dir)
     admin_token = os.environ.get("AGENTE_ADMIN_TOKEN", "").strip()
     started_stamp = code_stamp()
+    templates = example_templates()
 
     app = FastAPI(
         title=APP_NAME,
@@ -381,8 +397,9 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
     # ---------------------------------------------------------------- info
     @app.get("/api/info", tags=["general"], summary="Información del servidor")
     def info():
-        """Versión, idiomas, entidades del sistema, si hace falta token de administración y si el servidor
-        tiene cuentas de usuario (`accounts`: cada uno entra con su usuario y ve solo sus agentes).
+        """Versión, idiomas, entidades del sistema, si hace falta token de administración, si el servidor
+        tiene cuentas de usuario (`accounts`: cada uno entra con su usuario y ve solo sus agentes) y los
+        agentes de ejemplo tal como vienen (`examples`, para crear una copia con `template`).
 
         `restartNeeded` es `true` si el código del servidor ha cambiado desde que se arrancó
         (hay que reiniciarlo para usar la versión nueva)."""
@@ -393,6 +410,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
             "adminTokenRequired": bool(admin_token),
             "accounts": accounts,
             "restartNeeded": code_stamp() > started_stamp,
+            "examples": templates,
         }
 
     @app.get("/api/auth-check", tags=["general"], dependencies=ADMIN, summary="Comprobar el token de administración")
@@ -449,12 +467,22 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
 
     @app.post("/api/agents", tags=["agentes"], dependencies=ADMIN, status_code=201, summary="Crear un agente")
     def create_agent(req: CreateAgent, sp: Space = SPACE):
-        """Crea un agente vacío (bienvenida y fallback) o una copia de un ejemplo: la pizzería o el hotel."""
+        """Crea un agente vacío (bienvenida y fallback) o una copia: de otro agente tuyo o de uno de
+        ejemplo (`copyOf`, con todo lo que tenga) o de un ejemplo tal como viene (`template`: pizzeria
+        u hotel). La copia es un agente propio: sale en «Tus agentes»."""
         room_for_agent(sp)
         example = EXAMPLES_DIR / f"{req.template}.json"
-        if req.template in EXAMPLES and example.exists():
+        if req.copyOf:
+            agent = get_agent(sp, req.copyOf)
+            agent["name"] = req.name
+            if req.description:
+                agent["description"] = req.description
+            agent.pop("example", None)
+        elif req.template in EXAMPLES and example.exists():
             agent = json.loads(example.read_text(encoding="utf-8"))
             agent["name"] = req.name
+            if req.description:
+                agent["description"] = req.description
         else:
             agent = blank_agent(req.name, req.language if req.language in SUPPORTED_LANGUAGES else "es",
                                 req.description, req.timezone)

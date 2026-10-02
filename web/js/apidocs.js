@@ -7,6 +7,7 @@ import {
 } from "./ui.js";
 import { getToken, setToken, getSpaceKey } from "./api.js";
 import { renderMarkdown } from "./markdown.js";
+import { versionButton } from "./notes.js";
 
 const METHODS = ["get", "post", "put", "patch", "delete"];
 const TAG_LABEL = {
@@ -551,7 +552,7 @@ async function start() {
     h("header", { class: "docs-top" },
       h("a", { class: "brand", href: "/", title: "Abrir la consola" }, logo(),
         h("div", null, h("div", { class: "brand-name" }, "Lince"), h("div", { class: "brand-sub" }, "Referencia de la API"))),
-      h("span", { class: "version hide-sm" }, "v" + spec.info.version),
+      versionButton(spec.info.version, "hide-sm"),
       h("span", { class: "spacer" }),
       h("div", { class: "docs-search" }, search, h("kbd", null, "/")),
       themeButton(),

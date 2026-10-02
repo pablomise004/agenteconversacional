@@ -20,7 +20,9 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
   quiere poder ver y entender el entrenamiento; quiere todo subido a GitHub; quiere una interfaz
   **moderna, con microanimaciones, tablas bonitas e intuitiva**, y la referencia de la API con el
   mismo estilo que la consola. La pizzería le parece el ejemplo perfecto para aprender; el hotel
-  es para ver el potencial («que no parezca tonto ni se pierda con cualquier cosa»). Los ejemplos van
+  es para ver el potencial («que no parezca tonto ni se pierda con cualquier cosa»). **Nada de
+  píldoras** (`border-radius: 999px`; le parecen un tic de diseño hecho con IA): esquinas suaves,
+  también en el chat. Los ejemplos van
   aparte, debajo de sus agentes («Tus agentes» empieza vacío). El logotipo tiene que verse como un
   lince de verdad y bonito (rediseñado en la 0.6.0: pinceles, barba, ojos con brillo). Lo comparte
   con sus compañeros de clase (todos con Windows): la web pública tiene **cuentas** (cada uno ve solo
@@ -35,8 +37,8 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 146 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 28 pruebas en navegador real
+python -m pytest                      # 148 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 31 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
@@ -67,7 +69,8 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   `data/demo/`. En la consola: `js/account.js` (entrar, usuario, contraseña) y `pages/shared.js`.
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
-  `busy`, `countUp`, `stagger`, tooltips, tema); `js/palette.js` el buscador Ctrl+K;
+  `busy`, `countUp`, `stagger`, `tocNav` (índice de Guía y «Por dentro»), tooltips, tema);
+  `js/palette.js` el buscador Ctrl+K; `js/notes.js` las notas de la versión (`docs/NOVEDADES.md`);
   `js/pages/learn.js` la página «Entrenar»; `js/pages/inside.js` «Por dentro» (el motor con sus
   fórmulas y una frase de ejemplo; si cambia una fórmula del NLU, actualizarla también ahí);
   `js/math.js` fórmulas TeX → MathML sin librerías; `js/charts.js` los gráficos; `js/markdown.js` pinta
@@ -137,7 +140,7 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - Tras cambiar código Python (o hacer `git pull`) hay que reiniciar el servidor; JS/CSS se sirven en
   caliente (recargar). La consola avisa si el servidor va con código anterior (`restartNeeded` en
   `/api/info` y `APP_VERSION` de `web/js/app.js` frente a `app/__init__.py`: al subir la versión,
-  cambiar las dos).
+  cambiar las dos y añadir sus notas arriba en `docs/NOVEDADES.md`, en lenguaje sencillo).
 - No hay Node instalado; la consola no lo necesita.
 
 ## Ideas pendientes (por orden de utilidad)

@@ -204,7 +204,8 @@ export function modal({ title, body, actions = [], wide = false, onOpen, closabl
       resolve(value);
     };
     const onKey = (e) => {
-      if (e.key === "Escape") { e.stopPropagation(); if (closable) close(null); return; }
+      // con un desplegable abierto dentro (popover), Escape cierra solo el desplegable
+      if (e.key === "Escape") { if (openPopover) return; e.stopPropagation(); if (closable) close(null); return; }
       if (e.key === "Tab") { // el foco no sale de la ventana
         const items = [...box.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null);
         if (!items.length) return;
@@ -308,7 +309,7 @@ export function closePopover() {
 export function popover(anchor, content, { onClose, width } = {}) {
   closePopover();
   const el = h("div", { class: "popover", role: "dialog" }, content);
-  if (width) el.style.width = width + "px";
+  if (width) { el.style.width = width + "px"; el.style.maxWidth = "calc(100vw - 16px)"; }
   document.body.append(el);
   const r = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor;
   const w = el.offsetWidth, ht = el.offsetHeight;
@@ -700,6 +701,111 @@ export function segmented({ items, active, onChange, label }) {
   if (window.ResizeObserver) new ResizeObserver(() => place(false)).observe(box);
   box.select = (key) => select(key, false);
   return box;
+}
+
+/**
+ * Índice de una página larga (la Guía, «Por dentro»). Con sitio, una lista fija junto al texto; con la
+ * zona central estrecha (simulador abierto o móvil), una barra pegada arriba que dice en qué sección
+ * estás y despliega la lista. items: [{ text, target: () => elemento }]; extra: más nodos debajo de la
+ * lista (otros enlaces). Devuelve { el, go(elemento), destroy }.
+ */
+export function tocNav({ label = "Índice", items, extra = null, scroller }) {
+  const listId = "toc-" + Math.random().toString(36).slice(2, 8);
+  const now = h("span", { class: "toc-now ellipsis" }, items[0] ? items[0].text : "");
+  const toggle = h("button", { class: "toc-toggle", type: "button", "aria-expanded": "false", "aria-controls": listId,
+    onclick: () => setOpen(!open) }, icon("list"), h("span", { class: "toc-label" }, "Contenido"), now, icon("down", "toc-chev"));
+  const links = items.map((it) => h("a", { href: "#", onclick: (e) => { e.preventDefault(); setOpen(false); go(it.target()); } }, it.text));
+  const list = h("div", { class: "toc-list", id: listId }, h("div", { class: "toc-title" }, "Contenido"), links, extra);
+  const nav = h("nav", { class: "toc", "aria-label": label }, toggle, list);
+  // el botón del desplegable solo se ve con la zona estrecha (lo decide el CSS)
+  const compact = () => toggle.offsetParent !== null;
+  const stickTop = () => parseFloat(getComputedStyle(nav).top) || 0;
+
+  let open = false;
+  const onDown = (e) => { if (!nav.contains(e.target)) setOpen(false); };
+  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); toggle.focus(); } };
+  function setOpen(value) {
+    if (value === open) return;
+    open = value;
+    nav.classList.toggle("open", value);
+    toggle.setAttribute("aria-expanded", String(value));
+    const method = value ? "addEventListener" : "removeEventListener";
+    document[method]("mousedown", onDown, true);
+    document[method]("keydown", onKey, true);
+    if (value) list.querySelector("a.active")?.scrollIntoView({ block: "nearest" });
+  }
+  nav.addEventListener("focusout", (e) => { if (open && !nav.contains(e.relatedTarget)) setOpen(false); });
+
+  // salta a una sección; con la barra pegada arriba, la deja justo debajo de ella
+  let settle = 0;
+  const stopSettle = () => { clearTimeout(settle); settle = 0; };
+  function go(node) {
+    if (!node) return;
+    stopSettle();
+    const behavior = reducedMotion() ? "auto" : "smooth";
+    if (!scroller) { node.scrollIntoView({ behavior, block: "start" }); return; }
+    const want = () => {
+      const gap = compact() ? stickTop() + nav.offsetHeight + 12 : parseFloat(getComputedStyle(node).scrollMarginTop) || 0;
+      const y = scroller.scrollTop + node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - gap;
+      return Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, Math.round(y)));
+    };
+    scroller.scrollTo({ top: want(), behavior });
+    // lo de arriba puede cambiar de alto mientras tanto (imágenes que se cargan al pasar, datos que
+    // llegan): cuando se para, se corrige hasta que la sección quede en su sitio
+    let last = -1, rounds = 0;
+    const tick = () => {
+      const y = scroller.scrollTop;
+      if (y !== last) { last = y; settle = setTimeout(tick, 120); return; }
+      if (Math.abs(want() - y) > 2 && rounds++ < 5) {
+        scroller.scrollTo({ top: want(), behavior });
+        last = -1;
+        settle = setTimeout(tick, 120);
+        return;
+      }
+      settle = 0;
+    };
+    settle = setTimeout(tick, 120);
+  }
+
+  // resalta la sección que se está leyendo: la última que ha pasado la línea de lectura
+  let frame = 0;
+  const spy = () => {
+    frame = 0;
+    if (!scroller || !nav.isConnected) return;
+    const top = scroller.getBoundingClientRect().top;
+    const small = compact();
+    const line = small ? nav.getBoundingClientRect().bottom + 24 : top + 120;
+    let current = 0;
+    items.forEach((it, i) => { const node = it.target(); if (node && node.getBoundingClientRect().top <= line) current = i; });
+    // al final de la página la última sección no llega a la línea: si se ve, es la que se lee
+    if (scroller.scrollTop > 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) current = items.length - 1;
+    links.forEach((a, i) => a.classList.toggle("active", i === current));
+    if (items[current]) now.textContent = items[current].text;
+    nav.classList.toggle("stuck", small && scroller.scrollTop > 0 && nav.getBoundingClientRect().top <= top + stickTop() + 0.5);
+  };
+  const onScroll = () => { if (!frame) frame = requestAnimationFrame(spy); };
+  // si quien lee mueve la página, se deja de corregir el salto
+  const userScroll = ["wheel", "touchstart", "keydown", "mousedown"];
+  if (scroller) {
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    userScroll.forEach((type) => scroller.addEventListener(type, stopSettle, { passive: true }));
+  }
+  window.addEventListener("resize", onScroll);
+  onScroll();
+  return {
+    el: nav,
+    go,
+    destroy: () => {
+      setOpen(false);
+      stopSettle();
+      if (scroller) {
+        scroller.removeEventListener("scroll", onScroll);
+        userScroll.forEach((type) => scroller.removeEventListener(type, stopSettle));
+      }
+      window.removeEventListener("resize", onScroll);
+      cancelAnimationFrame(frame);
+    },
+  };
 }
 
 /**

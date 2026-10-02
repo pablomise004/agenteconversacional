@@ -41,7 +41,8 @@ abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada fras
 - [Hoja de ruta](#hoja-de-ruta)
 
 Documentación completa: **[Guía de uso](docs/GUIA.md)** (también dentro de la aplicación, en
-*Guía*) y **[Arquitectura y guía para desarrolladores](CONTRIBUTING.md)** (pestaña *Contributing*).
+*Guía*), **[Arquitectura y guía para desarrolladores](CONTRIBUTING.md)** (pestaña *Contributing*) y
+**[Novedades de cada versión](docs/NOVEDADES.md)** (en la aplicación, pulsando el número de versión).
 
 ## Qué incluye
 
@@ -229,8 +230,8 @@ Con frases nuevas que no había visto nunca (escritas con faltas, sin tildes o d
 acierta **9 de cada 10** y rechaza la mayoría de lo que no tiene que ver con un hotel. Se genera con
 [`tools/build_hotel.py`](tools/build_hotel.py), que es también un buen ejemplo de cómo escribir un
 agente grande, y sus pruebas están en [`tests/casos_hotel.py`](tests/casos_hotel.py). Si borras un
-ejemplo no vuelve a aparecer, pero siempre puedes crear una copia nueva en *Agentes → Crear agente →
-Plantilla*. Esa copia (o un duplicado) ya es tuya y sale arriba, en *Tus agentes*.
+ejemplo no vuelve a aparecer, pero siempre puedes crear una copia del original en *Agentes → Crear
+agente → Copia de un agente*. Esa copia (o un duplicado) ya es tuya y sale arriba, en *Tus agentes*.
 
 ## Ver cómo aprende
 
@@ -447,7 +448,7 @@ app/
   nlu/             motor de lenguaje: tokenizador, stemmer, entidades, clasificador, motor, insights
 web/               consola (HTML/CSS/JS sin compilación), api.html (referencia de la API),
                    widget.js, chat.html, logotipo e iconos, fuente Inter
-docs/              guía de uso e imágenes (la arquitectura está en CONTRIBUTING.md)
+docs/              guía de uso, novedades de cada versión e imágenes (la arquitectura está en CONTRIBUTING.md)
 examples/          agentes de ejemplo (pizzería y hotel), que se copian al arrancar
 tests/             pruebas automáticas (tests/e2e: navegador)
 tools/             benchmark, generadores de los ejemplos, prueba rápida del NLU, capturas e iconos

@@ -21,8 +21,9 @@ Para *usar* la aplicación, mejor la [guía de uso](docs/GUIA.md).
    reinicia el servidor; para los cambios en `web/` basta con recargar el navegador. Si se te
    olvida, la consola lo avisa: `/api/info` devuelve `restartNeeded` cuando algún `.py` de `app/`
    es más nuevo que el arranque, y la consola compara su `APP_VERSION` (`web/js/app.js`) con la
-   del servidor (`app/__init__.py`; al subir la versión cambia las dos, hay una prueba que lo
-   comprueba). `python -m app` tampoco arranca encima de otro Lince: si el puerto está ocupado,
+   del servidor (`app/__init__.py`; al subir la versión cambia las dos y cuenta lo que trae en
+   `docs/NOVEDADES.md`, que la consola enseña al pulsar el número de versión: hay pruebas que lo
+   comprueban). `python -m app` tampoco arranca encima de otro Lince: si el puerto está ocupado,
    lo explica.
 3. Antes de subir cambios, pasa las pruebas (detalles en [Pruebas](#pruebas)):
    - `python -m pytest`: deben pasar todas.
@@ -103,6 +104,7 @@ flowchart TB
 | `web/js/app.js` | Estado global, rutas por `#hash`, barra lateral (selector de agente, navegación), títulos de pestaña |
 | `web/js/ui.js` | `h()` (crea DOM sin `innerHTML`), iconos y logotipo, tema, modales, avisos, tooltips, chips, popovers y los componentes comunes (ver [Consola web](#consola-web)) |
 | `web/js/palette.js` | Buscador / paleta de comandos (Ctrl+K) |
+| `web/js/notes.js` | El número de versión (barra lateral y `/docs`) como botón: abre `docs/NOVEDADES.md` en una ventana con una línea de tiempo; un punto avisa de una versión sin ver (`agente.seenVersion` en `localStorage`) |
 | `web/js/account.js` | Servidor con cuentas: la ventana obligatoria de entrar o crear la cuenta, el botón del usuario (pie de la barra lateral) y cambiar la contraseña |
 | `web/js/pages/shared.js` | Un agente compartido (`#/shared/<código>`): guardar una copia en tu cuenta o descargar el JSON |
 | `web/api.html`, `web/js/apidocs.js`, `web/css/api.css` | Referencia de la API (`/docs`): lee `/openapi.json` y pinta cada ruta con un formulario «Pruébalo» |
@@ -167,8 +169,9 @@ Fichero `data/agents/<id>.json` (ver `examples/pizzeria.json`). Todo pasa por
 - `version` sube en cada guardado; la caché de modelos la usa para saber cuándo reentrenar.
 - `example: true` solo aparece en las copias de los ejemplos que hace `seed_examples()` (las de antes
   de la marca la reciben al arrancar si conservan el nombre del ejemplo y su id, o el que se les dio
-  si ese estaba ocupado). Crear desde una
-  plantilla, duplicar, exportar o importar la quitan: lo que sale de ahí es un agente propio.
+  si ese estaba ocupado). Crear una copia (`copyOf`: de un agente tuyo o de ejemplo; `template`: de
+  un ejemplo tal como viene, los de `examples` en `/api/info`), duplicar, exportar o importar la
+  quitan: lo que sale de ahí es un agente propio.
 
 SQLite (`data/runtime.sqlite3`):
 
@@ -467,7 +470,14 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
   reordenar), `segmented()` (pestañas con indicador que se desliza), `codeBlock()` / `codeTabs()`
   (código con botón Copiar; `json: true` lo colorea), `emptyState()`, `busy(botón, fn)` (estado
   «cargando»), `countUp()` (cifras que cuentan), `stagger()` (los elementos aparecen en cascada),
-  `avatar()`, `logo()`, `copyButton()`, `toggleTheme()`.
+  `avatar()`, `logo()`, `copyButton()`, `toggleTheme()`, `tocNav()` (índice de una página larga:
+  lista fija al lado y, con la zona central estrecha, una barra pegada arriba con la sección actual
+  que despliega la lista; al saltar corrige la posición si lo de arriba cambia de alto).
+- Formas: esquinas suaves (6-7 px en etiquetas y contadores, 10-14 px en botones, cajas y tarjetas).
+  Nada de píldoras (`border-radius: 999px`); los círculos, solo para lo que es redondo de verdad
+  (puntos de estado, interruptores, el tirador del deslizador). El chat (simulador, `widget.js` y su
+  vista previa en Integraciones) sigue lo mismo: caja de escribir con el botón dentro, respuestas
+  rápidas como botones y avisos como una línea fina con el texto en medio.
 - Los `title` se muestran como tooltips propios (`initTooltips()`): basta con poner `title` a un
   botón o marca.
 - Microanimaciones: en CSS (`@keyframes` al principio de `app.css`), cortas (150-400 ms) y con
@@ -519,8 +529,8 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 146 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor, logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
-| `python -m pytest tests/e2e -m e2e` | 28 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
+| `python -m pytest` | 148 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
+| `python -m pytest tests/e2e -m e2e` | 31 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

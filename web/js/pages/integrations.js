@@ -23,7 +23,8 @@ function widgetPreview() {
       h("div", { class: "wp-msg" }, "¡Hola! ¿En qué puedo ayudarte?"),
       h("div", { class: "wp-quick" }, h("span", null, "Ver la carta"), h("span", null, "Hacer un pedido")),
       h("div", { class: "wp-msg user" }, "Quiero una pizza")),
-    h("div", { class: "wp-input" }, h("span", null, "Escribe un mensaje…"), h("span", { class: "wp-send" }, icon("send"))));
+    h("div", { class: "wp-input" }, h("span", { class: "wp-box" }, h("span", null, "Escribe un mensaje…"),
+      h("span", { class: "wp-send" }, icon("send")))));
   const box = h("div", { class: "widget-preview", "aria-label": "Vista previa del widget" },
     h("div", { class: "wp-page" }, h("i", { style: { width: "46%" } }), h("i", { style: { width: "72%" } }), h("i", { style: { width: "60%" } }),
       h("i", { style: { width: "38%" } })),

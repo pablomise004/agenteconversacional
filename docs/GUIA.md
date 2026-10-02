@@ -19,7 +19,8 @@ conceptos son los mismos.
    «barbacoa», «grande». Verás que pregunta lo que falta y recuerda lo que ya le has dicho.
 3. **Mira qué ha entendido**: pulsa el nombre de la intención que aparece bajo cada respuesta.
 4. **Corrígelo** cuando se equivoque: 👎 y eliges la intención correcta. Aprende al instante.
-5. **Crea tu propio agente** en *Agentes → Crear agente* y empieza por 3 o 4 intenciones.
+5. **Crea tu propio agente** en *Agentes → Crear agente* y empieza por 3 o 4 intenciones. También
+   puedes empezar con una *Copia de un agente*: de uno tuyo o de un ejemplo, con todo lo que tiene.
 6. **Muévete con Ctrl+K**: abre el buscador para saltar a cualquier pantalla, intención o entidad.
 
 ### Los dos agentes de ejemplo
@@ -35,8 +36,8 @@ conceptos son los mismos.
   que eso no lo sabe.
 
 Los ejemplos se pueden abrir, probar y cambiar como cualquier agente. Si borras uno no vuelve a
-aparecer al reiniciar; puedes crear una copia nueva cuando quieras en *Agentes → Crear agente*,
-eligiendo la plantilla. Esa copia (o un duplicado) ya es tuya y sale arriba, en *Tus agentes*.
+aparecer al reiniciar, pero puedes crear una copia del original cuando quieras en *Agentes → Crear
+agente → Copia de un agente*. Esa copia (o un duplicado) ya es tuya y sale arriba, en *Tus agentes*.
 
 ### En la web de internet: tu cuenta y compartir
 
@@ -297,6 +298,7 @@ página *Integraciones* tiene ejemplos en Python y Node.js.
 | **Pruébalo** | El chat de la derecha, con detalles de cada turno y botones 👍/👎 |
 | **Buscar** (Ctrl+K) | Salta a cualquier pantalla, intención o entidad. Si escribes una frase, te ofrece analizarla, probarla en el chat o explicarla paso a paso |
 | **API** | La referencia de la API (`/docs`): cada ruta explicada, con ejemplos y un botón *Pruébalo* que envía la petición de verdad |
+| **Novedades** | Pulsa el número de versión (abajo a la izquierda) para ver qué trae cada versión. Un punto en el número avisa de que hay novedades sin ver |
 
 ![Buscador (Ctrl+K)](img/paleta.png)
 
@@ -311,7 +313,9 @@ página *Integraciones* tiene ejemplos en Python y Node.js.
 | / | En la referencia de la API, salta al buscador |
 
 En las tablas, pulsa el título de una columna para **ordenarla** (otra vez para invertir el orden).
-Al pasar el ratón por un botón o una marca aparece una pequeña explicación.
+Al pasar el ratón por un botón o una marca aparece una pequeña explicación. En las páginas largas
+(esta guía y *Por dentro*), con poco sitio (en el móvil o con el chat abierto) el índice es una barra
+arriba que dice en qué sección estás; púlsala para saltar a otra.
 
 ## Problemas frecuentes
 
