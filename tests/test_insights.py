@@ -67,6 +67,22 @@ def test_explicar_frase(engine):
     assert {e["entity"] for e in ex["entities"]} >= {"@sys.number", "@sys.date"}
 
 
+def test_comparacion_con_naive_bayes(engine):
+    """«Por dentro», paso 7: Naive Bayes con los mismos rasgos cuenta varias veces la misma pista y se
+    vuelve exageradamente seguro; la regresión logística duda cuando la frase es dudosa."""
+    b = insights.explain(engine, "me pones dos pizas barbacoa familiares pa mañana")["bayes"]
+    assert b["a"] == "pedido.pizza" and b["rows"][0]["name"] == "pedido.pizza"
+    assert 0.5 < b["rows"][0]["lr"] < 0.99 and b["rows"][0]["nb"] > 0.9999
+    fam = b["family"]
+    assert len(fam["features"]) >= 8 and fam["nb"] > 5 * fam["lr"] > 0  # la misma pista, contada muchas veces
+    assert {f["kind"] for f in fam["features"]} >= {"w", "c"}
+    dudosa = insights.explain(engine, "quiero información")["bayes"]
+    assert dudosa["rows"][0]["lr"] < 0.5 < max(r["nb"] for r in dudosa["rows"])
+    # las probabilidades de los dos modelos suman 1 (aquí solo se enseñan las primeras)
+    nb = insights._softmax(engine.naive_bayes.scores({"w:pizz": 1.0, "c:<piz": 1.0}))
+    assert abs(sum(nb.values()) - 1) < 1e-9
+
+
 def test_examen_validacion_cruzada(agent):
     ev = insights.evaluate(agent, folds=5)
     assert ev["total"] == 174

@@ -1194,6 +1194,97 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .live-title svg { width: 14px; height: 14px; }
 .live-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .live-body:empty::before { content: "Analizando…"; color: var(--faint); font-size: 13px; }
+
+/* ¿Y el teorema de Bayes? (paso 7): Naive Bayes al lado de la regresión logística.
+   Naranja (--series-2) es Naive Bayes y azul (--series-1), la regresión, como en los gráficos. */
+.bayes { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; padding: 18px; border-radius: var(--radius);
+  border: 1px solid transparent; background: linear-gradient(var(--panel-2), var(--panel-2)) padding-box,
+    linear-gradient(135deg, color-mix(in srgb, var(--series-2) 45%, var(--border)), var(--border) 40%,
+    color-mix(in srgb, var(--series-1) 45%, var(--border))) border-box; }
+.bayes h3 { margin: 0 0 4px; font-size: 17px; letter-spacing: -.01em; }
+.bayes h4 { margin: 6px 0 -4px; font-size: 14.5px; }
+.bayes p { margin: 0; }
+.bayes-head { display: flex; gap: 12px; align-items: flex-start; }
+.bayes-icon { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--series-2), var(--series-1)); box-shadow: 0 6px 14px -8px var(--series-1); }
+.bayes-icon svg.icon { width: 21px; height: 21px; }
+.bayes-duel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.duel { --duel: var(--series-1); display: flex; flex-direction: column; gap: 10px; padding: 14px; min-width: 0;
+  background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--duel); border-radius: 12px;
+  animation: rise .4s var(--ease) backwards; }
+.duel.nb { --duel: var(--series-2); }
+.duel.lr { animation-delay: 80ms; }
+.duel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; }
+.duel-tag { font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 6px; color: var(--duel);
+  background: color-mix(in srgb, var(--duel) 13%, var(--panel)); }
+.duel .formula { margin: 0; }
+.duel p { font-size: 13.5px; color: var(--muted); }
+.duel-step { display: flex; align-items: center; justify-content: center; gap: 6px; margin: -4px 0; font-size: 12px; color: var(--faint); }
+.duel-step svg.icon { width: 15px; height: 15px; }
+/* las piezas que se corresponden, del mismo color en las dos fórmulas (\hl{n}{…} de math.js) */
+.hl { border-radius: 4px; padding: 0 2px; }
+.hl-1 { background: var(--a1); } .hl-2 { background: var(--a0); } .hl-3 { background: var(--a2); }
+.bayes-map { display: grid; grid-template-columns: max-content max-content max-content 1fr; gap: 8px 10px; align-items: center;
+  margin-top: auto; padding-top: 4px; font-size: 13px; }
+.bm-row { display: contents; }
+.bm-sym { justify-self: center; padding: 2px 8px; border-radius: 7px; color: var(--a-ink); }
+.bm-eq { color: var(--faint); }
+.bm-text { color: var(--muted); }
+/* con tu frase: la palabra, sus rasgos y cuánto empujan */
+.fam { display: flex; flex-direction: column; gap: 10px; }
+.fam-word { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.fam-quote { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.fam-count { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.fam-count svg.icon { width: 15px; height: 15px; color: var(--faint); }
+.fam-groups { display: flex; flex-direction: column; gap: 6px; padding-left: 12px; border-left: 2px solid color-mix(in srgb, var(--series-2) 45%, var(--border)); }
+.fam-group { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fam-label { flex: none; width: 150px; font-size: 12px; color: var(--faint); }
+.fam-chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; flex: 1; }
+.fam-chip { font-family: var(--mono); font-size: 12px; padding: 2px 7px; border-radius: 6px; background: var(--panel);
+  border: 1px solid var(--border); cursor: help; animation: pop-in .25s var(--spring) backwards; animation-delay: calc(var(--i) * 25ms); }
+.fam-chip.k-w { font-family: var(--font); font-weight: 650; background: color-mix(in srgb, var(--series-2) 14%, var(--panel)); border-color: transparent; }
+.fam-chip.k-b { font-family: var(--font); font-weight: 550; }
+.push { display: flex; flex-direction: column; gap: 8px; }
+.push-row { --bar: var(--series-1); display: grid; grid-template-columns: 150px minmax(60px, 1fr) minmax(0, auto); gap: 10px; align-items: center; font-size: 13px; }
+.push-row.nb { --bar: var(--series-2); }
+.push-name { font-weight: 600; }
+.push-track { height: 12px; border-radius: 4px; background: var(--panel-3); overflow: hidden; }
+.push-fill { height: 100%; border-radius: 4px; background: var(--bar); transform-origin: left; animation: grow-x .7s var(--ease) backwards; }
+.push-val { color: var(--muted); }
+.push-val b { color: var(--text); font-variant-numeric: tabular-nums; }
+.duel-probs { display: flex; flex-direction: column; gap: 8px; }
+.dp-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--muted); }
+.dp-key { width: 10px; height: 10px; border-radius: 3px; background: var(--series-1); }
+.dp-key.nb { background: var(--series-2); margin-left: 8px; }
+.dp-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 13px; }
+.dp-name { font-weight: 550; }
+.dp-bars { display: flex; flex-direction: column; gap: 3px; }
+.dp-bar { --bar: var(--series-1); display: grid; grid-template-columns: minmax(40px, 1fr) 88px; gap: 8px; align-items: center; }
+.dp-bar.nb { --bar: var(--series-2); }
+.dp-track { height: 8px; border-radius: 3px; background: var(--panel-3); overflow: hidden; }
+.dp-fill { height: 100%; border-radius: 3px; background: var(--bar); transform-origin: left; animation: grow-x .7s var(--ease) backwards; }
+.dp-val { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.bayes-table td.win { color: var(--text); font-weight: 600; }
+.bayes-table td.win svg.icon { width: 14px; height: 14px; color: var(--success); margin-right: 5px; vertical-align: -2px; }
+.bayes-table th[scope=row] { text-align: left; color: var(--muted); font-weight: 550; white-space: nowrap;
+  text-transform: none; letter-spacing: 0; font-size: 13px; }
+@container (max-width: 760px) {
+  .bayes-duel { grid-template-columns: minmax(0, 1fr); }
+  .bayes { padding: 14px; }
+  .fam-label { width: 100%; }
+  .push-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .dp-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+/* la tabla comparativa, en estrecho: cada fila en un bloque, con las dos respuestas lado a lado */
+@container (max-width: 560px) {
+  .bayes-table thead { display: none; }
+  .bayes-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--border); }
+  .bayes-table tr:last-child { border-bottom: 0; }
+  .bayes-table th[scope=row] { grid-column: 1 / -1; padding: 0; border: 0; color: var(--text); font-weight: 650; white-space: normal; }
+  .bayes-table td { padding: 0; border: 0; }
+  .bayes-table td::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 500; color: var(--faint); }
+}
 .in-input { display: flex; gap: 8px; }
 .in-input input { flex: 1; min-width: 0; font-size: 15px; }
 .in-try { display: flex; gap: 12px; flex-wrap: wrap; }

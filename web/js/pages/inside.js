@@ -381,6 +381,69 @@ function dialogFlow() {
     down(), box("Contextos de salida, respuesta (sin repetir la última variante), webhook si está activo", "end"));
 }
 
+// ---------------------------------------------------- ¿y el teorema de Bayes? (paso 7)
+const SUP = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+// una probabilidad, también las diminutas de Naive Bayes: 1,6·10⁻¹⁴ %
+function probText(p) {
+  const v = p * 100;
+  if (v >= 99.995) return "100 %";
+  if (v >= 0.01) return format.nf(v >= 10 ? 1 : 2).format(v) + " %";
+  if (v <= 0) return "0 %";
+  const e = Math.floor(Math.log10(v));
+  return `${num(v / 10 ** e, 1)}·10${String(e).split("").map((c) => SUP[c]).join("")} %`;
+}
+// cuántas veces más probable hace una ventaja de d puntos de puntuación (e^d)
+function timesText(d) {
+  const x = Math.exp(d);
+  if (x < 1000) return `${num(x, x < 10 ? 1 : 0)} veces`;
+  for (const [u, word, de] of [[1e12, "billones", true], [1e9, "mil millones", true], [1e6, "millones", true], [1e3, "mil", false]]) {
+    if (x >= u) return `${num(x / u, x / u < 10 ? 1 : 0)} ${word}${de ? " de" : ""} veces`;
+  }
+  return "";
+}
+
+// con la frase: una palabra son muchas pistas, cuánto empujan en cada modelo y sus probabilidades
+function bayesView(b, tryPhrase) {
+  if (!b) return h("div", { class: "muted small" }, "Hacen falta al menos dos intenciones con frases para comparar.");
+  const out = [];
+  const fam = b.family;
+  if (fam) {
+    const groups = [["w", "su raíz"], ["b", "parejas con sus vecinas"], ["e", "entidad"], ["c", "trozos de letras"]]
+      .map(([k, label]) => [label, fam.features.filter((f) => f.kind === k)]).filter(([, l]) => l.length);
+    out.push(h("div", { class: "fam" },
+      h("div", { class: "fam-word" }, h("span", { class: "fam-quote" }, "«", fam.word, "»"),
+        h("span", { class: "fam-count" }, icon("arrowRight"), `llega como ${fam.features.length} rasgos`)),
+      h("div", { class: "fam-groups" }, groups.map(([label, list]) => h("div", { class: "fam-group" },
+        h("span", { class: "fam-label" }, label),
+        h("span", { class: "fam-chips" }, list.map((f, i) => h("span", { class: "fam-chip k-" + f.kind, style: { "--i": Math.min(i, 12) },
+          title: `Naive Bayes ${signed(f.nb)} · regresión ${signed(f.lr)}` }, f.label))))))));
+    const max = Math.max(fam.nb, fam.lr, 0.01);
+    const bar = (cls, name, v) => h("div", { class: "push-row " + cls },
+      h("span", { class: "push-name" }, name),
+      h("div", { class: "push-track" }, h("div", { class: "push-fill", style: { width: (100 * Math.max(0, v) / max).toFixed(1) + "%" } })),
+      h("span", { class: "push-val" }, h("b", null, signed(v)), v > 0 ? ` · ${timesText(v)} más probable` : ""));
+    out.push(h("div", { class: "push" },
+      h("div", { class: "small muted" }, "Cuánto empuja esa palabra hacia «", h("b", null, b.a), "» frente a «", h("b", null, b.b),
+        "» (en puntos de puntuación z: sumados, como en la cascada de arriba):"),
+      bar("nb", "Naive Bayes", fam.nb), bar("lr", "Regresión logística", fam.lr),
+      h("div", { class: "small muted" }, fam.nb > 2 * Math.max(fam.lr, 0.1)
+        ? ["Naive Bayes suma cada trozo como si fuera una prueba nueva; la regresión logística ha aprendido que van juntos y les da poco a cada uno. Pasa el ratón por un rasgo para ver lo que vale en cada modelo."]
+        : ["Esta vez la diferencia es pequeña. Pasa el ratón por un rasgo para ver lo que vale en cada modelo."])));
+  }
+  out.push(h("div", { class: "duel-probs" },
+    h("div", { class: "dp-legend small" }, h("span", { class: "dp-key lr" }), "regresión logística", h("span", { class: "dp-key nb" }), "Naive Bayes",
+      h("span", { class: "faint" }, " · probabilidades sin el parecido ni los contextos")),
+    b.rows.map((r) => h("div", { class: "dp-row" }, h("span", { class: "dp-name ellipsis", title: r.name }, r.name),
+      h("div", { class: "dp-bars" },
+        [["lr", r.lr], ["nb", r.nb]].map(([k, p]) => h("div", { class: "dp-bar " + k },
+          h("div", { class: "dp-track" }, h("div", { class: "dp-fill", style: { width: (100 * p).toFixed(2) + "%" } })),
+          h("span", { class: "dp-val tnum" }, probText(p)))))))));
+  out.push(h("div", { class: "row wrap", style: { gap: "8px" } },
+    h("span", { class: "small muted", style: { flex: "1 1 260px" } }, "Naive Bayes casi siempre lo ve al 0 % o al 100 %: no sabe dudar. Y el umbral y el fallback necesitan que la probabilidad dude cuando la frase es dudosa."),
+    h("button", { class: "btn sm", type: "button", onclick: () => tryPhrase("quiero información") }, icon("play"), "Probar con «quiero información»")));
+  return out;
+}
+
 // ===================================================================== página
 const SECTIONS = [
   ["recorrido", "El recorrido de una frase"], ["tokens", "Tokenizar y normalizar"], ["faltas", "Corregir las faltas"],
@@ -602,7 +665,45 @@ export async function render(el) {
       return [h("div", { class: "small muted" }, "Así se suma la puntuación de «", h("b", null, c.name), "» con tu frase: cada barra es un rasgo × su peso."),
         waterfall(c), softmaxView()];
     }),
-    codeRef("app/nlu/classifier.py: IntentClassifier.fit")));
+    // ¿Y el teorema de Bayes? Naive Bayes, al lado: misma forma, otros pesos
+    h("div", { class: "bayes" },
+      h("div", { class: "bayes-head" }, h("span", { class: "bayes-icon" }, icon("scale")),
+        h("div", null, h("h3", null, "¿Y el teorema de Bayes?"),
+          h("p", null, "El clasificador de texto «de libro» es ", h("b", null, "Naive Bayes"), ", el de los primeros filtros de spam. Lince no lo usa, pero se parecen más de lo que parece: tienen la misma forma y lo que cambia es de dónde salen los pesos."))),
+      h("div", { class: "bayes-duel" },
+        h("div", { class: "duel nb" },
+          h("div", { class: "duel-head" }, h("b", null, "Naive Bayes"), h("span", { class: "duel-tag" }, "cuenta")),
+          formula("P(k \\mid \\text{frase}) \\propto P(k) \\prod_f P(f \\mid k)^{n_f}"),
+          h("div", { class: "duel-step" }, icon("down"), "con logaritmos, el producto se vuelve una suma"),
+          formula("z_k = \\hl{1}{\\ln P(k)} + \\sum_f \\hl{3}{n_f}\\, \\hl{2}{\\ln P(f \\mid k)}"),
+          h("p", null, "Los pesos se ", h("b", null, "cuentan"), ": cuántas veces sale cada rasgo en las frases de cada intención, más una pizca (", tex("\\alpha = 1"), ") para lo que no ha visto nunca. Lo de «ingenuo» es que da por hecho que los rasgos son independientes."),
+          formula("P(f \\mid k) = \\frac{\\op{cuenta}(f, k) + \\alpha}{\\op{total}(k) + \\alpha\\, V}")),
+        h("div", { class: "duel lr" },
+          h("div", { class: "duel-head" }, h("b", null, "Regresión logística"), h("span", { class: "duel-tag" }, "ajusta")),
+          formula("z_k = \\hl{1}{b_k} + \\sum_f \\hl{3}{x_f}\\, \\hl{2}{W_{f,k}}"),
+          h("p", null, "Los pesos se ", h("b", null, "ajustan"), ": 15 pasadas por las frases, equivocándose y corrigiendo cada peso hacia donde menos se equivoca (el descenso por gradiente de arriba)."),
+          h("div", { class: "bayes-map" }, [
+            [1, "b_k", "\\ln P(k)", "el punto de partida de cada intención"],
+            [2, "W_{f,k}", "\\ln P(f \\mid k)", "lo que vale cada rasgo para cada intención"],
+            [3, "x_f", "n_f", "el rasgo en la frase: con TF-IDF o la cuenta tal cual"],
+          ].map(([n, a, b, text]) => h("div", { class: "bm-row" }, h("span", { class: "bm-sym hl-" + n }, tex(a)),
+            h("span", { class: "bm-eq", "aria-hidden": "true" }, "⟷"), h("span", { class: "bm-sym hl-" + n }, tex(b)), h("span", { class: "bm-text" }, text)))))),
+      h("h4", null, "La trampa: una palabra son muchas pistas"),
+      h("p", null, "Naive Bayes multiplica las probabilidades de los rasgos como si cada uno fuera una prueba independiente. Pero en Lince cada palabra llega como su raíz, sus parejas con las vecinas y todos sus trozos de letras (paso 5): la misma pista, repetida. Naive Bayes la cuenta todas esas veces; la regresión logística, como aprende corrigiendo, reparte el peso entre ellas."),
+      live(() => bayesView(ex.bayes, (text) => { input.value = text; run(); }), "Con tu frase: Naive Bayes frente a la regresión logística"),
+      h("h4", null, "Por qué Lince usa la regresión logística"),
+      h("div", { class: "table-scroll" }, h("table", { class: "mini-table bayes-table" },
+        h("thead", null, h("tr", null, h("th"), h("th", null, "Naive Bayes"), h("th", null, "Regresión logística"))),
+        h("tbody", null, [
+          ["Los pesos", "se cuentan", "se ajustan corrigiendo errores", 0],
+          ["Entrenar", "una pasada: al instante", "15 pasadas", 1],
+          ["Con muy pocas frases", "aguanta bien", "necesita alguna más", 1],
+          ["Pistas repetidas", "las cuenta todas, una a una", "reparte el peso entre ellas", 2],
+          ["Sus probabilidades", "casi siempre 0 % o 100 %", "realistas: dudan cuando hay que dudar", 2],
+        ].map(([what, nb, lr, win]) => h("tr", null, h("th", { scope: "row" }, what),
+          h("td", { class: win === 1 ? "win" : null, dataset: { label: "Naive Bayes" } }, win === 1 ? icon("check") : null, nb),
+          h("td", { class: win === 2 ? "win" : null, dataset: { label: "Regresión logística" } }, win === 2 ? icon("check") : null, lr))))))),
+    codeRef("app/nlu/classifier.py: IntentClassifier.fit", "NaiveBayes (solo para comparar)")));
 
   function softmaxView() {
     const cs = ex.contributions;

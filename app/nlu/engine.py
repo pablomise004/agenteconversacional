@@ -10,7 +10,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .classifier import IntentClassifier, Vectorizer
+from .classifier import IntentClassifier, NaiveBayes, Vectorizer
 from .common import EntityMatch, resolve_overlaps
 from .entities import EntityMatcher
 from .features import DEFAULT_FEATURE_CONFIG, entity_units, featurize, word_form
@@ -158,6 +158,8 @@ class NLUEngine:
         X = [self.vectorizer.transform(f) for f in feats]
         t_vectorize = time.perf_counter() - t0
         self.classifier = IntentClassifier().fit(X, labels)
+        # Naive Bayes con las mismas frases y rasgos: solo para compararlo en «Por dentro»
+        self.naive_bayes = NaiveBayes().fit([{**w, **c} for w, c in feats], labels)
         self.labels = set(labels)
 
         kinds = Counter(f.split(":", 1)[0] for f in self.vectorizer.idf)

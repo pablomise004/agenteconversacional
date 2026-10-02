@@ -3,6 +3,15 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.9.1 · 2 de octubre de 2026
+
+**¿Y el teorema de Bayes?**
+
+- **«Por dentro», paso 7:** un recuadro nuevo compara la regresión logística de Lince con Naive Bayes,
+  el clasificador de texto «de libro». Pone las dos fórmulas lado a lado (con logaritmos son iguales:
+  cambia de dónde salen los pesos) y enseña, con tu frase, cómo una sola palabra llega como muchas
+  pistas que Naive Bayes cuenta una a una, y por qué eso lo vuelve exageradamente seguro.
+
 ## 0.9.0 · 2 de octubre de 2026
 
 **Un chat con más vida, controles propios y una tokenización que se entiende de un vistazo.**

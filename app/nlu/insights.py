@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 import numpy as np
 
 from .engine import FALLBACK_PREFIX, NLUEngine
-from .features import featurize
+from .features import entity_units, featurize, word_form
 
 KIND_LABELS = {"w": "palabra", "b": "pareja de palabras", "e": "entidad", "c": "trozo de letras",
                "p": "signo de pregunta"}
@@ -236,6 +236,90 @@ def public_projection(engine: NLUEngine) -> dict:
     return {"points": proj["points"], "sampled": proj["sampled"]}
 
 
+# ------------------------------------------------------- ¿y el teorema de Bayes?
+def _softmax(scores: dict[str, float]) -> dict[str, float]:
+    top = max(scores.values())
+    ex = {k: float(np.exp(v - top)) for k, v in scores.items()}
+    total = sum(ex.values())
+    return {k: v / total for k, v in ex.items()}
+
+
+def _word_families(tokens, spans, cfg) -> list[tuple[str, dict[str, float]]]:
+    """Los rasgos que salen de cada palabra de la frase (su raíz, sus parejas y sus trozos de letras),
+    con el peso que pone esa palabra: el mismo recorrido que features.featurize."""
+    nmin, nmax = cfg["char_ngrams"] or (0, -1)
+    units = list(entity_units(tokens, spans))
+    seq = [u[1] if u[0] == "e" else word_form(u[1])[1] for u in units]
+    out = []
+    for i, unit in enumerate(units):
+        inner = unit[0] == "e"
+        toks = unit[2] if inner else [unit[1]]
+        for tok in toks:
+            if tok.kind in ("symbol", "number"):
+                continue
+            form, stem = word_form(tok)
+            weight = cfg["inner_weight"] if inner else 1.0
+            fam: dict[str, float] = defaultdict(float)
+            fam["w:" + stem] += weight
+            padded = f"<{form}>"
+            for n in range(nmin, nmax + 1):
+                for k in range(len(padded) - n + 1):
+                    fam["c:" + padded[k:k + n]] += weight
+            if not inner and cfg.get("bigrams"):
+                if i > 0:
+                    fam[f"b:{seq[i - 1]}_{seq[i]}"] += 1.0
+                if i + 1 < len(seq):
+                    fam[f"b:{seq[i]}_{seq[i + 1]}"] += 1.0
+            out.append((tok.text, dict(fam)))
+    return out
+
+
+def compare_bayes(engine: NLUEngine, a, raw: dict, vec: dict) -> dict | None:
+    """La regresión logística frente a un Naive Bayes con las mismas frases y rasgos («Por dentro», 7).
+
+    Las probabilidades se comparan sobre todas las intenciones, sin el parecido ni los contextos.
+    Y para la palabra que más pesa, cuánto empujan sus rasgos hacia la intención ganadora frente a la
+    segunda (A y B, según la regresión) en cada modelo, en la misma escala de puntuación (z):
+    Naive Bayes suma n_f · (ln P(f|A) − ln P(f|B)) y la regresión, x_f · (W_f,A − W_f,B)."""
+    clf, nb = engine.classifier, getattr(engine, "naive_bayes", None)
+    if nb is None or len(clf.labels) < 2 or not vec:
+        return None
+    lr = _softmax({label: float(z) for label, z in zip(clf.labels, clf.logits(vec))})
+    bayes = _softmax(nb.scores(raw))
+
+    def name(label: str) -> str:
+        fb = label.startswith(FALLBACK_PREFIX)
+        intent = engine.intents.get(label[len(FALLBACK_PREFIX):] if fb else label) or {}
+        return (intent.get("name") or label) + (" (fallback)" if fb else "")
+
+    by_lr = sorted(lr, key=lambda k: -lr[k])
+    by_nb = sorted(bayes, key=lambda k: -bayes[k])
+    shown = by_lr[:4] + [k for k in by_nb[:1] if k not in by_lr[:4]]
+    rows = [{"id": k, "name": name(k), "lr": lr[k], "nb": bayes[k]} for k in shown]
+    A, B = by_lr[0], by_lr[1]
+    ia, ib = clf.labels.index(A), clf.labels.index(B)
+    best = None
+    for word, fam in _word_families(a.tokens, [(c.tstart, c.tend, c.entity) for c in a.entities], engine.feature_config):
+        feats = []
+        for f, w in fam.items():
+            if f not in raw or not nb.known(f):
+                continue
+            d_nb = w * (nb.log_likelihood(f, A) - nb.log_likelihood(f, B))
+            i = clf.fidx.get(f)
+            share = w / raw[f] if raw[f] else 0.0  # un trozo de letras puede salir de varias palabras
+            d_lr = float(vec.get(f, 0.0) * share * (clf.W[i, ia] - clf.W[i, ib])) if i is not None else 0.0
+            feats.append(dict(describe_feature(engine, f), nb=round(d_nb, 3), lr=round(d_lr, 3)))
+        if len(feats) < 3:
+            continue
+        total_nb = sum(x["nb"] for x in feats)
+        if best is None or total_nb > best["nb"]:
+            feats.sort(key=lambda x: ("wbec".find(x["kind"]), -x["nb"]))
+            best = {"word": word, "features": feats, "nb": round(total_nb, 3),
+                    "lr": round(sum(x["lr"] for x in feats), 3)}
+    return {"rows": rows, "a": name(A), "b": name(B), "family": best,
+            "alpha": nb.alpha, "vocabulary": nb.vocab}
+
+
 # ------------------------------------------------------------- explicación
 def explain(engine: NLUEngine, text: str, contexts=None, threshold: float = 0.3) -> dict:
     t0 = time.perf_counter()
@@ -288,6 +372,7 @@ def explain(engine: NLUEngine, text: str, contexts=None, threshold: float = 0.3)
         "threshold": threshold,
         "accepted": accepted,
         "position": place_on_map(engine, vec) if vec else None,
+        "bayes": compare_bayes(engine, a, raw, vec),
         "ms": int((time.perf_counter() - t0) * 1000),
     }
 

@@ -11,7 +11,7 @@ Combina dos modelos sobre vectores TF-IDF:
 
 import math
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import numpy as np
 
@@ -53,6 +53,53 @@ class Vectorizer:
         for f, v in block(chars).items():
             out[f] = v * math.sqrt(a)
         return out
+
+
+class NaiveBayes:
+    """Naive Bayes multinomial con los mismos rasgos y frases que la regresión logística, pero con sus
+    cuentas (sin TF-IDF). No decide nada: está para compararlos en «Por dentro» (insights.explain).
+
+        P(k | frase) ∝ P(k) · Π_f P(f | k)^n_f,   P(f | k) = (cuenta de f en k + α) / (total de k + α·V)
+    """
+
+    def __init__(self, alpha: float = 1.0):
+        self.alpha = alpha
+        self.labels: list[str] = []
+        self.docs: Counter = Counter()
+        self.counts: dict[str, dict[str, float]] = {}
+        self.totals: dict[str, float] = {}
+        self.vocab = 0
+
+    def fit(self, feats: list[dict], labels: list[str]) -> "NaiveBayes":
+        self.labels = sorted(set(labels))
+        self.docs = Counter(labels)
+        counts: dict[str, dict[str, float]] = {label: defaultdict(float) for label in self.labels}
+        vocab = set()
+        for f, label in zip(feats, labels):
+            for name, n in f.items():
+                counts[label][name] += n
+                vocab.add(name)
+        self.counts = {label: dict(c) for label, c in counts.items()}
+        self.totals = {label: sum(c.values()) for label, c in self.counts.items()}
+        self.vocab = len(vocab)
+        return self
+
+    def known(self, feature: str) -> bool:
+        return any(feature in c for c in self.counts.values())
+
+    def log_prior(self, label: str) -> float:
+        return math.log(self.docs[label] / sum(self.docs.values()))
+
+    def log_likelihood(self, feature: str, label: str) -> float:
+        """ln P(f | k), con el suavizado de Laplace (α) para lo que no ha visto nunca en esa intención."""
+        return (math.log(self.counts[label].get(feature, 0.0) + self.alpha)
+                - math.log(self.totals[label] + self.alpha * self.vocab))
+
+    def scores(self, raw: dict[str, float]) -> dict[str, float]:
+        """ln P(k) + Σ_f n_f · ln P(f | k) de cada intención (los rasgos desconocidos no cuentan)."""
+        seen = {f: n for f, n in raw.items() if self.known(f)}
+        return {label: self.log_prior(label) + sum(n * self.log_likelihood(f, label) for f, n in seen.items())
+                for label in self.labels}
 
 
 class IntentClassifier:

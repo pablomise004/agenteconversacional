@@ -51,6 +51,8 @@ const ICONS = {
   trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
   x: '<path d="M18 6L6 18M6 6l12 12"/>',
   check: '<path d="M20 6L9 17l-5-5"/>',
+  scale: '<path d="M12 4v16M8 20h8M3.5 7h17"/><circle cx="12" cy="4" r="1"/>' +
+    '<path d="M5 7l-2.6 6.2c.6 1.1 1.5 1.6 2.6 1.6s2-.5 2.6-1.6zM19 7l-2.6 6.2c.6 1.1 1.5 1.6 2.6 1.6s2-.5 2.6-1.6z"/>',
   // flecha que se forma al pasar el ratón (respuestas rápidas): en reposo, solo el cheurón
   go: '<path class="go-line" d="M4.5 12h11"/><path class="go-tip" d="M10.5 6.5 16 12l-5.5 5.5"/>',
   // enviar: un avión de papel en dos tonos (la parte de abajo, plegada), con las esquinas suaves;

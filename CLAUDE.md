@@ -41,7 +41,7 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 148 pruebas (deben pasar siempre)
+python -m pytest                      # 149 pruebas (deben pasar siempre)
 pip install playwright && python -m pytest tests/e2e -m e2e   # 32 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
@@ -131,6 +131,8 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   al preguntar nunca se detecta. Al extraerlo se corta antes de otro dato de la intención y sin
   muletillas delante.
 - Una plantilla con comodín no gana si el modelo ve más probable el fallback.
+- `NaiveBayes` (classifier.py) solo existe para el recuadro «¿Y el teorema de Bayes?» de «Por dentro»
+  (paso 7): no participa en ninguna decisión.
 - Parámetros del mismo tipo: se reparten por lo que llevaban a los lados en las anotaciones;
   «un/una» solo es número si lo de detrás encaja.
 - Medir con frases nuevas escritas aparte (comprobando que no están ya en el entrenamiento): la

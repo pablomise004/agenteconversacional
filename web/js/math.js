@@ -93,6 +93,8 @@ function parse(src, display) {
       return m("mi", word.length === 1 ? { mathvariant: "normal" } : null, word);
     }
     if (name === "mathbf") return m("mi", null, [...raw()].map(bold).join(""));
+    // \hl{1}{…}: resalta una pieza con un color (.hl-1, .hl-2…), para unir piezas de dos fórmulas
+    if (name === "hl") { const n = raw(); return m("mrow", { class: "hl hl-" + n }, arg()); }
     if (name in ACCENTS) return m("mover", { accent: "true" }, arg(), m("mo", null, ACCENTS[name]));
     // \left( … \right): un grupo propio, para que los paréntesis se estiren hasta lo que encierran
     // (MathML los estira hasta lo más alto de su fila) y no hasta lo más alto de toda la fórmula
@@ -107,7 +109,14 @@ function parse(src, display) {
         m("mtd", null, row(parse(cell, display))))));
       return m("mrow", null, m("mo", { stretchy: "true" }, "{"), m("mtable", { columnalign: "left" }, rows));
     }
-    if (name in FUNCS) return m("mi", null, FUNCS[name]);
+    if (name in FUNCS) {
+      // como en TeX, un espacio fino entre la función y lo que la sigue («ln P», no «lnP»), salvo si
+      // detrás va un subíndice, un exponente o un paréntesis
+      const fn = m("mi", null, FUNCS[name]);
+      skip();
+      if (LIMITS.has(FUNCS[name]) || !src[i] || "_^({".includes(src[i])) return fn;
+      return m("mrow", null, fn, m("mo", { lspace: "0", rspace: "0.17em" }, "⁡"));
+    }
     if (name in IDENT) return m("mi", null, IDENT[name]);
     if (name in OPS) return op(OPS[name]);
     return m("mtext", null, "\\" + name);  // desconocido: se ve tal cual
