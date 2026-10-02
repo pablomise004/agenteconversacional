@@ -17,6 +17,7 @@ import * as integrationsPage from "./pages/integrations.js";
 import * as settingsPage from "./pages/settings.js";
 import * as learnPage from "./pages/learn.js";
 import * as guidePage from "./pages/guide.js";
+import * as insidePage from "./pages/inside.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
@@ -44,6 +45,7 @@ export const NAV = [
   { key: "settings", label: "Ajustes", icon: "settings" },
   { group: "Ayuda" },
   { key: "guide", label: "Guía", icon: "book" },
+  { key: "inside", label: "Por dentro", icon: "cpu" },
   { href: "/docs", label: "API", icon: "code", external: true },
 ];
 
@@ -53,6 +55,8 @@ const ROUTES = [
   [/^agents$/, () => agentsPage],
   [/^guide$/, () => guidePage],
   [/^a\/([^/]+)\/guide$/, () => guidePage],
+  [/^inside$/, () => insidePage],
+  [/^a\/([^/]+)\/inside$/, () => insidePage],
   [/^a\/([^/]+)\/learn$/, () => learnPage],
   [/^a\/([^/]+)\/intents$/, () => intentsPage],
   [/^a\/([^/]+)\/intents\/([^/]+)$/, () => intentEditor],
@@ -261,6 +265,7 @@ function renderNav(active) {
   const items = state.agent ? NAV : [
     { key: "agents", label: "Agentes", icon: "layers", href: "#/agents" },
     { key: "guide", label: "Guía", icon: "book", href: "#/guide" },
+    { key: "inside", label: "Por dentro", icon: "cpu", href: "#/inside" },
     { href: "/docs", label: "API", icon: "code", external: true },
   ];
   for (const item of items) {

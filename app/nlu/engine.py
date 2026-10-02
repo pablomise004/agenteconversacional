@@ -325,7 +325,7 @@ class NLUEngine:
             if contextual:
                 conf = min(1.0, conf * 1.15 + 0.05)  # prioridad a las intenciones de contexto
             results.append({"id": real_id, "name": intent.get("name", ""), "confidence": conf,
-                            "prob": r["prob"], "sim": r["sim"], "match": match,
+                            "prob": r["prob"], "lr": r["lr"], "sim": r["sim"], "match": match,
                             "isFallback": is_fb, "contextual": contextual})
         for real_id in templates:
             if real_id not in seen:

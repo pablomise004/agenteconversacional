@@ -218,8 +218,38 @@ export function scatter({ points, a, b, names = {}, probe, width = 640, height =
 }
 
 /** Matriz de confusión: filas = intención real, columnas = lo que entendió. */
+/**
+ * Matriz de confusión: cada fila es la intención real y cada columna lo que entendió. Azul, la
+ * diagonal (bien entendidas); naranja, las confusiones (cada color con su propio máximo, para que
+ * se vean aunque sean pocas). Hasta 24 intenciones es una tabla con el número en cada casilla;
+ * con más, un mapa compacto en SVG que cabe a lo ancho, sin números: grupos por prefijo
+ * («reserva», «charla»…) y el detalle al pasar el ratón o con las flechas.
+ */
 export function heatmap({ labels, counts }) {
-  const max = Math.max(1, ...counts.flat());
+  const n = labels.length;
+  const wrap = n > 24 ? heatmapCompact(labels, counts) : heatmapTable(labels, counts);
+  return h("div", null, wrap, h("div", { class: "heatmap-legend small muted" },
+    h("span", { class: "legend-key a" }), "bien entendidas (la diagonal)",
+    h("span", { class: "legend-key b" }), "confusiones",
+    n > 24 ? h("span", { class: "faint" }, " · pasa el ratón (o usa las flechas) para ver cada casilla") : null));
+}
+
+// intensidad de cada casilla: los aciertos y las confusiones se escalan por separado
+function heatAlpha(counts) {
+  let diag = 1, off = 1;
+  counts.forEach((row, i) => row.forEach((c, j) => {
+    if (i === j) diag = Math.max(diag, c);
+    else off = Math.max(off, c);
+  }));
+  // raíz cuadrada: los valores medios se ven (con 60 aciertos en una fila, 10 no quedarían pálidos)
+  return (c, i, j) => (c ? 0.22 + 0.78 * Math.sqrt(c / (i === j ? diag : off)) : 0);
+}
+
+const cellText = (labels, i, j, c) => [`${c} ${c === 1 ? "frase" : "frases"}`,
+  i === j ? `«${labels[i].name}» bien entendidas` : `de «${labels[i].name}» entendidas como «${labels[j].name}»`];
+
+function heatmapTable(labels, counts) {
+  const alpha = heatAlpha(counts);
   const wrap = h("div", { class: "heatmap-wrap" });
   const tip = tooltip(wrap);
   const table = h("table", { class: "heatmap" });
@@ -229,15 +259,16 @@ export function heatmap({ labels, counts }) {
   labels.forEach((l, i) => {
     const tr = h("tr", null, h("th", { scope: "row", class: "row-label", title: l.name }, `${i + 1} · ${l.name}`));
     counts[i].forEach((c, j) => {
-      const alpha = c ? 0.12 + 0.88 * (c / max) : 0;
+      const a = alpha(c, i, j);
+      // el número va en negro sobre el naranja (en blanco no se lee): intensidad hasta el 55 %
+      const pct = Math.round((i === j ? a : Math.min(a, 0.55)) * 100);
       const td = h("td", { tabindex: c ? "0" : null, class: (i === j ? "diag" : "") + (c ? " has" : ""),
-        style: { background: c ? `color-mix(in srgb, var(--series-1) ${Math.round(alpha * 100)}%, transparent)` : "" } },
+        style: { background: c ? `color-mix(in srgb, var(${i === j ? "--series-1" : "--series-2"}) ${pct}%, transparent)` : "" } },
       c ? String(c) : "");
-      if (alpha > 0.55) td.classList.add("ink-light");
+      if (i === j && a > 0.55) td.classList.add("ink-light");
       const show = () => {
         const rb = td.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
-        tip.show(rb.left - wb.left + rb.width / 2 + wrap.scrollLeft, rb.top - wb.top,
-          `${c} ${c === 1 ? "frase" : "frases"}`, i === j ? `«${l.name}» bien entendidas` : `de «${l.name}» entendidas como «${labels[j].name}»`);
+        tip.show(rb.left - wb.left + rb.width / 2 + wrap.scrollLeft, rb.top - wb.top, ...cellText(labels, i, j, c));
       };
       if (c) {
         td.addEventListener("pointerenter", show);
@@ -251,6 +282,85 @@ export function heatmap({ labels, counts }) {
   });
   table.append(body);
   wrap.append(table);
+  return wrap;
+}
+
+let heatmapIds = 0;
+
+function heatmapCompact(labels, counts) {
+  const n = labels.length;
+  const alpha = heatAlpha(counts);
+  const W = 880, LW = 116, TOP = 2;  // medidas en unidades del viewBox (≈ píxeles a 880 de ancho)
+  const c = (W - LW) / n;            // lado de cada casilla
+  const X = (j) => LW + j * c, Y = (i) => TOP + i * c;
+  const wrap = h("div", { class: "heatmap-wrap" });
+  const tip = tooltip(wrap);
+  const svg = s("svg", { viewBox: `0 0 ${W} ${TOP + n * c + 2}`, class: "heatmap-svg", role: "img", tabindex: "0",
+    "aria-label": `Matriz de confusión de ${n} intenciones; con las flechas se recorren sus casillas` });
+  // casillas vacías: un patrón en vez de miles de rectángulos
+  const pid = `hm${++heatmapIds}`;
+  const tile = (x, y, cls, extra = {}) => s("rect", { x: x + c * 0.08, y: y + c * 0.08, width: c * 0.84, height: c * 0.84,
+    rx: c * 0.2, class: cls, ...extra });
+  svg.append(s("defs", {}, s("pattern", { id: pid, x: LW, y: TOP, width: c, height: c, patternUnits: "userSpaceOnUse" },
+    tile(0, 0, "hm-empty"))), s("rect", { x: LW, y: TOP, width: n * c, height: n * c, fill: `url(#${pid})` }));
+  const rowBand = s("rect", { class: "hm-band", x: LW, width: n * c, height: c, visibility: "hidden" });
+  const colBand = s("rect", { class: "hm-band", y: TOP, width: c, height: n * c, visibility: "hidden" });
+  svg.append(rowBand, colBand);
+  // grupos por prefijo («reserva.habitacion» → «reserva»): líneas entre ellos y su nombre a la izquierda
+  const group = (name) => (name.includes(".") ? name.slice(0, name.indexOf(".")) : name);
+  let start = 0;
+  for (let i = 1; i <= n; i++) {
+    if (i < n && group(labels[i].name) === group(labels[start].name)) continue;
+    if (start > 0) {
+      svg.append(s("line", { class: "hm-sep", x1: LW, x2: LW + n * c, y1: Y(start), y2: Y(start) }),
+        s("line", { class: "hm-sep", x1: X(start), x2: X(start), y1: TOP, y2: TOP + n * c }));
+    }
+    const last = labels[start].id === "__fallback__";
+    if (i - start >= 2 || last) {
+      svg.append(s("text", { class: "hm-group", x: LW - 8, y: Y(start) + ((i - start) * c) / 2 },
+        last ? "no entendida" : group(labels[start].name)));
+    }
+    start = i;
+  }
+  counts.forEach((row, i) => row.forEach((v, j) => {
+    if (v) svg.append(tile(X(j), Y(i), "hm-cell " + (i === j ? "diag" : "off"), { "fill-opacity": alpha(v, i, j).toFixed(3) }));
+  }));
+  const focusBox = s("rect", { class: "hm-focus", width: c, height: c, rx: c * 0.24, visibility: "hidden" });
+  const hit = s("rect", { x: LW, y: TOP, width: n * c, height: n * c, fill: "transparent" });
+  svg.append(focusBox, hit);
+  wrap.append(svg);
+
+  let cur = null;
+  const show = (i, j) => {
+    cur = [i, j];
+    rowBand.setAttribute("y", Y(i));
+    colBand.setAttribute("x", X(j));
+    focusBox.setAttribute("x", X(j));
+    focusBox.setAttribute("y", Y(i));
+    for (const el of [rowBand, colBand, focusBox]) el.setAttribute("visibility", "visible");
+    const sb = svg.getBoundingClientRect(), wb = wrap.getBoundingClientRect(), k = sb.width / W;
+    tip.show(sb.left - wb.left + (X(j) + c / 2) * k + wrap.scrollLeft, sb.top - wb.top + Y(i) * k,
+      ...cellText(labels, i, j, counts[i][j]));
+  };
+  const hide = () => {
+    cur = null;
+    for (const el of [rowBand, colBand, focusBox]) el.setAttribute("visibility", "hidden");
+    tip.hide();
+  };
+  hit.addEventListener("pointermove", (e) => {
+    const sb = svg.getBoundingClientRect(), k = sb.width / W;
+    const i = Math.floor(((e.clientY - sb.top) / k - TOP) / c), j = Math.floor(((e.clientX - sb.left) / k - LW) / c);
+    if (i >= 0 && i < n && j >= 0 && j < n && (!cur || cur[0] !== i || cur[1] !== j)) show(i, j);
+  });
+  hit.addEventListener("pointerleave", hide);
+  svg.addEventListener("blur", hide);
+  svg.addEventListener("keydown", (e) => {
+    const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const [i, j] = cur ? [cur[0] + d[0], cur[1] + d[1]] : [0, 0];
+    show(Math.max(0, Math.min(n - 1, i)), Math.max(0, Math.min(n - 1, j)));
+  });
   return wrap;
 }
 

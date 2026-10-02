@@ -186,6 +186,18 @@ def scenes(browser, base, only):
         shot(page, "oscuro")
         page.context.close()
 
+    if want("pordentro"):  # «Por dentro»: la regresión logística con la frase de ejemplo
+        ctx = browser.new_context(viewport=SIZE, locale="es-ES")
+        ctx.add_init_script("localStorage.setItem('agente.sim', '0')")
+        page = ctx.new_page()
+        page.goto(base + "/#/a/pizzeria/inside")
+        page.wait_for_function("document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
+        page.wait_for_timeout(800)
+        scroll_to(page, "#in-regresion", offset=-500)
+        page.wait_for_timeout(900)
+        shot(page, "pordentro")
+        ctx.close()
+
     if want("hotel"):  # el ejemplo grande: reserva con resumen, un cambio y una avería
         ctx = browser.new_context(viewport=SIZE, locale="es-ES")
         page = ctx.new_page()

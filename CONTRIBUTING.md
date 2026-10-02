@@ -107,9 +107,10 @@ flowchart TB
 | `web/fonts/` | Inter (OFL), solo el alfabeto latino: la consola no depende de internet |
 | `web/js/annotate.js` | Frase anotable: seleccionar texto → elegir entidad |
 | `web/js/charts.js` | Gráficos SVG/HTML: línea, barras, barras divergentes, columnas, puntos, matriz, medidor |
+| `web/js/math.js` | Fórmulas: un subconjunto de TeX traducido a MathML (lo dibuja el navegador, sin librerías) |
 | `web/js/markdown.js` | Intérprete mínimo de Markdown (para la guía y las descripciones de la API) |
 | `web/js/simulator.js` | Panel «Pruébalo» |
-| `web/js/pages/*.js` | Una página por sección de la consola |
+| `web/js/pages/*.js` | Una página por sección de la consola (`inside.js` es «Por dentro»: el motor explicado con fórmulas) |
 | `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias; tema claro, oscuro o automático con `data-theme`, colores en variables CSS) y página de chat de demostración (`?theme=`, `?title=`, `?color=`, `?key=`) |
 | `examples/pizzeria.json`, `examples/hotel.json` | Agentes de ejemplo: la pizzería (pequeña, para aprender) y el hotel (88 intenciones, para ver el potencial). `seed_examples()` (`server.py`) copia cada uno la primera vez que arranca el servidor con él y lo apunta en `data/seeded_examples.json`: un ejemplo borrado no vuelve |
 | `tools/build_pizzeria.py`, `tools/build_hotel.py` | Generan los ejemplos a partir de frases con la notación `[texto](parámetro)`. El del hotel además comprueba que cada anotación coincide con lo que detecta el motor (y que no queda nada sin anotar), que no hay frases repetidas y que la normalización no inventa parámetros |
@@ -435,6 +436,22 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
   la caja que se va deja de llamarse `.modal` para no confundirse con la siguiente.
 - Gráficos (`charts.js`): una sola escala por gráfico, marcas finas, tooltip al pasar el ratón,
   identidad nunca solo por color (leyendas y etiquetas).
+- Matriz de confusión (`charts.js:heatmap`): con 24 intenciones o menos, tabla con números; con
+  más, un SVG compacto que cabe en el ancho (casillas sin número, intensidad con raíz cuadrada y
+  máximos separados para la diagonal y las confusiones, separadores por prefijo de la intención y
+  tooltip con el ratón o las flechas del teclado). Así el hotel (88) se ve sin scroll horizontal.
+- Página «Por dentro» (`pages/inside.js`, ruta `#/inside` o `#/a/<agente>/inside`): una sección
+  por paso del NLU con su fórmula, la leyenda de símbolos, una caja «Con tu frase» que se rellena
+  con `/explain` y `/analyze` (el ranking trae `lr`, la probabilidad de la regresión antes de
+  mezclarla con el parecido) y la referencia al código. Los gráficos se dibujan a mano en SVG o
+  HTML (la cascada es HTML para que se lea en el móvil). Si cambia una fórmula del motor, cambia
+  también aquí.
+- Fórmulas (`math.js`): `tex("p_k = \\frac{e^{z_k}}{\\sum_j e^{z_j}}", {display})` traduce un
+  subconjunto de TeX a MathML Core, que pinta el propio navegador (sin KaTeX ni CDN); crea los
+  nodos uno a uno, nunca `innerHTML`. Las llaves y raíces que se estiran necesitan una fuente
+  matemática (Cambria Math en Windows; en Linux sin ella se ven bien pero sin estirar).
+  `formula([a, b])` pone varias juntas y las baja de línea si no caben.
+- Las tarjetas de una rejilla (`.grid-*`, `.agent-cards`) anulan el `margin-top` de `.card + .card`.
 - Logotipo: `web/favicon.svg` (el mismo dibujo está en `ui.js:logo()`). Si cambia, regenera los
   iconos con `python tools/build_icons.py`.
 

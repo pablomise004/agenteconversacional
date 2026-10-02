@@ -27,7 +27,7 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser)
 python -m pytest                      # 131 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 22 pruebas en navegador real
+pip install playwright && python -m pytest tests/e2e -m e2e   # 24 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
@@ -51,7 +51,9 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
   `busy`, `countUp`, `stagger`, tooltips, tema); `js/palette.js` el buscador Ctrl+K;
-  `js/pages/learn.js` la página «Entrenar»; `js/charts.js` los gráficos; `js/markdown.js` pinta
+  `js/pages/learn.js` la página «Entrenar»; `js/pages/inside.js` «Por dentro» (el motor con sus
+  fórmulas y una frase de ejemplo; si cambia una fórmula del NLU, actualizarla también ahí);
+  `js/math.js` fórmulas TeX → MathML sin librerías; `js/charts.js` los gráficos; `js/markdown.js` pinta
   `docs/GUIA.md`. `css/app.css` tiene los colores, la fuente (Inter local, `web/fonts/`) y las
   animaciones; `css/api.css` lo propio de `/docs`.
 - `examples/pizzeria.json` (pequeño, para aprender) y `examples/hotel.json` (88 intenciones, más de

@@ -106,11 +106,23 @@ def select_text(page, locator, word):
 @pytest.mark.parametrize("route,selector", [
     ("intents", ".list-item"), ("entities", ".list-item"), ("analyzer?q=hola", ".token-grid"),
     ("learn", ".steps .step"), ("training", ".tabs"), ("history", ".stat"), ("integrations", ".code-block"),
-    ("settings", "input[type=range]"), ("guide", ".md h2"),
+    ("settings", "input[type=range]"), ("guide", ".md h2"), ("inside", ".inside .formula math"),
 ])
 def test_paginas_cargan_sin_errores(base_url, page, route, selector):
     page.goto(f"{base_url}/#/a/pizzeria/{route}")
     page.wait_for_selector(selector, timeout=20000)
+    assert page.errors == []
+
+
+def test_por_dentro_calcula_con_la_frase(base_url, page):
+    """«Por dentro» analiza la frase de ejemplo, rellena el recorrido y se puede cambiar la frase."""
+    page.goto(f"{base_url}/#/inside")
+    page.wait_for_function("document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
+    assert page.locator(".pl-val").first.inner_text().endswith("tokens")
+    assert page.locator(".wf-row.total").count() == 1
+    page.fill(".in-input input", "hola buenas")
+    page.locator(".in-input button").click()
+    playwright.expect(page.locator(".pl-val").first).to_have_text("2 tokens")
     assert page.errors == []
 
 

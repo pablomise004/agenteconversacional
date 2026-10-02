@@ -44,7 +44,8 @@ Documentación completa: **[Guía de uso](docs/GUIA.md)** (también dentro de la
 | **Contextos** | De entrada y de salida con duración en turnos; preguntas de seguimiento («sí»/«no» solo cuentan tras una pregunta) |
 | **Parámetros obligatorios** | Si falta un dato, el bot lo pregunta (slot filling) y entiende «cancelar» o un cambio de tema |
 | **Analizador** | Tokens, forma normalizada, raíz, correcciones ortográficas, entidades, intenciones candidatas con su confianza y frases de entrenamiento más parecidas |
-| **Entrenar** | Animación de los 6 pasos del entrenamiento, curva de aprendizaje, rasgos más importantes de cada intención, recorrido de una frase hasta la decisión, mapa de frases y examen con validación cruzada |
+| **Entrenar** | Animación de los 6 pasos del entrenamiento, curva de aprendizaje, rasgos más importantes de cada intención, recorrido de una frase hasta la decisión, mapa de frases y examen con validación cruzada (con la matriz de confusión entera a la vista aunque haya 88 intenciones) |
+| **Por dentro** | Página de ayuda que explica el motor paso a paso con sus fórmulas (TF-IDF, regresión logística, softmax, coseno, confianza, t-SNE, validación cruzada) y gráficos que se calculan con una frase de tu agente |
 | **Aprendizaje continuo** | Botones 👍/👎 en el simulador y pantalla de **Revisión** con los mensajes reales para aprobar o corregir; añadir sinónimos y reglas de normalización |
 | **Integraciones** | Widget de chat para cualquier web (una línea, con vista previa de colores), API REST, API compatible con `detectIntent` de Dialogflow ES y webhook con el formato de Dialogflow |
 | **Referencia de la API** | Página propia en `/docs` con el estilo de la consola: cada ruta en español con sus parámetros y ejemplos, botón **Pruébalo** que envía la petición de verdad y **Copiar como curl**. Funciona sin conexión |
@@ -157,7 +158,12 @@ La página **Entrenar** está pensada para aprender *machine learning* con tu pr
 
   ![Examen](docs/img/examen.png)
 
-La [guía](docs/GUIA.md#cómo-aprende-el-agente) lo explica en lenguaje sencillo.
+La [guía](docs/GUIA.md#cómo-aprende-el-agente) lo explica en lenguaje sencillo, y la página
+**Por dentro** (en *Ayuda*) lo explica con las fórmulas: once pasos, de los tokens a los
+parámetros, cada uno con su fórmula, qué significa cada símbolo, los números reales de una frase
+que puedes cambiar y dónde está en el código.
+
+![Por dentro: cómo se suma la puntuación de una intención](docs/img/pordentro.png)
 
 ## Conceptos
 

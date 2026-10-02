@@ -113,7 +113,8 @@ prefieres que diga «no te he entendido» antes que equivocarse; bájalo si es d
 
 ## Cómo entiende una frase
 
-Cuando alguien escribe, la frase pasa por estos pasos (puedes verlos todos en el **Analizador**):
+Cuando alguien escribe, la frase pasa por estos pasos (puedes verlos todos en el **Analizador**;
+y si quieres las fórmulas de cada uno, en la página **Por dentro**):
 
 | Paso | Qué hace | Ejemplo con «Me pones 2 pizas barbacoa xfa» |
 |---|---|---|
@@ -270,6 +271,7 @@ página *Integraciones* tiene ejemplos en Python y Node.js.
 | **Entidades** | Tus entidades con sus valores y sinónimos; edición masiva tipo CSV; lista de entidades del sistema |
 | **Analizador** | Ver cómo entiende una frase (tokens, entidades, intenciones candidatas, frases parecidas) y corregirlo: intención, anotaciones, sinónimos y reglas de normalización |
 | **Entrenar** | Ver el entrenamiento paso a paso, la curva de aprendizaje, qué ha aprendido cada intención, el mapa de frases y el examen |
+| **Por dentro** | Cómo funciona el motor por dentro, con las fórmulas matemáticas y gráficos calculados con una frase tuya (en *Ayuda*, junto a esta guía) |
 | **Revisión** | Los mensajes reales de los usuarios: apruébalos o corrígelos para que se conviertan en frases de entrenamiento |
 | **Historial** | Las conversaciones completas, estadísticas de uso y la actividad de cada día |
 | **Integraciones** | Código para poner el chat en una web (con vista previa del color, la posición y el tema claro, oscuro o automático), usar la API o un webhook |
