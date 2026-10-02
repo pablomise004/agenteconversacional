@@ -1,15 +1,14 @@
 // Analizador: cómo entiende el agente una frase (tokens, entidades, intención)
 // y corrección inmediata ("lo ha entendido bien / mal").
 import { api } from "../api.js";
-import { h, icon, clear, chipsInput, toast, errorToast, formatValue, pct, confBar, pageHead, dataTable, busy } from "../ui.js";
+import { h, icon, clear, chipsInput, toast, errorToast, formatValue, pct, confBar, pageHead, dataTable, busy, tokenGloss,
+  selectMenu } from "../ui.js";
 import { annotatedPhrase, colorMap, suggestParam } from "../annotate.js";
 import { agentPath, reloadAgent, state } from "../app.js";
 
 const SOURCE_LABEL = {
   sys: "sistema", dict: "valor exacto", stem: "por raíz (plural/género)", fuzzy: "con falta corregida", regex: "regex",
 };
-const KIND_LABEL = { word: "palabra", number: "número", time: "hora", date: "fecha", url: "url", email: "email", symbol: "símbolo" };
-
 export async function render(el, _params, query) {
   let contexts = [];
   const input = h("input", { type: "text", class: "big grow", style: { fontWeight: 500 }, placeholder: "Escribe una frase como la diría un usuario…",
@@ -84,16 +83,7 @@ export async function render(el, _params, query) {
 
   // ------------------------------------------------------- tokenización
   function tokensCard(text, a, entColor) {
-    const entAt = (t) => a.entities.find((e) => t.start >= e.start && t.end <= e.end);
-    const grid = h("div", { class: "token-grid" }, a.tokens.map((t) => {
-      const e = entAt(t);
-      const cls = "token" + (t.kind === "symbol" ? " sym" : "") + (t.stop ? " stop" : "") + (e ? " ent ann-" + entColor(e) : "");
-      return h("div", { class: cls, title: `${KIND_LABEL[t.kind] || t.kind}${t.stop ? " · palabra vacía" : ""}${t.expanded ? " · abreviatura expandida" : ""}${e ? " · " + e.entity : ""}` },
-        h("span", { class: "t" }, t.text),
-        t.kind !== "symbol" && t.norm !== t.text ? h("span", { class: "n" }, t.norm) : null,
-        t.kind === "word" && t.stem !== t.norm ? h("span", { class: "s" }, "√ " + t.stem) : null,
-        t.corrected ? h("span", { class: "corr" }, "→ " + t.corrected) : null);
-    }));
+    const grid = tokenGloss(a.tokens, { entities: a.entities, entColor });
     // regla de normalización
     const word = h("input", { type: "text", placeholder: "palabra (p. ej. «pizzeta»)", "aria-label": "Palabra", style: { width: "180px" } });
     const repl = h("input", { type: "text", placeholder: "se entiende como (p. ej. «pizza»)", "aria-label": "Reemplazo", style: { width: "220px" } });
@@ -108,13 +98,10 @@ export async function render(el, _params, query) {
         run();
       } catch (e) { errorToast(e); }
     };
-    const corrected = a.tokens.filter((t) => t.corrected);
     return h("div", { class: "card" },
       h("div", { class: "card-head" }, icon("hash"), h("h2", null, "Tokenización"),
-        h("span", { class: "help" }, "Texto original · forma normalizada · √ raíz · → corrección ortográfica")),
+        h("span", { class: "help" }, "Cada palabra en una columna y cada paso en una fila: lo que cambia se resalta")),
       h("div", { class: "card-body col", style: { gap: "12px" } }, grid,
-        corrected.length ? h("div", { class: "muted small" }, "Correcciones: ",
-          corrected.map((t, i) => [i ? ", " : "", h("b", null, t.norm), " → ", t.corrected])) : null,
         h("details", null,
           h("summary", { class: "small", style: { cursor: "pointer", color: "var(--accent-text)", fontWeight: 550 } }, "¿Ha tokenizado algo mal? Enséñale cómo debe leer una palabra"),
           h("div", { class: "col", style: { marginTop: "10px" } },
@@ -203,10 +190,11 @@ export async function render(el, _params, query) {
 
     function buildEditor() {
       let selected = detected && !detected.isFallback ? detected : state.agent.intents.find((i) => !i.isFallback);
-      const select = h("select", { "aria-label": "Intención correcta" },
-        h("optgroup", { label: "Intenciones" }, state.agent.intents.filter((i) => !i.isFallback).sort((x, y) => x.name.localeCompare(y.name))
-          .map((i) => h("option", { value: i.id, selected: selected && i.id === selected.id }, i.name))),
-        h("optgroup", { label: "No debería entenderla" }, state.agent.intents.filter((i) => i.isFallback).map((i) => h("option", { value: i.id }, i.name + " (fallback)"))));
+      const select = selectMenu({ label: "Intención correcta", value: selected ? selected.id : null, groups: [
+        { title: "Intenciones", options: state.agent.intents.filter((i) => !i.isFallback).sort((x, y) => x.name.localeCompare(y.name))
+          .map((i) => ({ value: i.id, label: i.name })) },
+        { title: "No debería entenderla", options: state.agent.intents.filter((i) => i.isFallback).map((i) => ({ value: i.id, label: i.name + " (fallback)" })) },
+      ] });
       const phraseBox = h("div", { class: "phrase-list", style: { marginTop: 0 } });
       const synBox = h("div", { class: "col" });
       let annotations = [];
@@ -233,8 +221,10 @@ export async function render(el, _params, query) {
           const known = a.entities.some((e) => e.entity === an.entity && e.start === an.start && e.end === an.end && e.source !== "fuzzy");
           if (known) continue;
           const detectedValue = (a.entities.find((e) => e.entity === an.entity && e.start === an.start && e.end === an.end) || {}).value;
-          const sel = h("select", { "aria-label": "Valor" }, ent.entries.map((en) => h("option", { value: en.value, selected: en.value === detectedValue }, en.value)),
-            h("option", { value: "__new" }, "(nuevo valor: " + span + ")"));
+          const values = ent.entries.map((en) => ({ value: en.value, label: en.value }));
+          const sel = selectMenu({ label: "Valor", className: "w-200",
+            value: values.some((v) => v.value === detectedValue) ? detectedValue : values.length ? values[0].value : "__new",
+            options: [...values, { value: "__new", label: "(nuevo valor: " + span + ")" }] });
           synBox.append(h("div", { class: "notice info" }, icon("tag"), h("div", { class: "row wrap grow" },
             h("span", null, "«", h("b", null, span), "» no es un sinónimo de ", h("code", null, an.entity), ". Añadirlo como:"), sel,
             h("button", { class: "btn sm", type: "button", onclick: async (ev) => {
@@ -257,7 +247,7 @@ export async function render(el, _params, query) {
       const saveBtn = h("button", { class: "btn primary", type: "button", onclick: () => addPhrase(selected, selected.isFallback ? [] : annotations, box) },
         icon("check"), "Guardar como frase de entrenamiento");
       editor.append(
-        h("label", { class: "field", style: { maxWidth: "420px" } }, "Intención correcta", select),
+        h("div", { class: "field", style: { maxWidth: "420px" } }, h("span", null, "Intención correcta"), select),
         h("div", { class: "field" }, h("span", null, "Entidades en la frase"),
           h("span", { class: "hint" }, "Selecciona texto para marcar una entidad; pulsa una marca para cambiarla o quitarla."), phraseBox),
         synBox,

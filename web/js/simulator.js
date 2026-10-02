@@ -26,7 +26,7 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
   let busy = false;
   const body = h("div", { class: "sim-body", "aria-live": "polite" });
   const input = h("input", { type: "text", placeholder: "Escribe un mensaje…", "aria-label": "Mensaje", maxlength: "1000", autocomplete: "off" });
-  const sendBtn = h("button", { class: "btn primary icon-only", type: "submit", "aria-label": "Enviar" }, icon("send"));
+  const sendBtn = h("button", { class: "send-btn", type: "submit", "aria-label": "Enviar", title: "Enviar (Enter)" }, icon("send"));
   const form = h("form", { class: "sim-foot", onsubmit: (e) => { e.preventDefault(); send(input.value); } },
     h("div", { class: "composer" }, input, sendBtn));
   const sub = h("div", { class: "sub ellipsis" });
@@ -44,6 +44,14 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     body, form);
 
   const scroll = () => { body.scrollTop = body.scrollHeight; };
+
+  // una respuesta del bot: el lince a la izquierda y, en columna, sus mensajes, las respuestas rápidas
+  // y lo que ha entendido
+  const botTurn = () => {
+    const col = h("div", { class: "bot-col" });
+    body.append(h("div", { class: "bot-turn" }, h("span", { class: "bot-av", "aria-hidden": "true" }, logo()), col));
+    return col;
+  };
 
   function hint() {
     const agent = getAgent();
@@ -83,8 +91,9 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     input.value = "";
     busy = true;
     sendBtn.disabled = true;
+    const col = botTurn();
     const typing = h("div", { class: "typing", role: "status", "aria-label": "Escribiendo" }, h("i"), h("i"), h("i"));
-    body.append(typing);
+    col.append(typing);
     scroll();
     const t0 = performance.now();
     try {
@@ -94,10 +103,10 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
       const wait = 280 - (performance.now() - t0);
       if (wait > 0 && !reducedMotion()) await new Promise((res) => setTimeout(res, wait));
       typing.remove();
-      renderTurn(r);
+      renderTurn(r, col);
       if (onTurn) onTurn(r);
     } catch (e) {
-      typing.remove();
+      col.parentElement.remove();
       body.append(h("div", { class: "msg system" }, "Error: " + e.message));
     } finally {
       busy = false;
@@ -107,20 +116,20 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
     }
   }
 
-  function renderTurn(r) {
+  function renderTurn(r, col) {
     let n = 0;
     const later = (node) => { node.style.animationDelay = n++ * 110 + "ms"; return node; };
     for (const m of r.messages || []) {
-      if (m.type === "text") body.append(later(h("div", { class: "msg bot" }, m.text)));
+      if (m.type === "text") col.append(later(h("div", { class: "msg bot" }, m.text)));
       else if (m.type === "quickReplies") {
-        body.append(h("div", { class: "quick" }, m.items.map((q) => h("button", { type: "button", onclick: () => send(q) }, q))));
+        col.append(h("div", { class: "quick" }, m.items.map((q) => h("button", { type: "button", onclick: () => send(q) }, q))));
       } else if (m.type === "payload") {
-        body.append(later(h("div", { class: "payload" }, h("div", { class: "small faint" }, "Payload personalizado"),
+        col.append(later(h("div", { class: "payload" }, h("div", { class: "small faint" }, "Payload personalizado"),
           h("pre", null, JSON.stringify(m.payload, null, 2)))));
       }
     }
-    if (!r.messages || !r.messages.length) body.append(h("div", { class: "msg system" }, "(sin respuesta configurada)"));
-    if (r.previous) body.append(h("div", { class: "msg system" }, "El webhook lanzó el evento " + (r.event || "")));
+    if (!r.messages || !r.messages.length) col.append(h("div", { class: "msg system" }, "(sin respuesta configurada)"));
+    if (r.previous) col.append(h("div", { class: "msg system" }, "El webhook lanzó el evento " + (r.event || "")));
 
     const detail = h("div", { class: "turn-detail hidden" });
     let built = false;
@@ -136,7 +145,7 @@ export function createSimulator({ getAgent, onClose, onTurn }) {
       h("span", { class: "badge" + (fb ? " warning" : r.confidence >= 0.8 ? " success" : "") }, pct(r.confidence)),
       h("span", { class: "faint" }, MATCH_LABEL[r.match] || r.match || ""),
       r.queryText && r.logId ? feedbackButtons(r) : null);
-    body.append(meta, detail);
+    col.append(meta, detail);
   }
 
   function feedbackButtons(r) {

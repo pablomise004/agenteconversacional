@@ -1,6 +1,6 @@
 // "Entrenar": ver paso a paso cómo aprende el agente y qué ha aprendido.
 import { api } from "../api.js";
-import { h, icon, clear, errorToast, toast, pageHead, countUp, dataTable, stagger, busy } from "../ui.js";
+import { h, icon, clear, errorToast, toast, pageHead, countUp, dataTable, stagger, busy, tokenGloss, selectMenu } from "../ui.js";
 import { lineChart, barList, divergingBars, scatter, heatmap, meter, format } from "../charts.js";
 import { agentPath, state } from "../app.js";
 
@@ -337,8 +337,8 @@ export async function render(el, _params, query) {
 
   // ------------------------------------------------------------- mapa
   const mapBox = h("div");
-  const selA = h("select", { "aria-label": "Intención resaltada en azul" });
-  const selB = h("select", { "aria-label": "Intención resaltada en naranja" });
+  const selA = selectMenu({ label: "Intención resaltada en azul", className: "w-220", search: true });
+  const selB = selectMenu({ label: "Intención resaltada en naranja", className: "w-220", search: true });
   selA.addEventListener("change", () => { mapA = selA.value || null; drawMap(); });
   selB.addEventListener("change", () => { mapB = selB.value || null; drawMap(); });
   page.append(h("div", { class: "card" },
@@ -346,8 +346,8 @@ export async function render(el, _params, query) {
     h("div", { class: "card-body col", style: { gap: "12px" } },
       h("p", { class: "muted small", style: { margin: 0 } }, "Cada punto es una frase de entrenamiento, colocada según cómo la puntúa el modelo: las que ve parecidas quedan juntas. Si dos grupos se mezclan, el bot puede confundir esas intenciones. Pasa el ratón por un punto para leer la frase."),
       h("div", { class: "row wrap" },
-        h("span", { class: "legend-key a" }), h("label", { class: "small row" }, "Resaltar ", selA),
-        h("span", { class: "legend-key b" }), h("label", { class: "small row" }, "y comparar con ", selB)),
+        h("span", { class: "legend-key a" }), h("span", { class: "small row" }, "Resaltar ", selA),
+        h("span", { class: "legend-key b" }), h("span", { class: "small row" }, "y comparar con ", selB)),
       mapBox,
       h("div", { class: "faint small" }, "Técnica: t-SNE sobre las puntuaciones del modelo (una por intención). Las distancias entre grupos lejanos no tienen un significado exacto."))));
 
@@ -362,9 +362,8 @@ export async function render(el, _params, query) {
       mapA = candidates.reduce((best, i) => (counts[i.id] > (counts[best] || 0) ? i.id : best), candidates[0].id);
     }
     const fill = (sel, value, allowEmpty) => {
-      clear(sel);
-      if (allowEmpty) sel.append(h("option", { value: "" }, "(ninguna)"));
-      intents.forEach((i) => sel.append(h("option", { value: i.id, selected: i.id === value }, i.name)));
+      sel.setOptions({ options: [...(allowEmpty ? [{ value: "", label: "(ninguna)" }] : []), ...intents.map((i) => ({ value: i.id, label: i.name }))] });
+      sel.value = value || "";
     };
     fill(selA, mapA, true);
     fill(selB, mapB, true);
@@ -460,11 +459,7 @@ export async function render(el, _params, query) {
 
 // ------------------------------------------------------------ auxiliares
 function tokenTable(tokens) {
-  return h("div", { class: "token-grid" }, tokens.map((t) => h("div", { class: "token" + (t.stop ? " stop" : "") },
-    h("span", { class: "t" }, t.text),
-    t.norm !== t.text ? h("span", { class: "n" }, t.norm) : null,
-    t.kind === "word" && t.stem !== t.norm ? h("span", { class: "s" }, "√ " + t.stem) : null,
-    t.corrected ? h("span", { class: "corr" }, "→ " + t.corrected) : null)));
+  return tokenGloss(tokens);
 }
 
 function placeholderView(ex) {

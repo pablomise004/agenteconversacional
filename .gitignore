@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 data/
+# plantillas de diseño de referencia (no forman parte de Lince)
+Plantillas/

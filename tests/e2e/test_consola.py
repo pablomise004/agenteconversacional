@@ -100,6 +100,12 @@ def api(base, path, body=None):
         return json.loads(r.read().decode())
 
 
+def choose(page, label, text):
+    """Elige una opción de un desplegable propio de la consola (ui.js:selectMenu) por su texto."""
+    page.locator(f".xm-head[aria-label='{label}']").click()
+    page.locator(".xm-panel:not(.closing)").get_by_role("option", name=text, exact=True).click()
+
+
 def select_text(page, locator, word):
     """Selecciona una palabra dentro de una frase anotable y suelta el ratón."""
     page.evaluate("""([el, word]) => {
@@ -119,7 +125,7 @@ def select_text(page, locator, word):
 
 
 @pytest.mark.parametrize("route,selector", [
-    ("intents", ".list-item"), ("entities", ".list-item"), ("analyzer?q=hola", ".token-grid"),
+    ("intents", ".list-item"), ("entities", ".list-item"), ("analyzer?q=hola", ".gloss"),
     ("learn", ".steps .step"), ("training", ".tabs"), ("history", ".stat"), ("integrations", ".code-block"),
     ("settings", "input[type=range]"), ("guide", ".md h2"), ("inside", ".inside .formula math"),
 ])
@@ -186,10 +192,10 @@ def test_simulador_y_correccion(base_url, page):
 
 def test_analizador_corrige(base_url, page):
     page.goto(f"{base_url}/#/a/pizzeria/analyzer?q=quiero%20una%20pizzeta%20de%20jamon")
-    page.wait_for_selector(".token-grid")
+    page.wait_for_selector(".gloss")
     page.locator("button", has_text="No, corregir").click()
     pid = next(i["id"] for i in api(base_url, "/api/agents/pizzeria")["intents"] if i["name"] == "pedido.pizza")
-    page.select_option("select[aria-label='Intención correcta']", pid)
+    choose(page, "Intención correcta", "pedido.pizza")
     page.locator("button", has_text="Guardar como frase de entrenamiento").click()
     page.wait_for_selector(".notice.success")
     intent = next(i for i in api(base_url, "/api/agents/pizzeria")["intents"] if i["id"] == pid)
@@ -318,7 +324,7 @@ def test_crear_agente_como_copia(base_url, page):
     page.goto(f"{base_url}/#/agents")
     page.locator("button", has_text="Crear agente").first.click()
     page.locator(".tpl-card", has_text="Copia de un agente").click()
-    assert page.locator(".modal select").is_hidden()  # el idioma es el del agente que se copia
+    assert page.locator(".modal .xmenu").is_hidden()  # el idioma es el del agente que se copia
     page.locator(".source-pick").click()
     page.locator(".popover input").fill("hotel")
     page.keyboard.press("Escape")  # cierra la lista, no la ventana
@@ -377,6 +383,37 @@ def test_indice_desplegable_con_poco_sitio(base_url, browser):
     page.wait_for_timeout(300)
     assert page.locator(".toc-toggle").is_hidden() and page.locator(".toc-list").is_visible()
     ctx.close()
+
+
+def test_desplegables_y_color_propios(base_url, page):
+    """Ni <select> ni el selector de color del navegador: desplegables (selectMenu) y colorPicker propios,
+    que también se manejan con el teclado."""
+    for route in ["agents", "a/pizzeria/settings", "a/pizzeria/integrations", "a/pizzeria/learn"]:
+        page.goto(f"{base_url}/#/{route}")
+        page.wait_for_selector(".page-head")
+        page.wait_for_timeout(400)
+        assert page.locator("select, input[type=color]").count() == 0, route
+    page.goto(f"{base_url}/#/a/pizzeria/integrations")
+    page.wait_for_selector(".widget-preview")
+    page.locator(".cp-btn").click()
+    preview_has = "(c) => document.querySelector('.widget-preview').getAttribute('style').includes(c)"
+    page.locator(".cp-dot[data-c='#16a34a']").click()
+    page.wait_for_function(preview_has, arg="#16a34a")  # el cambio se avisa una vez por fotograma
+    assert page.locator(".cp-btn .cp-code").inner_text() == "#16A34A"
+    page.locator(".cp-hex").fill("#e11d48")
+    page.wait_for_function(preview_has, arg="#e11d48")
+    page.keyboard.press("Escape")
+    choose(page, "Posición", "Abajo a la izquierda")
+    assert "left" in page.locator(".widget-preview").get_attribute("class")
+    head = page.locator(".xm-head[aria-label='Posición']")
+    head.focus()
+    page.keyboard.press("Enter")
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("Enter")
+    assert "left" not in page.locator(".widget-preview").get_attribute("class")
+    assert head.inner_text() == "Abajo a la derecha"
+    page.wait_for_selector(".xm-panel", state="detached")  # se va tras su animación de cierre
+    assert page.errors == []
 
 
 def test_tema_oscuro(base_url, page):
@@ -454,7 +491,7 @@ def test_paleta_de_comandos(base_url, page):
     page.keyboard.press("Control+k")
     page.keyboard.type("quiero una pizza")
     page.locator(".cmdk-item", has_text="Analizar «quiero una pizza»").click()
-    page.wait_for_selector(".token-grid")
+    page.wait_for_selector(".gloss")
     assert "q=quiero" in page.url
     assert page.errors == []
 

@@ -3,6 +3,23 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.9.0 · 2 de octubre de 2026
+
+**Un chat con más vida, controles propios y una tokenización que se entiende de un vistazo.**
+
+- **Tokenización** (Analizador y Entrenar): en lugar de cuadros, cada palabra va en una columna y cada
+  paso en una fila: lo escrito, la forma normalizada, la raíz y, si hay, la corrección y la entidad.
+  Lo que cambia en cada paso se resalta y, al pasar el ratón por una palabra, se ilumina su columna.
+- **Chat** (simulador, widget y página `/chat`): el lince (o la inicial del chat) acompaña a cada
+  respuesta, tus mensajes van en degradado, las respuestas rápidas están teñidas del color de la
+  marca con una flecha que avanza, y los puntos de «escribiendo» también van en color.
+- **Botón de enviar** con un icono propio: un avión de papel en dos tonos, con las esquinas suaves,
+  que despega un poco al pasar el ratón.
+- **Selector de color propio** en Integraciones: cuadro de saturación y brillo, barra de tono, código
+  y colores sugeridos, en vez del selector del navegador.
+- **Desplegables propios** en toda la consola, en vez de los del navegador: se abren desde su
+  cabecera, llevan buscador cuando hay muchas opciones y se manejan con el teclado.
+
 ## 0.8.0 · 2 de octubre de 2026
 
 **Copiar cualquier agente, notas de la versión y un aspecto más limpio.**

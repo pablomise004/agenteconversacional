@@ -472,12 +472,22 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
   «cargando»), `countUp()` (cifras que cuentan), `stagger()` (los elementos aparecen en cascada),
   `avatar()`, `logo()`, `copyButton()`, `toggleTheme()`, `tocNav()` (índice de una página larga:
   lista fija al lado y, con la zona central estrecha, una barra pegada arriba con la sección actual
-  que despliega la lista; al saltar corrige la posición si lo de arriba cambia de alto).
+  que despliega la lista; al saltar corrige la posición si lo de arriba cambia de alto),
+  `selectMenu()` (desplegable en lugar de `<select>`, como el «Menú Expansible»: cabecera con lo
+  elegido y opciones que se despliegan debajo, en una capa aparte para que no lo recorten tablas ni
+  tarjetas; buscador con más de 10 opciones, teclado y el evento `change`, como un `<select>`),
+  `colorPicker()` (en lugar de `<input type="color">`: el «Color Picker HSV», con cuadro de
+  saturación y brillo, barra de tono, código y colores sugeridos) y `tokenGloss()` (la tokenización:
+  una columna por palabra y una fila por paso, con los cambios resaltados).
+- Nada de controles con el aspecto del navegador: ni `<select>` ni `<input type="color">` (una prueba
+  e2e lo comprueba); para eso están `selectMenu()` y `colorPicker()`.
 - Formas: esquinas suaves (6-7 px en etiquetas y contadores, 10-14 px en botones, cajas y tarjetas).
   Nada de píldoras (`border-radius: 999px`); los círculos, solo para lo que es redondo de verdad
   (puntos de estado, interruptores, el tirador del deslizador). El chat (simulador, `widget.js` y su
   vista previa en Integraciones) sigue lo mismo: caja de escribir con el botón dentro, respuestas
-  rápidas como botones y avisos como una línea fina con el texto en medio.
+  rápidas como botones teñidos de la marca, avisos como una línea fina con el texto en medio y el
+  lince (o la inicial del chat) junto a cada respuesta. El icono de enviar es propio: un avión de
+  papel en dos tonos con las esquinas suaves (`ICONS.send` en `ui.js` y `ICON_SEND` en `widget.js`).
 - Los `title` se muestran como tooltips propios (`initTooltips()`): basta con poner `title` a un
   botón o marca.
 - Microanimaciones: en CSS (`@keyframes` al principio de `app.css`), cortas (150-400 ms) y con
@@ -530,7 +540,7 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
 | Comando | Qué cubre |
 |---|---|
 | `python -m pytest` | 148 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
-| `python -m pytest tests/e2e -m e2e` | 31 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
+| `python -m pytest tests/e2e -m e2e` | 32 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

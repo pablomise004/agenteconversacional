@@ -1,6 +1,7 @@
 // Ajustes del agente.
 import { api } from "../api.js";
-import { h, icon, clear, toast, errorToast, confirmDialog, switchInput, copyButton, downloadFile, timeAgo, fullDate, pageHead, busy } from "../ui.js";
+import { h, icon, clear, toast, errorToast, confirmDialog, switchInput, copyButton, downloadFile, timeAgo, fullDate, pageHead, busy,
+  selectMenu } from "../ui.js";
 import { navigate, refreshAgents, state } from "../app.js";
 
 const ZONES = ["Europe/Madrid", "Atlantic/Canary", "Europe/London", "Europe/Lisbon", "America/Mexico_City",
@@ -186,8 +187,8 @@ export async function render(el) {
   };
   loadStatus();
 
-  const lang = h("select", { "aria-label": "Idioma", onchange: () => { form.language = lang.value; touch(); } },
-    Object.entries(state.info.languages).map(([k, v]) => h("option", { value: k, selected: k === form.language }, v)));
+  const lang = selectMenu({ label: "Idioma", value: form.language, onChange: (v) => { form.language = v; touch(); },
+    options: Object.entries(state.info.languages).map(([k, v]) => ({ value: k, label: v })) });
   const retrain = h("button", { class: "btn sm", type: "button", onclick: async () => {
     try { await busy(retrain, () => api.train(agent.id)); toast("Modelo reentrenado", "success"); loadStatus(); } catch (e) { errorToast(e); }
   } }, icon("refresh"), "Reentrenar ahora");
@@ -198,7 +199,7 @@ export async function render(el) {
     section("bot", "General", null,
       h("div", { class: "grid-2" },
         h("label", { class: "field" }, "Nombre", input(form, "name")),
-        h("label", { class: "field" }, "Idioma", lang, h("span", { class: "hint" }, "Afecta a números, fechas y raíces de las palabras."))),
+        h("div", { class: "field" }, h("span", null, "Idioma"), lang, h("span", { class: "hint" }, "Afecta a números, fechas y raíces de las palabras."))),
       h("label", { class: "field" }, "Descripción", input(form, "description")),
       h("label", { class: "field", style: { maxWidth: "360px" } }, "Zona horaria", input(form, "timezone", { list: "tz-list" }),
         h("datalist", { id: "tz-list" }, ZONES.map((z) => h("option", { value: z }))),

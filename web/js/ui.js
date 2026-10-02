@@ -51,7 +51,10 @@ const ICONS = {
   trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
   x: '<path d="M18 6L6 18M6 6l12 12"/>',
   check: '<path d="M20 6L9 17l-5-5"/>',
-  send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',
+  // enviar: un avión de papel en dos tonos (la parte de abajo, plegada), con las esquinas suaves;
+  // al pasar el ratón despega un poco (app.css)
+  send: '<g class="send-plane"><path d="M20.4 3.2 3.6 9.9c-.9.4-.9 1.6 0 2l6.2 2.4 2.4 6.2c.4.9 1.6.9 2 0z" fill="currentColor" opacity=".55" stroke="currentColor" stroke-opacity=".55" stroke-width="1.4" stroke-linejoin="round"/>' +
+    '<path d="M20.4 3.2 9.8 14.3l-6.2-2.4c-.9-.4-.9-1.6 0-2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></g>',
   refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
@@ -204,8 +207,8 @@ export function modal({ title, body, actions = [], wide = false, onOpen, closabl
       resolve(value);
     };
     const onKey = (e) => {
-      // con un desplegable abierto dentro (popover), Escape cierra solo el desplegable
-      if (e.key === "Escape") { if (openPopover) return; e.stopPropagation(); if (closable) close(null); return; }
+      // con un desplegable abierto dentro (popover o selectMenu), Escape cierra solo el desplegable
+      if (e.key === "Escape") { if (openPopover || openMenu) return; e.stopPropagation(); if (closable) close(null); return; }
       if (e.key === "Tab") { // el foco no sale de la ventana
         const items = [...box.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null);
         if (!items.length) return;
@@ -381,6 +384,295 @@ export function optionList({ groups, onPick, placeholder = "Buscar…" }) {
   });
   render();
   return h("div", null, search, box);
+}
+
+// ------------------------------------------------------------- desplegable
+// Desplegable propio en lugar de <select> (el «Menú Expansible» de las plantillas): una cabecera con
+// lo elegido y una flecha que gira; debajo se despliegan las opciones, separadas por una línea fina.
+// Va en una capa aparte, así que no lo recortan las tablas ni las tarjetas, y se maneja con el
+// teclado (flechas, Enter, Esc, inicial de la opción). Con muchas opciones lleva buscador.
+// groups: [{ title?, options: [{ value, label, sub? }] }] (u options, sin grupos). Se usa como un
+// <select>: .value para leer y cambiar, el evento «change» al elegir y .setOptions({ groups | options }).
+let openMenu = null;
+let menuSeq = 0;
+export function selectMenu({ options, groups, value = null, label = "", placeholder = "Elige…", onChange, search, className = "" } = {}) {
+  let list = [];
+  let current = value == null ? null : String(value);
+  const text = h("span", { class: "xm-text ellipsis" });
+  const head = h("button", { type: "button", class: "xm-head", "aria-haspopup": "listbox", "aria-expanded": "false",
+    "aria-label": label || null, onclick: () => (openMenu === close ? close(true) : open()) }, text, icon("down", "xm-arrow"));
+  const box = h("div", { class: "xmenu" + (className ? " " + className : "") }, head);
+  const listId = "xm-" + ++menuSeq;
+  const itemsBox = h("div", { class: "xm-items" });
+  const panel = h("div", { class: "xm-panel", role: "listbox", id: listId, "aria-label": label || null });
+  let filter = null, items = [], active = -1, removeTimer = 0, typed = "", typedAt = 0;
+
+  function setOptions(opts) {
+    list = [];
+    for (const g of opts.groups || [{ options: opts.options || [] }]) {
+      for (const o of g.options) list.push({ ...o, value: String(o.value), group: g.title || "" });
+    }
+    paintHead();
+    if (openMenu === close) renderItems();
+  }
+  function paintHead() {
+    const o = list.find((x) => x.value === current);
+    text.textContent = o ? o.label : placeholder;
+    text.classList.toggle("placeholder", !o);
+  }
+
+  function renderItems() {
+    const q = filter ? fold(filter.value.trim()) : "";
+    clear(itemsBox);
+    items = [];
+    let group = null;
+    for (const o of list) {
+      if (q && !fold(`${o.label} ${o.sub || ""}`).includes(q)) continue;
+      if (o.group && o.group !== group) { itemsBox.append(h("div", { class: "xm-group" }, o.group)); group = o.group; }
+      const i = items.length;
+      const on = o.value === current;
+      const el = h("div", { class: "xm-item" + (on ? " sel" : ""), role: "option", id: `${listId}-${i}`, "aria-selected": String(on),
+        style: { "--i": Math.min(i, 10) }, onmousedown: (e) => e.preventDefault(), onmousemove: () => setActive(i, false),
+        onclick: () => pick(o.value) },
+      h("span", { class: "xm-label" }, h("span", { class: "ellipsis" }, o.label), o.sub ? h("span", { class: "xm-sub ellipsis" }, o.sub) : null),
+      on ? icon("check", "xm-check") : null);
+      items.push({ el, o });
+      itemsBox.append(el);
+    }
+    if (!items.length) itemsBox.append(h("div", { class: "xm-empty" }, "Sin resultados"));
+    const sel = items.findIndex((x) => x.o.value === current);
+    setActive(q ? 0 : Math.max(0, sel), q ? "nearest" : "center");
+  }
+  function setActive(i, scroll) {
+    if (!items.length) { active = -1; return; }
+    active = Math.max(0, Math.min(items.length - 1, i));
+    items.forEach((x, j) => x.el.classList.toggle("active", j === active));
+    head.setAttribute("aria-activedescendant", items[active].el.id);
+    if (scroll) items[active].el.scrollIntoView({ block: scroll === true ? "nearest" : scroll });
+  }
+
+  function place() {
+    const r = head.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom - 8, above = r.top - 8;
+    const up = below < 220 && above > below;
+    panel.style.left = Math.max(8, Math.min(r.left, window.innerWidth - r.width - 8)) + "px";
+    panel.style.width = r.width + "px";
+    panel.style.maxHeight = Math.max(120, Math.min(340, up ? above : below)) + "px";
+    panel.style.top = up ? "" : r.bottom - 1 + "px";
+    panel.style.bottom = up ? window.innerHeight - r.top - 1 + "px" : "";
+    box.classList.toggle("up", up);
+    panel.classList.toggle("up", up);
+  }
+  const onDown = (e) => { if (!panel.contains(e.target) && !head.contains(e.target)) close(); };
+  const onKey = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(true); return; }
+    if (e.key === "Tab") { close(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setActive(active + (e.key === "ArrowDown" ? 1 : -1), true); return; }
+    if (e.key === "Home" || e.key === "End") { e.preventDefault(); setActive(e.key === "Home" ? 0 : items.length - 1, true); return; }
+    if (e.key === "Enter" || (e.key === " " && !filter)) { e.preventDefault(); if (items[active]) pick(items[active].o.value); return; }
+    // sin buscador: la inicial salta a la siguiente opción que empieza así
+    if (!filter && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      typed = (Date.now() - typedAt < 700 ? typed : "") + fold(e.key);
+      typedAt = Date.now();
+      const from = typed.length === 1 ? active + 1 : active;
+      const n = items.length;
+      for (let k = 0; k < n; k++) {
+        const j = (from + k) % n;
+        if (fold(items[j].o.label).startsWith(typed)) { setActive(j, true); break; }
+      }
+    }
+  };
+  const onMove = () => place();
+
+  function open() {
+    if (head.disabled) return;
+    if (openMenu) openMenu();
+    closePopover();
+    clearTimeout(removeTimer);
+    panel.classList.remove("closing");
+    clear(panel);
+    filter = null;
+    if (search ?? list.length > 10) {
+      filter = h("input", { type: "search", class: "xm-search", placeholder: "Buscar…", "aria-label": "Buscar",
+        oninput: () => renderItems() });
+      panel.append(filter);
+    }
+    panel.append(itemsBox);
+    document.body.append(panel);
+    place();  // antes de pintar las opciones: con la altura ya fijada, la elegida queda a la vista
+    renderItems();
+    box.classList.add("open");
+    head.setAttribute("aria-expanded", "true");
+    head.setAttribute("aria-controls", listId);
+    openMenu = close;
+    document.addEventListener("mousedown", onDown, true);
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    if (filter) filter.focus();
+  }
+  function close(focusHead = false) {
+    if (openMenu !== close) return;
+    openMenu = null;
+    box.classList.remove("open", "up");
+    head.setAttribute("aria-expanded", "false");
+    head.removeAttribute("aria-activedescendant");
+    document.removeEventListener("mousedown", onDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    document.removeEventListener("scroll", onMove, true);
+    window.removeEventListener("resize", onMove);
+    panel.classList.add("closing");
+    removeTimer = setTimeout(() => panel.remove(), reducedMotion() ? 0 : 140);
+    if (focusHead) head.focus();
+  }
+  function pick(v) {
+    const changed = v !== current;
+    current = v;
+    paintHead();
+    close(true);
+    if (!changed) return;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    if (onChange) onChange(v);
+  }
+
+  Object.defineProperty(box, "value", { get: () => current, set: (v) => { current = v == null ? null : String(v); paintHead(); } });
+  Object.defineProperty(box, "disabled", { get: () => head.disabled, set: (v) => { head.disabled = !!v; } });
+  box.setOptions = setOptions;
+  box.focus = () => head.focus();
+  setOptions({ options, groups });
+  return box;
+}
+
+// -------------------------------------------------------- selector de color
+// En lugar del selector del navegador, el «Color Picker HSV» de las plantillas: un botón con la
+// muestra y el código abre un panel con el cuadro de saturación y brillo, la barra de tono, el
+// código hexadecimal y colores sugeridos. onChange(hex) en cada cambio, para verlo al momento.
+const COLOR_PRESETS = ["#4f46e5", "#7c3aed", "#c026d3", "#db2777", "#e11d48", "#ea580c",
+  "#d97706", "#16a34a", "#0d9488", "#0891b2", "#2563eb", "#334155"];
+
+function hexToRgb(hex) {
+  let v = String(hex || "").trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(v)) v = v.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-f]{6}$/i.test(v)) return null;
+  return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16));
+}
+const rgbToHex = (rgb) => "#" + rgb.map((x) => x.toString(16).padStart(2, "0")).join("");
+function hsvToRgb(hue, s, v) {
+  const c = v * s, x = c * (1 - Math.abs(((hue / 60) % 2) - 1)), m = v - c;
+  const [r, g, b] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x]
+    : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+  return [r, g, b].map((k) => Math.round((k + m) * 255));
+}
+function rgbToHsv([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+  let hue = 0;
+  if (d) hue = 60 * (max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4);
+  return [(hue + 360) % 360, max ? d / max : 0, max];
+}
+
+export function colorPicker({ value = "#4f46e5", onChange, label = "Color" } = {}) {
+  let hex = rgbToHex(hexToRgb(value) || [79, 70, 229]);
+  let [hue, sat, bri] = rgbToHsv(hexToRgb(hex));
+  const swatch = h("span", { class: "cp-swatch" });
+  const code = h("span", { class: "cp-code" });
+  const btn = h("button", { type: "button", class: "cp-btn", "aria-label": label, "aria-haspopup": "dialog", onclick: () => openPanel() },
+    swatch, code, icon("down", "cp-arrow"));
+  let ui = null, frame = 0;
+
+  const paint = () => {
+    swatch.style.background = hex;
+    code.textContent = hex.toUpperCase();
+    if (!ui) return;
+    ui.cursor.style.left = sat * 100 + "%";
+    ui.cursor.style.top = (1 - bri) * 100 + "%";
+    ui.cursor.style.background = hex;
+    ui.field.setAttribute("aria-valuetext", `saturación ${Math.round(sat * 100)} %, brillo ${Math.round(bri * 100)} %`);
+    ui.prev.style.background = hex;
+    if (document.activeElement !== ui.hex) ui.hex.value = hex.toUpperCase();
+    ui.hue.value = String(Math.round(hue));
+    ui.dots.forEach((d) => d.classList.toggle("on", d.dataset.c === hex));
+  };
+  // los cambios se avisan una vez por fotograma (arrastrar dispara muchos)
+  const changed = () => {
+    paint();
+    if (!onChange || frame) return;
+    frame = requestAnimationFrame(() => { frame = 0; onChange(hex); });
+  };
+  const fromHsv = () => { hex = rgbToHex(hsvToRgb(hue, sat, bri)); changed(); };
+  const setHex = (v) => {
+    const rgb = hexToRgb(v);
+    if (!rgb) return false;
+    hex = rgbToHex(rgb);
+    [hue, sat, bri] = rgbToHsv(rgb);
+    if (ui) drawField();
+    changed();
+    return true;
+  };
+
+  function drawField() {
+    const { canvas } = ui;
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width, ht = canvas.height;
+    const across = ctx.createLinearGradient(0, 0, w, 0);
+    across.addColorStop(0, "#fff");
+    across.addColorStop(1, `hsl(${hue}, 100%, 50%)`);
+    ctx.fillStyle = across;
+    ctx.fillRect(0, 0, w, ht);
+    const down = ctx.createLinearGradient(0, 0, 0, ht);
+    down.addColorStop(0, "rgba(0, 0, 0, 0)");
+    down.addColorStop(1, "#000");
+    ctx.fillStyle = down;
+    ctx.fillRect(0, 0, w, ht);
+  }
+
+  function openPanel() {
+    const canvas = h("canvas", { class: "cp-canvas" });
+    const cursor = h("span", { class: "cp-cursor" });
+    const field = h("div", { class: "cp-field", tabindex: "0", role: "slider", "aria-label": "Saturación y brillo" }, canvas, cursor);
+    const hueIn = h("input", { type: "range", class: "cp-hue", min: "0", max: "360", step: "1", "aria-label": "Tono",
+      oninput: () => { hue = +hueIn.value; drawField(); fromHsv(); } });
+    const hexIn = h("input", { type: "text", class: "cp-hex", maxlength: "7", spellcheck: "false", autocomplete: "off",
+      "aria-label": "Código del color", oninput: () => { if (setHex(hexIn.value)) hexIn.classList.remove("bad"); else hexIn.classList.add("bad"); },
+      onblur: () => { hexIn.classList.remove("bad"); paint(); } });
+    const prev = h("span", { class: "cp-prev" });
+    const dots = COLOR_PRESETS.map((c) => h("button", { type: "button", class: "cp-dot", title: c.toUpperCase(), "aria-label": c,
+      dataset: { c }, style: { background: c }, onclick: () => setHex(c) }));
+    const box = h("div", { class: "cp-panel" }, field, hueIn,
+      h("div", { class: "cp-row" }, prev, hexIn), h("div", { class: "cp-dots" }, dots));
+    ui = { canvas, cursor, field, hue: hueIn, hex: hexIn, prev, dots };
+
+    const pickAt = (e) => {
+      const r = field.getBoundingClientRect();
+      sat = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      bri = 1 - Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      fromHsv();
+    };
+    field.addEventListener("pointerdown", (e) => { field.setPointerCapture(e.pointerId); field.classList.add("drag"); pickAt(e); });
+    field.addEventListener("pointermove", (e) => { if (field.hasPointerCapture(e.pointerId)) pickAt(e); });
+    field.addEventListener("pointerup", () => field.classList.remove("drag"));
+    field.addEventListener("keydown", (e) => {
+      const step = e.shiftKey ? 0.1 : 0.02;
+      const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
+      if (!moves) return;
+      e.preventDefault();
+      sat = Math.max(0, Math.min(1, sat + moves[0]));
+      bri = Math.max(0, Math.min(1, bri + moves[1]));
+      fromHsv();
+    });
+    popover(btn, box, { onClose: () => { ui = null; btn.classList.remove("open"); } });
+    btn.classList.add("open");
+    // el lienzo, a la resolución de la pantalla
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(field.clientWidth * dpr);
+    canvas.height = Math.round(field.clientHeight * dpr);
+    drawField();
+    paint();
+  }
+
+  paint();
+  Object.defineProperty(btn, "value", { get: () => hex, set: (v) => { setHex(v); } });
+  return btn;
 }
 
 // --------------------------------------------------------------------- tema
@@ -588,6 +880,79 @@ export function formatValue(v) {
 
 export function pct(v) {
   return Math.round((v || 0) * 100) + " %";
+}
+
+/**
+ * Cómo se ha leído una frase (Analizador y Entrenar): una columna por palabra y una fila por paso,
+ * como una glosa: lo escrito, la forma normalizada, la raíz y, si hay, la corrección y la entidad.
+ * Lo que cambia en un paso se resalta; lo que se queda igual, atenuado. Al pasar el ratón por una
+ * palabra se ilumina su columna. entities: [{ start, end, entity }]; entColor(e): su color (0-7).
+ */
+const TOKEN_KIND = { word: "palabra", number: "número", time: "hora", date: "fecha", url: "dirección web", email: "correo", symbol: "signo" };
+export function tokenGloss(tokens, { entities = [], entColor = () => 0 } = {}) {
+  const entAt = (t) => entities.find((e) => t.start >= e.start && t.end <= e.end);
+  const rows = [
+    { label: "Escrito", tip: "La palabra tal como está en la frase" },
+    { label: "Normalizada", tip: "En minúsculas, sin tildes, sin letras repetidas y con las abreviaturas de chat desplegadas" },
+    { label: "Raíz", tip: "Lo que queda al quitar las terminaciones: «reservar», «reserva» y «reservas» se quedan en «reserv». Los números, horas y fechas no tienen raíz" },
+  ];
+  const corrected = tokens.some((t) => t.corrected);
+  if (corrected) rows.push({ label: "Corregida", tip: "El corrector cambia una palabra que no conoce por la más parecida del vocabulario del agente" });
+  if (entities.length) rows.push({ label: "Entidad", tip: "Las palabras que son un dato: el modelo las ve por su tipo (@pizza), no por la palabra" });
+  const grid = h("div", { class: "gloss", role: "table", "aria-label": "Tokenización de la frase" });
+  const put = (row, col, span, content, cls, title) => grid.append(h("div", {
+    class: `gl-cell${row === 1 ? " first" : ""}${cls ? " " + cls : ""}`, role: "cell", title: title || null,
+    dataset: { col: String(col), span: String(span) }, style: { gridRow: row, gridColumn: `${col + 2} / span ${span}`, "--i": Math.min(col, 16) } },
+  content));
+  rows.forEach((r, i) => grid.append(h("div", { class: "gl-label" + (i ? "" : " first"), role: "rowheader", title: r.tip,
+    style: { gridRow: i + 1 } }, r.label)));
+
+  tokens.forEach((t, c) => {
+    const e = entAt(t);
+    const sym = t.kind === "symbol";
+    const tip = [TOKEN_KIND[t.kind] || t.kind, t.stop ? "palabra vacía: cuenta poco" : "", t.expanded ? "abreviatura desplegada" : "", e ? e.entity : ""]
+      .filter(Boolean).join(" · ");
+    const word = e ? h("mark", { class: "gl-mark ann-" + entColor(e) }, t.text) : t.text;
+    // una abreviatura que se despliega en varias palabras («xfa» → «por favor») va en una sola casilla
+    const same = (x) => x && x.start === t.start && x.end === t.end;
+    if (!same(tokens[c - 1])) {
+      let span = 1;
+      while (same(tokens[c + span])) span++;
+      put(1, c, span, word, "gl-word" + (t.stop ? " stop" : "") + (sym ? " sym" : ""), tip);
+    }
+    put(2, c, 1, sym ? "" : t.norm, "gl-mono" + (!sym && t.norm !== t.text ? " diff" : ""),
+      !sym && t.norm !== t.text ? (t.expanded ? "Abreviatura desplegada" : "Cambia al normalizar") : null);
+    put(3, c, 1, sym ? "" : t.kind === "word" ? t.stem : TOKEN_KIND[t.kind] || t.kind,
+      t.kind === "word" ? "gl-mono" + (t.stem !== t.norm ? " diff" : "") : sym ? "" : "gl-kind");
+    let row = 4;
+    if (corrected) put(row++, c, 1, t.corrected ? "→ " + t.corrected : "", t.corrected ? "gl-corr" : "");
+    if (entities.length) {
+      const prev = tokens[c - 1];
+      if (e && prev && entAt(prev) === e) return;  // va dentro de la casilla de la primera palabra
+      let span = 1;
+      while (e && tokens[c + span] && entAt(tokens[c + span]) === e) span++;
+      put(row, c, span, e ? h("span", { class: "gl-ent ann-" + entColor(e) }, e.entity) : "", e ? "gl-entcell" : "");
+    }
+  });
+
+  // al pasar el ratón por una palabra se ilumina su columna
+  let lit = null;
+  const light = (col) => {
+    if (col === lit) return;
+    lit = col;
+    grid.querySelectorAll(".gl-cell.lit").forEach((x) => x.classList.remove("lit"));
+    if (col == null) return;
+    grid.querySelectorAll(".gl-cell").forEach((x) => {
+      const from = +x.dataset.col, to = from + +x.dataset.span;
+      if (col >= from && col < to) x.classList.add("lit");
+    });
+  };
+  grid.addEventListener("mouseover", (ev) => {
+    const cell = ev.target.closest(".gl-cell");
+    if (cell) light(+cell.dataset.col);
+  });
+  grid.addEventListener("mouseleave", () => light(null));
+  return h("div", { class: "table-scroll gloss-wrap" }, grid);
 }
 
 export function confBar(value, threshold) {

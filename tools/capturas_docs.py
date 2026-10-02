@@ -137,7 +137,7 @@ def scenes(browser, base, only):
     if want("analizador"):
         page.goto(base + "/#/a/pizzeria/analyzer?q=me%20pones%20dos%20pizas%20barbacoa%20familiares%20pa%20ma%C3%B1ana"
                          "%20a%20las%209%20de%20la%20noche%20xfa")
-        page.wait_for_selector(".token-grid")
+        page.wait_for_selector(".gloss")
         page.locator("button", has_text="No, corregir").click()
         page.wait_for_timeout(600)
         shot(page, "analizador")
@@ -155,9 +155,9 @@ def scenes(browser, base, only):
             scroll_to(page, ".flow")
             shot(page, "explicar")
         if want("mapa"):
-            ids = {i["name"]: i["id"] for i in json.loads(urllib.request.urlopen(base + "/api/agents/pizzeria").read())["intents"]}
-            page.select_option("select[aria-label='Intención resaltada en azul']", ids["pedido.pizza"])
-            page.select_option("select[aria-label='Intención resaltada en naranja']", ids["reserva.mesa"])
+            for label, name in (("Intención resaltada en azul", "pedido.pizza"), ("Intención resaltada en naranja", "reserva.mesa")):
+                page.locator(f".xm-head[aria-label='{label}']").click()
+                page.locator(".xm-panel:not(.closing)").get_by_role("option", name=name, exact=True).click()
             scroll_to_card(page, "Mapa de frases")
             shot(page, "mapa")
         if want("examen"):

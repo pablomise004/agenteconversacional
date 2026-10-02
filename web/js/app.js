@@ -24,7 +24,7 @@ import * as sharedPage from "./pages/shared.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.8.0";
+export const APP_VERSION = "0.9.0";
 
 export const state = {
   info: null,

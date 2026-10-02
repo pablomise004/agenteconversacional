@@ -2,7 +2,7 @@
 import { api } from "../api.js";
 import {
   h, icon, clear, toast, errorToast, timeAgo, fullDate, pct, debounce, confirmDialog, pageHead, emptyState,
-  segmented, stagger, busy,
+  segmented, stagger, busy, selectMenu,
 } from "../ui.js";
 import { annotatedPhrase, colorMap, suggestParam } from "../annotate.js";
 import { agentPath, refreshPending, reloadAgent, state } from "../app.js";
@@ -68,11 +68,11 @@ export async function render(el) {
     let selected = detected || fallbackIntent;
     let annotations = [];
 
-    const select = h("select", { "aria-label": "Intención", style: { minWidth: "200px" } },
-      h("optgroup", { label: "Intenciones" }, agent.intents.filter((i) => !i.isFallback).sort((a, b) => a.name.localeCompare(b.name))
-        .map((i) => h("option", { value: i.id, selected: selected && i.id === selected.id }, i.name))),
-      h("optgroup", { label: "No debería entenderla" }, agent.intents.filter((i) => i.isFallback)
-        .map((i) => h("option", { value: i.id, selected: selected && i.id === selected.id }, i.name + " (fallback)"))));
+    const select = selectMenu({ label: "Intención", className: "w-220", value: selected ? selected.id : null, groups: [
+      { title: "Intenciones", options: agent.intents.filter((i) => !i.isFallback).sort((a, b) => a.name.localeCompare(b.name))
+        .map((i) => ({ value: i.id, label: i.name })) },
+      { title: "No debería entenderla", options: agent.intents.filter((i) => i.isFallback).map((i) => ({ value: i.id, label: i.name + " (fallback)" })) },
+    ] });
     const phraseBox = h("div", { class: "grow" });
     const approve = h("button", { class: "btn sm primary", type: "button" }, icon("check"), "Aprobar");
 

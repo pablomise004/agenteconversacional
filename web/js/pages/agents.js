@@ -1,7 +1,7 @@
 // Lista de agentes: crear, importar (JSON o ZIP de Dialogflow) y abrir.
 import { api } from "../api.js";
-import { h, icon, avatar, clear, modal, popover, closePopover, optionList, toast, errorToast, timeAgo, fullDate, pageHead,
-  emptyState, stagger } from "../ui.js";
+import { h, icon, avatar, clear, modal, popover, closePopover, optionList, selectMenu, toast, errorToast, timeAgo, fullDate,
+  pageHead, emptyState, stagger } from "../ui.js";
 import { navigate, refreshAgents, state } from "../app.js";
 
 // Un agente nuevo empieza vacío o como copia de otro: de los tuyos, de uno de ejemplo o, si borraste
@@ -29,7 +29,7 @@ const copyName = (o) => (o.example ? o.label.replace(/\s*\(ejemplo\)\s*$/i, "") 
 export async function createAgentDialog() {
   const name = h("input", { type: "text" });
   const desc = h("input", { type: "text", placeholder: "Opcional" });
-  const lang = h("select", null, Object.entries(state.info.languages).map(([k, v]) => h("option", { value: k }, v)));
+  const lang = selectMenu({ label: "Idioma", value: "es", options: Object.entries(state.info.languages).map(([k, v]) => ({ value: k, label: v })) });
   const groups = copySources();
   const sources = groups.flatMap((g) => g.options);
   let start = "blank";
@@ -42,7 +42,7 @@ export async function createAgentDialog() {
       placeholder: "Buscar agente…",
       onPick: (value) => { source = sources.find((o) => o.value === value) || source; closePopover(); paint(); pick.focus(); },
     })), { width: pick.offsetWidth }) });
-  const langField = h("label", { class: "field swap" }, "Idioma", lang);
+  const langField = h("div", { class: "field swap" }, h("span", null, "Idioma"), lang);
   const sourceField = h("div", { class: "field swap" }, h("span", null, "Copiar de"), pick,
     h("span", { class: "hint" }, "La copia es tuya: lo que cambies en ella no toca el original."));
   const cards = h("div", { class: "tpl-list two", role: "radiogroup", "aria-label": "Punto de partida" }, STARTS.map((t) => {

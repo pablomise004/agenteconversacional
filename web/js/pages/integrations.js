@@ -1,5 +1,5 @@
 // Integraciones: widget web, API REST, compatibilidad Dialogflow y webhook.
-import { h, icon, clear, codeBlock, codeTabs, switchInput, pageHead, segmented, isDark } from "../ui.js";
+import { h, icon, clear, codeBlock, codeTabs, switchInput, pageHead, segmented, isDark, selectMenu, colorPicker } from "../ui.js";
 import { agentPath, state } from "../app.js";
 
 const THEMES = [
@@ -66,9 +66,9 @@ export async function render(el) {
       ...(key ? { key } : {}) });
   };
   const title = h("input", { type: "text", value: opts.title, "aria-label": "Título", oninput: () => { opts.title = title.value; drawWidget(); } });
-  const color = h("input", { type: "color", value: opts.color, "aria-label": "Color", oninput: () => { opts.color = color.value; drawWidget(); } });
-  const pos = h("select", { "aria-label": "Posición", onchange: () => { opts.position = pos.value; drawWidget(); } },
-    h("option", { value: "right" }, "Abajo a la derecha"), h("option", { value: "left" }, "Abajo a la izquierda"));
+  const color = colorPicker({ value: opts.color, label: "Color del chat", onChange: (hex) => { opts.color = hex; drawWidget(); } });
+  const pos = selectMenu({ label: "Posición", value: opts.position, onChange: (v) => { opts.position = v; drawWidget(); },
+    options: [{ value: "right", label: "Abajo a la derecha" }, { value: "left", label: "Abajo a la izquierda" }] });
   const theme = segmented({ items: THEMES.map((t) => ({ key: t.key, label: [icon(t.icon), t.label] })), active: opts.theme,
     label: "Tema del chat", onChange: (k) => { opts.theme = k; drawWidget(); } });
   theme.style.marginBottom = "0";
@@ -155,8 +155,8 @@ app.listen(5000);`;
           h("div", { class: "col", style: { gap: "12px" } },
             h("label", { class: "field" }, "Título", title),
             h("div", { class: "row", style: { gap: "12px", alignItems: "flex-end" } },
-              h("label", { class: "field" }, "Color", color),
-              h("label", { class: "field grow" }, "Posición", pos)),
+              h("div", { class: "field" }, h("span", null, "Color"), color),
+              h("div", { class: "field grow" }, h("span", null, "Posición"), pos)),
             h("div", { class: "field" }, h("span", null, "Tema"), theme, themeHelp),
             switchInput("Saludar al abrir (evento WELCOME)", opts.welcome, (v) => { opts.welcome = v; drawWidget(); })),
           preview),

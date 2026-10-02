@@ -53,7 +53,9 @@
     "--muted:#9b9b9b;--dot:#8a8a8a;--edge:rgba(255,255,255,.08);--ring:rgba(255,255,255,.1);--ink:color-mix(in srgb,var(--c) 50%,#fff)";
   var css = [
     ":host{all:initial;--bg:#fff;--fg:#1b2232;--soft:#f6f7f9;--card:#fff;--line:#e7e8eb;--line2:#d6d8dd;--muted:#80858f;",
-    "--dot:#a1a6b0;--edge:rgba(0,0,0,.04);--ring:rgba(0,0,0,.06);--ink:var(--c)}",
+    "--dot:#a1a6b0;--edge:rgba(0,0,0,.04);--ring:rgba(0,0,0,.06);--ink:var(--c);--tint:var(--card);--tline:var(--line2);--glow:transparent}",
+    "@supports (color:color-mix(in srgb,red,blue)){:host{--tint:color-mix(in srgb,var(--c) 9%,var(--card));",
+    "--tline:color-mix(in srgb,var(--c) 30%,transparent);--glow:color-mix(in srgb,var(--c) 14%,transparent)}}",
     ":host([data-agente-theme=dark]){" + DARK + "}",
     "@media (prefers-color-scheme:dark){:host([data-agente-theme=auto]){" + DARK + "}}",
     "*{box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}",
@@ -88,43 +90,59 @@
     ".head button{background:transparent;border:0;color:#fff;cursor:pointer;opacity:.85;padding:6px;border-radius:9px;display:grid;",
     "place-items:center;transition:background-color .15s,opacity .15s,transform .3s}",
     ".head button:hover{opacity:1;background:rgba(255,255,255,.16)}.head .reset:hover{transform:rotate(-90deg)}.head svg{width:18px;height:18px}",
-    ".body{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:8px;background:var(--soft);scroll-behavior:smooth}",
+    ".body{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:8px;background:var(--soft);scroll-behavior:smooth;",
+    "background-image:radial-gradient(420px 180px at 50% -50px,var(--glow),transparent 70%)}",
     ".msg{max-width:85%;padding:9px 13px;border-radius:14px;line-height:1.45;font-size:14.5px;white-space:pre-wrap;word-break:break-word;",
     "animation:msg .3s cubic-bezier(.34,1.45,.64,1) backwards}",
     "@keyframes msg{from{opacity:0;transform:translateY(8px) scale(.96)}}",
-    ".bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px;box-shadow:0 1px 2px rgba(16,18,27,.05);",
-    "transform-origin:bottom left}",
-    ".user{align-self:flex-end;background:var(--c);color:#fff;border-bottom-right-radius:4px;transform-origin:bottom right}",
+    ".bot{position:relative;margin-left:36px;align-self:flex-start;background:var(--card);border:1px solid var(--line);",
+    "box-shadow:0 1px 2px rgba(16,18,27,.05);transform-origin:top left}",
+    ".bot:not(.bot+.bot),.typing{border-top-left-radius:4px}",
+    ".bot:not(.bot+.bot)::before,.typing::before{content:var(--ini,'');position:absolute;left:-37px;top:-1px;width:28px;height:28px;",
+    "border-radius:9px;display:grid;place-items:center;font-size:12.5px;font-weight:700;color:#fff;background:var(--c);",
+    "background-image:linear-gradient(135deg,rgba(255,255,255,.25),rgba(0,0,0,.08));box-shadow:0 4px 10px -4px var(--c)}",
+    ".user{align-self:flex-end;background:var(--c);color:#fff;border-bottom-right-radius:4px;transform-origin:bottom right;",
+    "background-image:linear-gradient(135deg,rgba(255,255,255,.2),rgba(255,255,255,0) 60%);box-shadow:0 8px 18px -10px var(--c)}",
     ".bot a{color:var(--ink)}.user a{color:#fff}",
     // avisos: una línea fina con el texto en medio
     ".note{align-self:stretch;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;text-align:center}",
     ".note::before,.note::after{content:'';flex:1 1 24px;height:1px;background:var(--line)}",
-    ".quick{display:flex;flex-wrap:wrap;gap:6px;animation:msg .3s cubic-bezier(.34,1.45,.64,1) .1s backwards}",
-    ".quick button{border:1px solid var(--line2);color:var(--ink);background:var(--card);border-radius:10px;padding:7px 12px;font-size:13.5px;",
-    "font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(16,18,27,.05);transition:border-color .15s,transform .2s}",
-    ".quick button:hover{border-color:var(--ink);transform:translateY(-1px)}",
-    ".typing{align-self:flex-start;display:flex;gap:4px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;",
-    "border-bottom-left-radius:4px;animation:msg .2s ease}",
-    ".typing i{width:7px;height:7px;border-radius:50%;background:var(--dot);animation:b 1s infinite}",
+    ".quick{display:flex;flex-wrap:wrap;gap:6px;margin-left:36px;animation:msg .3s cubic-bezier(.34,1.45,.64,1) .1s backwards}",
+    ".quick button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--tline);color:var(--ink);background:var(--tint);",
+    "border-radius:10px;padding:7px 10px 7px 12px;font-size:13.5px;font-weight:600;cursor:pointer;",
+    "transition:background-color .15s,color .15s,border-color .15s,box-shadow .2s,transform .2s}",
+    ".quick button::after{content:'\\2192';opacity:.55;transition:transform .2s,opacity .15s}",
+    ".quick button:hover{background:var(--c);border-color:var(--c);color:#fff;transform:translateY(-1px);box-shadow:0 8px 16px -8px var(--c)}",
+    ".quick button:hover::after{opacity:1;transform:translateX(2px)}",
+    ".typing{position:relative;margin-left:36px;align-self:flex-start;display:flex;gap:4px;padding:12px 14px;background:var(--card);",
+    "border:1px solid var(--line);border-radius:14px;animation:msg .2s ease}",
+    ".typing i{width:7px;height:7px;border-radius:50%;background:var(--c);animation:b 1s infinite}",
     ".typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}",
     "@keyframes b{0%,60%,100%{transform:none;opacity:.5}30%{transform:translateY(-4px);opacity:1}}",
     // caja de escribir con el botón de enviar dentro
     "form{padding:10px 12px 12px;border-top:1px solid var(--line);background:var(--bg)}",
     ".box{display:flex;align-items:center;gap:6px;padding:4px;border:1px solid var(--line2);border-radius:14px;background:var(--card);",
     "transition:border-color .15s,box-shadow .15s}",
-    ".box:focus-within{border-color:var(--c);box-shadow:0 0 0 3px var(--ring)}",
+    ".box:focus-within{border-color:var(--c);box-shadow:0 0 0 4px var(--ring),0 10px 22px -14px var(--c)}",
     "input{flex:1;min-width:0;border:0;padding:9px 10px;font-size:14.5px;outline:none;color:var(--fg);background:transparent}",
     "input::placeholder{color:var(--muted)}",
     "form button{width:38px;height:38px;border-radius:11px;border:0;background:var(--c);color:#fff;cursor:pointer;display:grid;",
+    "background-image:linear-gradient(135deg,rgba(255,255,255,.22),rgba(0,0,0,.06));box-shadow:0 6px 14px -6px var(--c);",
     "place-items:center;flex:none;transition:transform .2s cubic-bezier(.34,1.45,.64,1),opacity .15s}",
-    "form button:hover:not(:disabled){transform:scale(1.06)}form button:disabled{opacity:.5;cursor:default}form button svg{width:18px;height:18px}",
+    "form button:hover:not(:disabled){transform:translateY(-1px)}form button:active:not(:disabled){transform:scale(.94)}",
+    "form button:disabled{opacity:.5;cursor:default}form button svg{width:19px;height:19px}",
+    "form button .plane{transition:transform .3s cubic-bezier(.34,1.45,.64,1)}",
+    "form button:hover:not(:disabled) .plane{transform:translate(1.5px,-1.5px)}",
     "@media (max-width:480px){.panel:not(.inline){inset:0;width:100%;height:100%;border-radius:0;bottom:0}}",
     "@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}",
   ].join("");
 
   var ICON_CHAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
   var ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
-  var ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>';
+  // enviar: un avión de papel en dos tonos, el mismo que en la consola
+  var ICON_SEND = '<svg viewBox="0 0 24 24"><g class="plane">' +
+    '<path d="M20.4 3.2 3.6 9.9c-.9.4-.9 1.6 0 2l6.2 2.4 2.4 6.2c.4.9 1.6.9 2 0z" fill="currentColor" opacity=".55" stroke="currentColor" stroke-opacity=".55" stroke-width="1.4" stroke-linejoin="round"/>' +
+    '<path d="M20.4 3.2 9.8 14.3l-6.2-2.4c-.9-.4-.9-1.6 0-2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></g></svg>';
   var ICON_RESET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>';
 
   var host = document.createElement("div");
@@ -154,7 +172,9 @@
   var input = root.querySelector("input");
   var sendBtn = root.querySelector("form button");
   root.querySelector(".who b").textContent = title;
-  root.querySelector(".avatar").textContent = (title.trim()[0] || "?").toUpperCase();
+  var initial = (title.trim()[0] || "?").toUpperCase();
+  root.querySelector(".avatar").textContent = initial;
+  root.host.style.setProperty("--ini", JSON.stringify(initial));  // el avatar junto a los mensajes
   input.placeholder = cfg.placeholder || "Escribe un mensaje…";
   if (container) {
     bubble.classList.add("hidden");
