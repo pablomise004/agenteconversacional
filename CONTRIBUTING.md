@@ -112,9 +112,9 @@ flowchart TB
 | `web/js/simulator.js` | Panel «Pruébalo» |
 | `web/js/pages/*.js` | Una página por sección de la consola (`inside.js` es «Por dentro»: el motor explicado con fórmulas) |
 | `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias; tema claro, oscuro o automático con `data-theme`, colores en variables CSS) y página de chat de demostración (`?theme=`, `?title=`, `?color=`, `?key=`) |
-| `examples/pizzeria.json`, `examples/hotel.json` | Agentes de ejemplo: la pizzería (pequeña, para aprender) y el hotel (88 intenciones, para ver el potencial). `seed_examples()` (`server.py`) copia cada uno la primera vez que arranca el servidor con él y lo apunta en `data/seeded_examples.json`: un ejemplo borrado no vuelve |
+| `examples/pizzeria.json`, `examples/hotel.json` | Agentes de ejemplo: la pizzería (pequeña, para aprender) y el hotel (88 intenciones, para ver el potencial). `seed_examples()` (`server.py`) copia cada uno la primera vez que arranca el servidor con él y lo apunta en `data/seeded_examples.json`: un ejemplo borrado no vuelve. Las copias llevan `"example": true` y la consola las enseña aparte (grupo «Ejemplos», debajo de «Tus agentes», también en el menú de agentes) |
 | `tools/build_pizzeria.py`, `tools/build_hotel.py` | Generan los ejemplos a partir de frases con la notación `[texto](parámetro)`. El del hotel además comprueba que cada anotación coincide con lo que detecta el motor (y que no queda nada sin anotar), que no hay frases repetidas y que la normalización no inventa parámetros |
-| `tools/build_icons.py` | Genera `favicon.ico` y los PNG de `web/icons/` a partir de `web/favicon.svg` (Playwright) |
+| `tools/build_icons.py` | Genera `favicon.ico` y los PNG de `web/icons/` a partir de `web/favicon.svg` (Playwright con Edge, Chrome o Chromium) |
 | `tools/capturas_docs.py` | Rehace las capturas de `docs/img/` con la consola actual (Playwright) |
 
 ## Formato de un agente
@@ -161,6 +161,10 @@ Fichero `data/agents/<id>.json` (ver `examples/pizzeria.json`). Todo pasa por
 - `annotations: null` en una frase significa «anotar automáticamente al entrenar».
 - Anotar una entidad crea el parámetro si no existe (`normalize_intent`).
 - `version` sube en cada guardado; la caché de modelos la usa para saber cuándo reentrenar.
+- `example: true` solo aparece en las copias de los ejemplos que hace `seed_examples()` (las de antes
+  de la marca la reciben al arrancar si conservan el nombre del ejemplo y su id, o el que se les dio
+  si ese estaba ocupado). Crear desde una
+  plantilla, duplicar, exportar o importar la quitan: lo que sale de ahí es un agente propio.
 
 SQLite (`data/runtime.sqlite3`):
 
@@ -452,15 +456,19 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
   matemática (Cambria Math en Windows; en Linux sin ella se ven bien pero sin estirar).
   `formula([a, b])` pone varias juntas y las baja de línea si no caben.
 - Las tarjetas de una rejilla (`.grid-*`, `.agent-cards`) anulan el `margin-top` de `.card + .card`.
-- Logotipo: `web/favicon.svg` (el mismo dibujo está en `ui.js:logo()`). Si cambia, regenera los
-  iconos con `python tools/build_icons.py`.
+- Logotipo: la cabeza de un lince ibérico (orejas con pinceles negros, barba en las mejillas, ojos
+  con brillo) sobre el degradado de la marca, en `web/favicon.svg`; el mismo dibujo está en
+  `ui.js:logo()` (`tests/test_api.py` comprueba que coinciden). La mitad izquierda es el reflejo de
+  la derecha: la cabeza y las orejas van en rutas separadas, porque al reflejarla la oreja izquierda
+  gira al revés y en la misma ruta (regla `nonzero`) dejaría un agujero. Si cambia, regenera los
+  iconos con `python tools/build_icons.py` y las capturas con `python tools/capturas_docs.py`.
 
 ## Pruebas
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 131 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web y la copia de los ejemplos al arrancar), importación ZIP, información del modelo, versión de consola y servidor, aviso de reinicio, arranque con el puerto ocupado y el agente del hotel (`tests/test_hotel.py`) |
-| `python -m pytest tests/e2e -m e2e` | 22 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, la raíz abre la lista de agentes con los dos ejemplos, editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
+| `python -m pytest` | 134 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor, logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado y el agente del hotel (`tests/test_hotel.py`) |
+| `python -m pytest tests/e2e -m e2e` | 24 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

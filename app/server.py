@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import __version__
-from .agents import blank_agent, new_id, normalize_entity, normalize_intent, normalize_phrase
+from .agents import blank_agent, new_id, normalize_entity, normalize_intent, normalize_phrase, slugify
 from .dialog import DialogManager, EngineCache, analysis_dict
 from .importer import ImportError_, import_bytes
 from .nlu import insights
@@ -178,8 +178,9 @@ class ReviewRequest(BaseModel):
 def seed_examples(storage: Storage, data_dir: Path) -> None:
     """Copia cada agente de ejemplo la primera vez que arranca el servidor con él.
 
-    En data/seeded_examples.json se apunta cuáles se han copiado ya, así que un ejemplo
-    borrado no vuelve al reiniciar. Las instalaciones de antes de esta marca ya tenían la
+    Las copias llevan `"example": true`: la consola las enseña aparte, debajo de los agentes
+    del usuario. En data/seeded_examples.json se apunta cuáles se han copiado ya, así que un
+    ejemplo borrado no vuelve al reiniciar. Las instalaciones de antes de esta marca ya tenían la
     pizzería (se copiaba siempre que no había agentes) y reciben solo los nuevos.
     """
     marker = data_dir / "seeded_examples.json"
@@ -190,11 +191,21 @@ def seed_examples(storage: Storage, data_dir: Path) -> None:
     changed = False
     for name in EXAMPLES:
         path = EXAMPLES_DIR / f"{name}.json"
-        if name in seeded or not path.exists():
+        if not path.exists():
             continue
         agent = json.loads(path.read_text(encoding="utf-8"))
+        if name in seeded:
+            # copias de antes de la marca `example`: el nombre del ejemplo y su id (o el que sale de su
+            # nombre, si el suyo estaba ocupado). Un agente propio con ese id tiene otro nombre, porque
+            # el id sale del nombre al crearlo.
+            for agent_id in (agent["id"], slugify(agent["name"])):
+                old = storage.agent_ref(agent_id) if storage.has_agent(agent_id) else None
+                if old and not old.get("example") and old["name"] == agent["name"]:
+                    storage.save_agent(dict(storage.get_agent(agent_id), example=True))
+            continue
         if storage.has_agent(agent["id"]):  # el usuario ya tiene uno con ese id: no se pisa
             agent["id"] = storage.unique_id(agent["name"])
+        agent["example"] = True
         storage.save_agent(agent)
         seeded.add(name)
         changed = True
@@ -318,7 +329,8 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     # -------------------------------------------------------------- agentes
     @app.get("/api/agents", tags=["agentes"], dependencies=ADMIN, summary="Listar agentes")
     def list_agents():
-        """Resumen de cada agente: nombre, idioma y cuántas intenciones, entidades y frases tiene."""
+        """Resumen de cada agente: nombre, idioma, cuántas intenciones, entidades y frases tiene y si es
+        uno de los agentes de ejemplo (`example`), que la consola enseña aparte."""
         return storage.list_agents()
 
     @app.post("/api/agents", tags=["agentes"], dependencies=ADMIN, status_code=201, summary="Crear un agente")
@@ -355,6 +367,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             agent["name"] = name.strip()
         agent["id"] = storage.unique_id(agent["name"])
         agent["version"] = 0
+        agent.pop("example", None)  # lo importado es del usuario, aunque venga de un ejemplo
         return storage.save_agent(agent)
 
     @app.get("/api/agents/{agent_id}", tags=["agentes"], dependencies=ADMIN, summary="Leer un agente")
@@ -390,7 +403,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def export_agent(agent_id: str):
         """Descarga el agente como fichero JSON (se puede volver a importar)."""
         agent = get_agent(agent_id)
-        for k in ("version", "updatedAt"):
+        for k in ("version", "updatedAt", "example"):
             agent.pop(k, None)
         body = json.dumps(agent, ensure_ascii=False, indent=2)
         return Response(body, media_type="application/json", headers={
@@ -399,11 +412,12 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     @app.post("/api/agents/{agent_id}/duplicate", tags=["agentes"], dependencies=ADMIN, status_code=201,
               summary="Duplicar un agente")
     def duplicate_agent(agent_id: str):
-        """Crea una copia con el nombre «(copia)»."""
+        """Crea una copia con el nombre «(copia)». La copia de un ejemplo ya es un agente propio."""
         agent = get_agent(agent_id)
         agent["name"] = agent["name"] + " (copia)"
         agent["id"] = storage.unique_id(agent["name"])
         agent["version"] = 0
+        agent.pop("example", None)
         return storage.save_agent(agent)
 
     @app.post("/api/agents/{agent_id}/train", tags=["entrenamiento"], dependencies=ADMIN, summary="Reentrenar el modelo")

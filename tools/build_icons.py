@@ -11,8 +11,8 @@ Crea, a partir del SVG:
     web/icons/icon-maskable-512.png Android: fondo a sangre y marca dentro de la zona segura
     web/icons/apple-touch-icon.png  180 px, sin esquinas transparentes (iOS las redondea)
 
-El SVG se dibuja con Chromium (Playwright), así que se ve igual que en el navegador.
-Vuelve a ejecutarlo si cambias el logotipo.
+El SVG se dibuja con Edge o Chrome si están instalados (si no, con el Chromium de Playwright),
+así que se ve igual que en el navegador. Vuelve a ejecutarlo si cambias el logotipo.
 """
 
 import base64
@@ -56,6 +56,15 @@ def ico(pngs: dict[int, bytes]) -> bytes:
     return head + entries + blobs
 
 
+def launch(p):
+    for channel in ("msedge", "chrome", None):
+        try:
+            return p.chromium.launch(channel=channel) if channel else p.chromium.launch()
+        except Exception:  # noqa: BLE001 - ese navegador no está instalado
+            continue
+    sys.exit("No hay navegador disponible (python -m playwright install chromium)")
+
+
 def main() -> None:
     try:
         from playwright.sync_api import sync_playwright
@@ -64,7 +73,7 @@ def main() -> None:
     icons = WEB / "icons"
     icons.mkdir(exist_ok=True)
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = launch(p)
         page = browser.new_page(device_scale_factor=1)
         (WEB / "favicon.ico").write_bytes(ico({s: render(page, SVG, s) for s in (16, 32, 48)}))
         (icons / "icon-192.png").write_bytes(render(page, SVG, 192))

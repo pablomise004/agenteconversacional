@@ -117,7 +117,9 @@ def test_paginas_cargan_sin_errores(base_url, page, route, selector):
 def test_por_dentro_calcula_con_la_frase(base_url, page):
     """«Por dentro» analiza la frase de ejemplo, rellena el recorrido y se puede cambiar la frase."""
     page.goto(f"{base_url}/#/inside")
-    page.wait_for_function("document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
+    # que haya cajas y estén llenas (sin la primera condición se cumple antes de pintarse la página)
+    page.wait_for_function("document.querySelectorAll('.inside .live-body').length > 0 && "
+                           "document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
     assert page.locator(".pl-val").first.inner_text().endswith("tokens")
     assert page.locator(".wf-row.total").count() == 1
     page.fill(".in-input input", "hola buenas")
@@ -194,12 +196,21 @@ def test_pagina_entrenar(base_url, page):
     assert page.errors == []
 
 
-def test_inicio_en_agentes_con_los_dos_ejemplos(base_url, page):
+def test_inicio_en_agentes_con_los_ejemplos_aparte(base_url, page):
+    """Los ejemplos van debajo, en su grupo; arriba solo los agentes propios (o el aviso de que no hay)."""
     page.goto(base_url + "/")
     page.wait_for_url("**/#/agents")
     page.wait_for_selector(".agent-card h3")
-    nombres = page.locator(".agent-card h3").all_inner_texts()
-    assert "Pizzería (ejemplo)" in nombres and "Hotel (ejemplo)" in nombres
+    ejemplos = page.locator(".agent-group[data-group='examples'] .agent-card h3").all_inner_texts()
+    assert ejemplos == ["Pizzería (ejemplo)", "Hotel (ejemplo)"]  # del más sencillo al más grande
+    mios = [a["name"] for a in api(base_url, "/api/agents") if not a["example"]]
+    tuyos = page.locator(".agent-group[data-group='mine']")
+    assert tuyos.locator(".agent-card h3").all_inner_texts() == mios
+    assert tuyos.locator(".empty").count() == (0 if mios else 1)
+    # el menú de agentes también los separa
+    page.click(".agent-switch")
+    page.wait_for_selector(".popover .opt")
+    assert page.locator(".popover .group").all_inner_texts()[-1].lower() == "ejemplos"
     assert page.errors == []
 
 

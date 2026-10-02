@@ -21,7 +21,7 @@ import * as insidePage from "./pages/inside.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.5.0";
+export const APP_VERSION = "0.6.0";
 
 export const state = {
   info: null,
@@ -234,20 +234,23 @@ function renderAgentSwitch() {
         h("div", { class: "meta ellipsis" }, `${a.intents.length} intenciones · ${(a.language || "").toUpperCase()}`)),
       icon("chevUpDown"));
   } else {
+    const { mine, examples } = agentsPage.splitAgents(state.agents);
+    const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     agentBtn.append(h("span", { class: "avatar", style: { "--av1": "#a1a1aa", "--av2": "#71717a" } }, icon("layers")),
       h("span", { class: "grow" }, h("div", { class: "name" }, "Elige un agente"),
-        h("div", { class: "meta" }, `${state.agents.length} ${state.agents.length === 1 ? "agente" : "agentes"}`)),
+        h("div", { class: "meta ellipsis" }, mine.length || !examples.length
+          ? count(mine.length, "agente", "agentes") + (examples.length ? " · " + count(examples.length, "ejemplo", "ejemplos") : "")
+          : count(examples.length, "ejemplo", "ejemplos"))),
       icon("chevUpDown"));
   }
 }
 
 function openAgentMenu() {
-  const groups = [{
-    title: "Agentes",
-    options: state.agents.map((a) => ({ label: a.name, value: a.id, avatar: a.name,
-      sub: `${a.intents} ${a.intents === 1 ? "intención" : "intenciones"} · ${(a.language || "es").toUpperCase()}`,
-      selected: !!state.agent && a.id === state.agent.id })),
-  }];
+  const { mine, examples } = agentsPage.splitAgents(state.agents);
+  const option = (a) => ({ label: a.name, value: a.id, avatar: a.name,
+    sub: `${a.intents} ${a.intents === 1 ? "intención" : "intenciones"} · ${(a.language || "es").toUpperCase()}`,
+    selected: !!state.agent && a.id === state.agent.id });
+  const groups = [{ title: "Tus agentes", options: mine.map(option) }, { title: "Ejemplos", options: examples.map(option) }];
   popover(agentBtn, h("div", { class: "agent-menu" },
     optionList({ groups, placeholder: "Buscar agente…", onPick: (id) => { closePopover(); navigate(`#/a/${encodeURIComponent(id)}/intents`); } }),
     h("div", { class: "pop-sep" }),

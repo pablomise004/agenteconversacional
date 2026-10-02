@@ -77,9 +77,27 @@ function agentCard(a) {
     h("span", { class: "open" }, "Abrir", icon("arrowRight"))));
 }
 
+// Los agentes de ejemplo (pizzería y hotel) van aparte, del más sencillo al más grande
+export function splitAgents(agents) {
+  return {
+    mine: agents.filter((a) => !a.example),
+    examples: agents.filter((a) => a.example).sort((x, y) => x.intents - y.intents),
+  };
+}
+
+// Un grupo de la lista: título, cuántos hay, para qué sirven (si hace falta) y su contenido
+function group({ icon: ic, title, count, help, key }, content) {
+  return h("section", { class: "agent-group", dataset: { group: key }, "aria-label": title },
+    h("div", { class: "section-head" },
+      h("h2", null, icon(ic), title, count ? h("span", { class: "badge" }, String(count)) : null),
+      help ? h("p", null, help) : null),
+    content);
+}
+
 export async function render(el) {
   const agents = await api.agents();
   state.agents = agents;
+  const { mine, examples } = splitAgents(agents);
   const page = h("div", { class: "page" },
     pageHead({
       icon: "layers", title: "Agentes", sub: "Cada agente es un chatbot con sus intenciones, entidades y respuestas.",
@@ -87,16 +105,24 @@ export async function render(el) {
         h("button", { class: "btn", type: "button", onclick: importAgentDialog, title: "JSON exportado de aquí o ZIP exportado de Dialogflow ES" }, icon("upload"), "Importar"),
         h("button", { class: "btn primary", type: "button", onclick: createAgentDialog }, icon("plus"), "Crear agente")],
     }));
-  if (!agents.length) {
-    page.append(h("div", { class: "card" }, emptyState({
-      icon: "bot", title: "Todavía no hay agentes", text: "Crea uno desde cero o importa un agente exportado de Dialogflow.",
-      action: h("button", { class: "btn primary", type: "button", onclick: createAgentDialog }, icon("plus"), "Crear el primero") })));
-  } else {
-    const grid = h("div", { class: "agent-cards" }, agents.map(agentCard),
+  let grid = null;
+  if (mine.length) {
+    grid = h("div", { class: "agent-cards" }, mine.map(agentCard),
       h("button", { class: "card agent-card new", type: "button", onclick: createAgentDialog },
         h("span", { class: "plus" }, icon("plus")), "Nuevo agente"));
-    page.append(grid);
-    stagger(grid);
+  }
+  page.append(group({ key: "mine", icon: "bot", title: "Tus agentes", count: mine.length }, grid ||
+    h("div", { class: "card agents-empty" }, emptyState({
+      icon: "bot", title: "Todavía no tienes agentes",
+      text: "Crea el primero desde cero o a partir de un ejemplo, o importa uno exportado de Dialogflow.",
+      action: h("button", { class: "btn primary", type: "button", onclick: createAgentDialog }, icon("plus"), "Crear el primero") }))));
+  if (grid) stagger(grid);
+  if (examples.length) {
+    const exGrid = h("div", { class: "agent-cards" }, examples.map(agentCard));
+    page.append(group({ key: "examples", icon: "book", title: "Ejemplos", count: examples.length,
+      help: "Para aprender cómo se hace un agente y ver hasta dónde llega Lince. Ábrelos, pruébalos y cámbialos cuanto " +
+        "quieras: en «Crear agente» siempre puedes sacar una copia nueva." }, exGrid));
+    stagger(exGrid);
   }
   page.append(h("div", { class: "notice info", style: { marginTop: "20px" } }, icon("info"),
     h("div", null, h("b", null, "¿Vienes de Dialogflow? "), "En la consola de Dialogflow ES ve a ", h("b", null, "Configuración del agente → Exportar e importar → Exportar como ZIP"),

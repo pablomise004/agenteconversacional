@@ -1,4 +1,4 @@
-<img src="web/favicon.svg" width="72" alt="Logotipo de Lince: una burbuja de chat con orejas de lince">
+<img src="web/favicon.svg" width="72" alt="Logotipo de Lince: la cabeza de un lince ibérico">
 
 # Lince
 
@@ -82,7 +82,8 @@ python -m app                     # opciones: --port 8000 --host 0.0.0.0 --no-br
 
 Al arrancar por primera vez se crean dos [agentes de ejemplo](#los-agentes-de-ejemplo): la
 **Pizzería**, pequeña y fácil de seguir para aprender, y el **Hotel**, grande, para ver hasta dónde
-llega. Tus datos se guardan en la carpeta `data/` (no se sube a Git).
+llega. Salen aparte, en *Ejemplos*, debajo de *Tus agentes* (que empieza vacío). Tus datos se
+guardan en la carpeta `data/` (no se sube a Git).
 
 **Como aplicación:** en Edge o Chrome, con la consola abierta, usa *Instalar Lince* (el icono de
 instalar de la barra de direcciones o el menú *Aplicaciones*). Se abre en su propia ventana, con el
@@ -130,7 +131,7 @@ acierta **9 de cada 10** y rechaza la mayoría de lo que no tiene que ver con un
 [`tools/build_hotel.py`](tools/build_hotel.py), que es también un buen ejemplo de cómo escribir un
 agente grande, y sus pruebas están en [`tests/casos_hotel.py`](tests/casos_hotel.py). Si borras un
 ejemplo no vuelve a aparecer, pero siempre puedes crear una copia nueva en *Agentes → Crear agente →
-Plantilla*.
+Plantilla*. Esa copia (o un duplicado) ya es tuya y sale arriba, en *Tus agentes*.
 
 ## Ver cómo aprende
 

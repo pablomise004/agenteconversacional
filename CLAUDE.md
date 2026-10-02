@@ -3,7 +3,8 @@
 **Lince** es una alternativa libre y local a **Dialogflow ES** para crear chatbots en español, con
 una consola web que además sirve para **aprender cómo funciona el NLU por dentro** (página
 «Entrenar»). El nombre: «listo como un lince» y «vista de lince» (ver el modelo por dentro); el
-logotipo es una burbuja de chat con orejas de lince (`web/favicon.svg`).
+logotipo es la cabeza de un lince ibérico (pinceles negros, barba) sobre el degradado morado
+(`web/favicon.svg`).
 Repositorio: https://github.com/pablomise004/agenteconversacional
 
 ## Sobre el usuario y el proyecto
@@ -19,14 +20,16 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
   quiere poder ver y entender el entrenamiento; quiere todo subido a GitHub; quiere una interfaz
   **moderna, con microanimaciones, tablas bonitas e intuitiva**, y la referencia de la API con el
   mismo estilo que la consola. La pizzería le parece el ejemplo perfecto para aprender; el hotel
-  es para ver el potencial («que no parezca tonto ni se pierda con cualquier cosa»).
+  es para ver el potencial («que no parezca tonto ni se pierda con cualquier cosa»). Los ejemplos van
+  aparte, debajo de sus agentes («Tus agentes» empieza vacío). El logotipo tiene que verse como un
+  lince de verdad y bonito (rediseñado en la 0.6.0: pinceles, barba, ojos con brillo).
 
 ## Arranque y comandos
 
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser)
-python -m pytest                      # 131 pruebas (deben pasar siempre)
+python -m pytest                      # 134 pruebas (deben pasar siempre)
 pip install playwright && python -m pytest tests/e2e -m e2e   # 24 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
@@ -58,11 +61,13 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   animaciones; `css/api.css` lo propio de `/docs`.
 - `examples/pizzeria.json` (pequeño, para aprender) y `examples/hotel.json` (88 intenciones, más de
   2.000 frases, para enseñar el potencial): se copian una vez cada uno al arrancar
-  (`server.py:seed_examples`, marca en `data/seeded_examples.json`; un ejemplo borrado no vuelve).
+  (`server.py:seed_examples`, marca en `data/seeded_examples.json`; un ejemplo borrado no vuelve)
+  con `"example": true`, y la consola los enseña aparte (duplicar, exportar o importar quita la marca).
   Se generan con `tools/build_pizzeria.py` y `tools/build_hotel.py`: no editar el JSON a mano.
 - `tests/casos_pizzeria.py`: frases de calibración (en dominio, con contexto, fuera de dominio).
   `tests/casos_hotel.py` y `tests/test_hotel.py`: lo mismo para el hotel, más conversaciones.
-- La consola abre en la lista de agentes (`#/agents`), no en un agente.
+- La consola abre en la lista de agentes (`#/agents`), no en un agente: arriba «Tus agentes» y
+  debajo «Ejemplos» (`pages/agents.js:splitAgents`, que usan también el menú de agentes y Ctrl+K).
 
 ## Convenciones
 
@@ -78,7 +83,8 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - Antes de crear un componente nuevo, mira si ya hay uno en `ui.js`. Las páginas empiezan con
   `pageHead({icon, title, sub, actions})`; las tablas de datos usan `dataTable()` (ordenables).
 - Microanimaciones cortas en CSS y siempre desactivadas con `prefers-reduced-motion`. Los `title`
-  se ven como tooltips propios. El logotipo está en `web/favicon.svg` y en `ui.js:logo()`.
+  se ven como tooltips propios. El logotipo está en `web/favicon.svg` y en `ui.js:logo()` (una
+  prueba comprueba que son el mismo dibujo; tras cambiarlo, `tools/build_icons.py`).
 - Probar también a ~1280 px con el simulador abierto (zona central estrecha): nada debe salirse
   ni estrujarse. Los bloques de código siguen el tema (claros en claro); el widget tiene
   `data-theme` (light/dark/auto) y su vista previa en Integraciones usa los mismos colores.

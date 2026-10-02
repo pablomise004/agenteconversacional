@@ -20,6 +20,7 @@ def client(tmp_path, monkeypatch):
 def test_arranca_con_agentes_de_ejemplo(client):
     agents = client.get("/api/agents").json()
     assert sorted(a["id"] for a in agents) == ["hotel", "pizzeria"]
+    assert all(a["example"] for a in agents)  # la consola los enseña aparte, debajo de los propios
     assert client.get("/").status_code == 200
     assert client.get("/widget.js").status_code == 200
     assert client.get("/chat").status_code == 200
@@ -43,11 +44,40 @@ def test_instalacion_anterior_recibe_solo_el_hotel(tmp_path, monkeypatch):
     assert sorted(a["id"] for a in c.get("/api/agents").json()) == ["hotel", "mio"]
 
 
+def test_ejemplos_de_antes_de_la_marca(tmp_path, monkeypatch):
+    """Las copias hechas antes de existir la marca `example` la reciben al arrancar; un agente propio
+    con el mismo id (el ejemplo se borró y se creó otro con ese nombre) sigue siendo propio."""
+    monkeypatch.delenv("AGENTE_ADMIN_TOKEN", raising=False)
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "seeded_examples.json").write_text('["hotel", "pizzeria"]', encoding="utf-8")
+    # el hotel se copió con otro id porque «hotel» ya era de un agente propio
+    for agent_id, name in [("pizzeria", "Pizzería (ejemplo)"), ("hotel", "Hotel"), ("hotel-ejemplo", "Hotel (ejemplo)")]:
+        (tmp_path / "agents" / f"{agent_id}.json").write_text(
+            json.dumps({"id": agent_id, "name": name, "intents": []}), encoding="utf-8")
+    c = TestClient(create_app(tmp_path))
+    assert {a["id"]: a["example"] for a in c.get("/api/agents").json()} == {
+        "pizzeria": True, "hotel": False, "hotel-ejemplo": True}
+
+
 def test_crear_agente_desde_ejemplo(client):
     res = client.post("/api/agents", json={"name": "Mi hotel", "template": "hotel"})
     assert res.status_code == 201
     agent = res.json()
     assert agent["id"] == "mi-hotel" and agent["name"] == "Mi hotel" and len(agent["intents"]) > 80
+    assert "example" not in agent  # la copia es un agente propio
+
+
+def test_copias_de_un_ejemplo_son_propias(client):
+    assert client.patch("/api/agents/pizzeria", json={"description": "Cambiada"}).json()["example"] is True
+    copy = client.post("/api/agents/pizzeria/duplicate").json()
+    assert "example" not in copy
+    exported = client.get("/api/agents/pizzeria/export")
+    assert "example" not in exported.json()
+    data = json.dumps(dict(exported.json(), example=True)).encode()  # aunque el fichero diga que lo es
+    imported = client.post("/api/agents/import?filename=x.json&name=Importado", content=data).json()
+    assert "example" not in imported
+    mine = {a["id"] for a in client.get("/api/agents").json() if not a["example"]}
+    assert mine == {copy["id"], imported["id"]}
 
 
 def test_consola_api_y_recursos(client):
@@ -72,6 +102,24 @@ def test_version_de_la_consola_coincide():
 
     js = (Path(__file__).resolve().parent.parent / "web" / "js" / "app.js").read_text(encoding="utf-8")
     assert re.search(r'APP_VERSION = "([^"]+)"', js).group(1) == __version__
+
+
+def test_logotipo_igual_en_la_consola():
+    """El lince de web/favicon.svg y el de ui.js:logo() son el mismo dibujo."""
+    import re
+    from pathlib import Path
+
+    web = Path(__file__).resolve().parent.parent / "web"
+    svg = (web / "favicon.svg").read_text(encoding="utf-8")
+    js = (web / "js" / "ui.js").read_text(encoding="utf-8")
+    logo = re.search(r"const LOGO = (.*?);\n", js, re.S).group(1)
+    logo = re.sub(r"'\s*\+\s*'", "", logo)  # une los trozos del texto
+
+    def shapes(markup):
+        marca = markup.split('class="marca">')[-1]
+        return re.findall(r'<(path|circle)\s([^>]*?)/>', re.sub(r"\s+", " ", marca))
+
+    assert shapes(svg) and shapes(svg) == shapes(logo)
 
 
 def test_info_avisa_si_hay_que_reiniciar(client, monkeypatch):

@@ -10,8 +10,9 @@ conceptos son los mismos.
 ## Primeros pasos
 
 1. **Arranca la aplicación** con doble clic en `iniciar.bat` (Windows) o `./iniciar.sh`
-   (Linux/macOS). Se abre <http://localhost:8000> en la lista de agentes, con dos ejemplos:
-   la **Pizzería** y el **Hotel**. Entra en la Pizzería.
+   (Linux/macOS). Se abre <http://localhost:8000> en la lista de agentes: arriba, **Tus agentes**
+   (vacío al principio) y debajo, **Ejemplos**, con la **Pizzería** y el **Hotel**. Entra en la
+   Pizzería.
 2. **Habla con él** en el panel **Pruébalo** (a la derecha): «hola», «quiero una pizza»,
    «barbacoa», «grande». Verás que pregunta lo que falta y recuerda lo que ya le has dicho.
 3. **Mira qué ha entendido**: pulsa el nombre de la intención que aparece bajo cada respuesta.
@@ -31,8 +32,9 @@ conceptos son los mismos.
   subís dos toallas y una almohada a la 310?». Y frases que no tienen nada que ver: sabe decir
   que eso no lo sabe.
 
-Si borras un ejemplo no vuelve a aparecer al reiniciar; puedes crear una copia nueva cuando
-quieras en *Agentes → Crear agente*, eligiendo la plantilla.
+Los ejemplos se pueden abrir, probar y cambiar como cualquier agente. Si borras uno no vuelve a
+aparecer al reiniciar; puedes crear una copia nueva cuando quieras en *Agentes → Crear agente*,
+eligiendo la plantilla. Esa copia (o un duplicado) ya es tuya y sale arriba, en *Tus agentes*.
 
 ## Los conceptos
 

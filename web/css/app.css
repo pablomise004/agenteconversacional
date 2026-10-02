@@ -465,6 +465,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 5px var(--
 .empty { text-align: center; color: var(--muted); padding: 40px 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .empty > svg.icon, .empty-icon { width: 54px; height: 54px; padding: 14px; border-radius: 16px; color: var(--faint);
   background: var(--panel-2); border: 1px solid var(--border); margin-bottom: 6px; animation: float 4s ease-in-out infinite; }
+.empty-icon { display: grid; place-items: center; padding: 0; }
+.empty-icon svg.icon { width: 24px; height: 24px; }
 .empty p { margin: 0; max-width: 46ch; }
 .empty .btn { margin-top: 10px; }
 .empty-title { font-weight: 650; color: var(--text); font-size: 15px; }
@@ -832,6 +834,15 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 .agent-card.new .plus { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
   background: var(--panel-2); border: 1px solid var(--border); transition: transform .3s var(--spring); }
 .agent-card.new:hover .plus { transform: rotate(90deg); }
+/* grupos de la lista de agentes: «Tus agentes» arriba y «Ejemplos» debajo */
+.agent-group + .agent-group { margin-top: 30px; }
+.section-head { margin: 2px 0 12px; animation: rise .32s var(--ease) backwards; }
+.section-head h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.section-head h2 svg.icon { width: 17px; height: 17px; color: var(--accent-text); }
+.section-head .badge { height: 20px; padding: 0 7px; font-variant-numeric: tabular-nums; }
+.section-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 78ch; }
+.agents-empty { border-style: dashed; border-width: 1.5px; background: transparent; box-shadow: none; }
+.agents-empty .empty { padding: 30px 18px; }
 .tpl-list { display: grid; gap: 8px; }
 .tpl-card { display: flex; gap: 11px; align-items: flex-start; padding: 12px; border: 1px solid var(--border-strong); border-radius: 12px;
   cursor: pointer; font-weight: 400; transition: border-color .15s, box-shadow .15s, background-color .15s; }

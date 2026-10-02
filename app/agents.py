@@ -226,7 +226,7 @@ def normalize_agent(agent: dict) -> dict:
         e = normalize_entity(e)
         if not any(x["name"] == e["name"] for x in entities):
             entities.append(e)
-    return {
+    out = {
         "id": agent.get("id") or "",
         "name": str(agent.get("name") or "Mi agente").strip()[:100],
         "description": str(agent.get("description") or "").strip()[:500],
@@ -238,6 +238,10 @@ def normalize_agent(agent: dict) -> dict:
         "version": int(agent.get("version") or 0),
         "updatedAt": agent.get("updatedAt") or time.time(),
     }
+    # agente de ejemplo copiado al arrancar (server.py:seed_examples): la consola lo enseña aparte
+    if agent.get("example"):
+        out["example"] = True
+    return out
 
 
 _DEFAULT_TEXTS = {
@@ -289,4 +293,5 @@ def summary(agent: dict) -> dict:
         "entities": len(agent.get("entities") or []),
         "phrases": sum(len(i.get("trainingPhrases") or []) for i in agent.get("intents") or []),
         "updatedAt": agent.get("updatedAt"),
+        "example": bool(agent.get("example")),
     }

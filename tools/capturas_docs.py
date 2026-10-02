@@ -191,7 +191,8 @@ def scenes(browser, base, only):
         ctx.add_init_script("localStorage.setItem('agente.sim', '0')")
         page = ctx.new_page()
         page.goto(base + "/#/a/pizzeria/inside")
-        page.wait_for_function("document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
+        page.wait_for_function("document.querySelectorAll('.inside .live-body').length > 0 && "
+                               "document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
         page.wait_for_timeout(800)
         scroll_to(page, "#in-regresion", offset=-500)
         page.wait_for_timeout(900)

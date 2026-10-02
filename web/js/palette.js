@@ -4,7 +4,7 @@ import { h, icon, avatar, clear, fold, toggleTheme } from "./ui.js";
 import { state, navigate, agentPath, openSimulator } from "./app.js";
 import { createIntent } from "./pages/intents.js";
 import { createEntity } from "./pages/entities.js";
-import { createAgentDialog } from "./pages/agents.js";
+import { createAgentDialog, splitAgents } from "./pages/agents.js";
 
 const PAGES = [
   ["intents", "Intenciones", "chat"], ["entities", "Entidades", "tag"], ["analyzer", "Analizador", "text"],
@@ -52,10 +52,12 @@ function groups(raw) {
       label: "@" + e.name, icon: "tag", hint: `${e.entries.length} valores`,
       run: () => navigate(agentPath("entities/" + encodeURIComponent(e.id))) })) });
   }
-  const others = state.agents.filter((x) => !a || x.id !== a.id);
+  const { mine, examples } = splitAgents(state.agents);
+  const others = [...mine, ...examples].filter((x) => !a || x.id !== a.id);
   if (others.length) {
     out.push({ title: "Agentes", limit: q ? 6 : 3, items: others.map((x) => ({
-      label: x.name, avatar: x.name, hint: "Abrir agente", run: () => navigate(`#/a/${encodeURIComponent(x.id)}/intents`) })) });
+      label: x.name, avatar: x.name, hint: x.example ? "Ejemplo" : "Abrir agente",
+      run: () => navigate(`#/a/${encodeURIComponent(x.id)}/intents`) })) });
   }
   const actions = [];
   if (a) {
