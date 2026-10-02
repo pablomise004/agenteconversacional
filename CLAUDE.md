@@ -30,7 +30,7 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser)
 python -m pytest                      # 134 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 24 pruebas en navegador real
+pip install playwright && python -m pytest tests/e2e -m e2e   # 27 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
@@ -85,9 +85,11 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - Microanimaciones cortas en CSS y siempre desactivadas con `prefers-reduced-motion`. Los `title`
   se ven como tooltips propios. El logotipo está en `web/favicon.svg` y en `ui.js:logo()` (una
   prueba comprueba que son el mismo dibujo; tras cambiarlo, `tools/build_icons.py`).
-- Probar también a ~1280 px con el simulador abierto (zona central estrecha): nada debe salirse
-  ni estrujarse. Los bloques de código siguen el tema (claros en claro); el widget tiene
-  `data-theme` (light/dark/auto) y su vista previa en Integraciones usa los mismos colores.
+- Probar también a ~1280 px con el simulador abierto (zona central estrecha) y en el móvil
+  (320-390 px): nada debe salirse ni estrujarse. «Por dentro» tiene su prueba e2e a 320 y 390 px;
+  las fórmulas que no caben se encogen solas (`math.js:fitFormulas`). Los bloques de código siguen
+  el tema (claros en claro); el widget tiene `data-theme` (light/dark/auto) y su vista previa en
+  Integraciones usa los mismos colores.
 - Antes de dar algo por terminado: `python -m pytest` y, si se toca la consola, las pruebas e2e y
   capturas con Playwright (Edge instalado: `p.chromium.launch(channel="msedge")`) mirando las
   imágenes; `tools/capturas_docs.py` rehace las de la documentación. Revisar claro, oscuro y móvil.

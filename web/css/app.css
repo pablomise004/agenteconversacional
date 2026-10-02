@@ -54,6 +54,7 @@
   --tok-key: #0550ae; --tok-str: #116329; --tok-num: #953800; --tok-bool: #8250df; --tok-punc: #636c76;
   --overlay: rgba(15, 16, 22, .4);
   --glow: rgba(91, 92, 246, .08);
+  --edge-shadow: rgba(16, 18, 27, .24);
   --shadow-xs: 0 1px 2px rgba(16, 18, 27, .05);
   --shadow-sm: 0 1px 2px rgba(16, 18, 27, .05), 0 1px 3px rgba(16, 18, 27, .05);
   --shadow: 0 8px 20px -6px rgba(16, 18, 27, .12), 0 2px 4px -2px rgba(16, 18, 27, .06);
@@ -90,7 +91,7 @@
     --code-bg: #0c0c0c; --code-head: #141414; --code-ink: #e4e4e4; --code-muted: #a1a1aa; --code-border: #262626;
     --code-hover: rgba(255, 255, 255, .08); --code-tab: rgba(255, 255, 255, .1);
     --tok-key: #93c5fd; --tok-str: #86efac; --tok-num: #fcd34d; --tok-bool: #f9a8d4; --tok-punc: #8b8b94;
-    --overlay: rgba(0, 0, 0, .62); --glow: rgba(255, 255, 255, .025);
+    --overlay: rgba(0, 0, 0, .62); --glow: rgba(255, 255, 255, .025); --edge-shadow: rgba(0, 0, 0, .6);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, .4); --shadow-sm: 0 1px 3px rgba(0, 0, 0, .5);
     --shadow: 0 8px 22px -6px rgba(0, 0, 0, .6); --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, .8);
     --a0: #5a4718; --a1: #1e4865; --a2: #2d4f1f; --a3: #5e2a3d; --a4: #42356c; --a5: #653a1e;
@@ -111,7 +112,7 @@
   --code-bg: #0c0c0c; --code-head: #141414; --code-ink: #e4e4e4; --code-muted: #a1a1aa; --code-border: #262626;
   --code-hover: rgba(255, 255, 255, .08); --code-tab: rgba(255, 255, 255, .1);
   --tok-key: #93c5fd; --tok-str: #86efac; --tok-num: #fcd34d; --tok-bool: #f9a8d4; --tok-punc: #8b8b94;
-  --overlay: rgba(0, 0, 0, .62); --glow: rgba(255, 255, 255, .025);
+  --overlay: rgba(0, 0, 0, .62); --glow: rgba(255, 255, 255, .025); --edge-shadow: rgba(0, 0, 0, .6);
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, .4); --shadow-sm: 0 1px 3px rgba(0, 0, 0, .5);
   --shadow: 0 8px 22px -6px rgba(0, 0, 0, .6); --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, .8);
   --a0: #5a4718; --a1: #1e4865; --a2: #2d4f1f; --a3: #5e2a3d; --a4: #42356c; --a5: #653a1e;
@@ -998,11 +999,23 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .in-list { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .in-steps { padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
 .in-steps.trace { margin: 0; }
-.formula { padding: 14px 16px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--border);
-  overflow-x: auto; overflow-y: hidden; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px 44px; }
+.formula { --scroll-bg: var(--panel-2); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  overflow-x: auto; overflow-y: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 44px;
+  /* «safe»: si no cabe, a la izquierda (centrada, lo que sobrara por la izquierda no se podría ver) */
+  justify-content: center; justify-content: safe center; }
+.formula.scrolls { justify-content: flex-start; }  /* ni encogida cabe (math.js:fitFormulas) */
 .formula math { font-size: 1.18em; }
-.formula.live-formula { background: color-mix(in srgb, var(--primary-soft) 55%, var(--panel)); border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+.formula > math { flex-shrink: 0; }  /* a su ancho de verdad: si no, fitFormulas mediría la caja y no la fórmula */
+.formula.live-formula { --scroll-bg: color-mix(in srgb, var(--primary-soft) 55%, var(--panel)); border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
   column-gap: 10px; }
+/* lo que se desplaza a lo ancho enseña una sombra en el borde por el que sigue: las tapas (local)
+   se mueven con el contenido y las sombras (scroll) se quedan en los bordes */
+.formula, .table-scroll {
+  background: linear-gradient(to right, var(--scroll-bg) 40%, transparent) left / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--scroll-bg) 40%, transparent) right / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--edge-shadow), transparent) left / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--edge-shadow), transparent) right / 14px 100% no-repeat scroll,
+    var(--scroll-bg); }
 .formula.conf-calc { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 6px; }
 .formula.conf-calc math { font-size: 1.05em; }
 .sym-legend { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 13px; align-items: baseline; }
@@ -1011,8 +1024,8 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .code-ref { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: var(--faint); }
 .code-ref svg { width: 14px; height: 14px; }
 .code-ref code { font-size: 12px; }
-.live { border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: var(--radius-sm); padding: 12px 14px;
-  background: color-mix(in srgb, var(--primary-soft) 35%, var(--panel)); display: flex; flex-direction: column; gap: 10px; }
+.live { --live-bg: color-mix(in srgb, var(--primary-soft) 35%, var(--panel)); border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: var(--radius-sm); padding: 12px 14px; background: var(--live-bg); display: flex; flex-direction: column; gap: 10px; }
 .live-title { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: var(--accent-text);
   text-transform: uppercase; letter-spacing: .05em; }
 .live-title svg { width: 14px; height: 14px; }
@@ -1039,7 +1052,7 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .mini-table th.plain { text-transform: none; letter-spacing: 0; }
 .in-chart .leader { stroke: var(--axis); stroke-width: 1; }
 .in-chart .badge { fill: var(--panel); stroke: var(--series-2); stroke-width: 2; }
-.in-chart .badge-num { font-size: 10.5px; font-weight: 700; fill: var(--text); }
+.in-chart .badge-num { font-size: calc(10.5px * var(--text-k, 1)); font-weight: 700; fill: var(--text); }
 .badge-dot { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; border: 2px solid var(--series-2);
   font-size: 11px; font-weight: 700; line-height: 1; }
 .stem-word .rg.none { color: var(--faint); font-weight: 400; background: transparent; padding-left: 0; }
@@ -1059,7 +1072,8 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .mini-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .mini-table tr.sum td { font-weight: 650; border-top: 1px solid var(--border-strong); }
 .mini-table code.chg { background: var(--warning-soft); }
-.table-scroll { overflow-x: auto; }
+.table-scroll { --scroll-bg: var(--panel); overflow-x: auto; }
+.live .table-scroll { --scroll-bg: var(--live-bg); }
 /* recorrido de la frase */
 .pipeline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pl-step { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 11px; border-radius: 10px;
@@ -1083,7 +1097,7 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .op { padding: 2px 8px; border-radius: 6px; font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--border); }
 .op.chg { background: color-mix(in srgb, var(--series-2) 18%, var(--panel)); border-color: color-mix(in srgb, var(--series-2) 45%, var(--border)); }
 /* raíces */
-.stem-word .letters { display: inline-grid; gap: 2px 2px; align-items: center; font-family: var(--mono); }
+.stem-word .letters { display: inline-grid; gap: 2px 2px; align-items: center; font-family: var(--mono); max-width: 100%; }
 .stem-word .lt { grid-row: 1; text-align: center; padding: 3px 0; border-radius: 4px; background: var(--panel-2); font-weight: 650; }
 .stem-word .lt.cut { color: var(--faint); text-decoration: line-through; font-weight: 400; }
 .stem-word .arrow { grid-row: 1; padding-left: 10px; font-family: var(--font); white-space: nowrap; }
@@ -1104,8 +1118,8 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .in-chart { width: 100%; max-width: 600px; height: auto; display: block; }
 .in-chart.small-chart { max-width: 300px; flex: none; }
 .in-chart.cosine { max-width: 260px; flex: none; }
-.in-chart .tick { font-size: 10.5px; fill: var(--faint); }
-.in-chart .axis-label { font-size: 11px; fill: var(--muted); }
+.in-chart .tick { font-size: calc(10.5px * var(--text-k, 1)); fill: var(--faint); }
+.in-chart .axis-label { font-size: calc(11px * var(--text-k, 1)); fill: var(--muted); }
 .in-chart .grid { stroke: var(--grid); stroke-width: 1; }
 .in-chart .axis { stroke: var(--axis); stroke-width: 1; }
 .in-chart .line { fill: none; stroke: var(--series-1); stroke-width: 2.2; }
@@ -1113,7 +1127,7 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .in-chart .pt-live { fill: var(--series-2); stroke: var(--panel); stroke-width: 2; }
 .in-chart .pt-live.minor { fill: var(--deemph); }
 .in-chart .pt-you { fill: none; stroke: var(--text); stroke-width: 2.5; }
-.in-chart .pt-label { font-size: 11px; fill: var(--text); }
+.in-chart .pt-label { font-size: calc(11px * var(--text-k, 1)); fill: var(--text); }
 .in-chart .pt-label.b { fill: var(--text); }
 .in-chart .strong { font-weight: 700; }
 .in-chart .faint { fill: var(--faint); }
@@ -1141,7 +1155,7 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .conf-map .cm-cell { fill: var(--series-1); }
 .conf-map .cm-thr { fill: none; stroke: var(--text); stroke-width: 2.2; }
 .conf-map .cm-guide { stroke: var(--text); stroke-width: 1; stroke-dasharray: 3 4; opacity: .45; }
-.conf-map .cm-zone { font-size: 12px; font-weight: 700; fill: var(--text); opacity: .7; }
+.conf-map .cm-zone { font-size: calc(12px * var(--text-k, 1)); font-weight: 700; fill: var(--text); opacity: .7; }
 .softmax { display: flex; flex-direction: column; gap: 6px; }
 /* conversación */
 .dlg-flow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -1155,7 +1169,8 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .fl-tag { font-size: 11.5px; font-weight: 650; color: var(--muted); }
 .fl-tag::after { content: " →"; }
 .ctx-table .life { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
-.ctx-table .life-bar { display: inline-block; height: 8px; border-radius: 4px; background: var(--series-1); opacity: .75; }
+.ctx-table .life-bar { display: inline-block; height: 8px; border-radius: 4px; background: var(--series-1); opacity: .75;
+  width: calc(var(--turns) * var(--turn-w, 18px)); }
 /* validación cruzada */
 .kfold { display: flex; flex-direction: column; gap: 5px; }
 .kf-row { display: grid; grid-template-columns: 70px repeat(5, minmax(0, 1fr)); gap: 5px; align-items: center; max-width: 560px; }
@@ -1174,9 +1189,22 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
   .sym-legend { grid-template-columns: 1fr; }
   .sym-legend dt { text-align: left; }
   .pl-arrow { display: none; }
+  .pipeline { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pl-step { max-width: none; }
+  .pl-val { max-width: none; white-space: normal; overflow-wrap: anywhere; }
   .formula { padding: 12px; gap: 10px 28px; }
   .formula math { font-size: 1.04em; }
-  .wf-row { grid-template-columns: minmax(0, 118px) minmax(0, 1fr) 44px; column-gap: 6px; }
+  /* cascada: el nombre del rasgo y su valor encima y la barra debajo, a todo el ancho; filas de 31 px
+     (17 de texto + 14 de pista) para que la línea discontinua llegue a la barra siguiente */
+  .wf-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 17px 14px; height: 31px; column-gap: 8px; }
+  .wf-label { grid-area: 1 / 1; text-align: left; }
+  .wf-val { grid-area: 1 / 2; }
+  .wf-track { grid-area: 2 / 1 / 3 / 3; }
+  .wf-bar { top: 2px; bottom: 2px; }
+  .wf-link { top: calc(100% - 2px); height: 21px; }
+  /* barras (frases parecidas, rasgos con más peso): la etiqueta entera encima de la barra */
+  .inside .bar-row { grid-template-columns: minmax(0, 1fr) !important; gap: 4px; }
+  .inside .bar-label { text-align: left; white-space: normal; }
   .tok-table .c-kind, .tok-table .c-norm, .softmax .meter, .softmax .c-ez { display: none; }
   .softmax td:first-child { overflow-wrap: anywhere; }
   .mini-table th, .mini-table td { padding-left: 6px; padding-right: 6px; }
@@ -1186,6 +1214,22 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
   .mini-table.stack-sm tr:last-child { border-bottom: 0; }
   .mini-table.stack-sm td { border: 0; padding: 0; }
   .mini-table.stack-sm td:last-child { grid-column: 1 / -1; color: var(--muted); }
+}
+/* teléfonos: nada se corta ni se desplaza (salvo lo que de verdad no cabe, con sombra en el borde) */
+@container (max-width: 440px) {
+  .formula { padding: 12px 10px; }
+  /* tabla en tarjetas: candidata y lados en la primera línea; cada número con su columna delante */
+  .mini-table.cards-sm thead { display: none; }
+  .mini-table.cards-sm tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .mini-table.cards-sm tr:last-child { border-bottom: 0; }
+  .mini-table.cards-sm td { border: 0; padding: 0; text-align: left; }
+  .mini-table.cards-sm td:nth-child(2) { flex: 1 0 calc(100% - 2.5em); }  /* ocupa el resto: los números bajan */
+  .mini-table.cards-sm td[data-label]::before { content: attr(data-label) " "; color: var(--faint); }
+  .ctx-table { --turn-w: 9px; }
+  .dp-table { border-spacing: 2px; font-size: 12px; }
+  .dp-table td { width: 24px; height: 24px; }
+  .dp-table th { padding: 2px 3px; }
+  .stem-word .arrow { grid-row: 5; grid-column: 1 / -1; padding: 6px 0 0; }
 }
 
 /* las rejillas de cifras se adaptan al ancho que tienen (el simulador abierto lo reduce) */

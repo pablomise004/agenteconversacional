@@ -292,7 +292,7 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 pip install -r requirements-dev.txt
 python -m pytest                            # 131 pruebas: NLU, diálogo, webhook, API, importación, modelo, hotel
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 22 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 27 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"   # --agente hotel "…" para el grande
 python tools/build_hotel.py                 # regenera examples/hotel.json (y comprueba sus anotaciones)

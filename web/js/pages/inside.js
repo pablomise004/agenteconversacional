@@ -4,7 +4,7 @@
 import { api } from "../api.js";
 import { h, icon, clear, errorToast, pageHead, busy } from "../ui.js";
 import { barList, format } from "../charts.js";
-import { tex } from "../math.js";
+import { fitFormulas, tex } from "../math.js";
 import { state } from "../app.js";
 
 const SVGNS = "http://www.w3.org/2000/svg";
@@ -119,8 +119,8 @@ function stemView(word, stem) {
   const bar = (from, cls, label) => (from < n
     ? h("div", { class: "rg " + cls, style: { gridColumn: `${from + 1} / ${n + 1}` }, title: label }, label)
     : h("div", { class: "rg none", style: { gridColumn: `1 / ${n + 1}`, gridRow: { r1: 2, r2: 3, rv: 4 }[cls] } }, `${label} vacía`));
-  return h("div", { class: "stem-word" },
-    h("div", { class: "letters", style: { gridTemplateColumns: `repeat(${n}, 1.25em) auto` } },
+  return h("div", { class: "stem-word" },  // las casillas se estrechan si la palabra no cabe (móvil)
+    h("div", { class: "letters", style: { gridTemplateColumns: `repeat(${n}, minmax(0.95em, 1.25em)) auto` } },
       [...word].map((ch, i) => h("span", { class: "lt" + (keep >= 0 && i >= keep ? " cut" : "") }, ch)),
       h("span", { class: "arrow" }, "→ ", h("b", null, stem)),
       bar(r1, "r1", "R1"), bar(r2, "r2", "R2"), bar(rv, "rv", "RV")));
@@ -276,7 +276,7 @@ function cosineView(sim) {
 }
 
 function confidenceMap(threshold, points, you) {
-  const W = 360, H = 330, m = { l: 46, r: 16, t: 12, b: 42 };
+  const W = 360, H = 330, m = { l: 52, r: 16, t: 12, b: 42 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const X = (s) => m.l + s * iw, Y = (p) => m.t + (1 - p) * ih;
   const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart-svg in-chart conf-map", role: "img",
@@ -303,7 +303,7 @@ function confidenceMap(threshold, points, you) {
   svg.append(sv("line", { x1: X(0.65), x2: X(0.65), y1: m.t, y2: m.t + ih, class: "cm-guide" }),
     sv("text", { x: X(0.65), y: m.t - 3, class: "tick", "text-anchor": "middle" }, "0,65"),
     sv("text", { x: m.l + iw / 2, y: H - 6, class: "axis-label", "text-anchor": "middle" }, "parecido (sim)"),
-    sv("text", { x: 12, y: m.t + ih / 2, class: "axis-label", "text-anchor": "middle", transform: `rotate(-90 12 ${m.t + ih / 2})` }, "probabilidad (p)"),
+    sv("text", { x: 10, y: m.t + ih / 2, class: "axis-label", "text-anchor": "middle", transform: `rotate(-90 10 ${m.t + ih / 2})` }, "probabilidad (p)"),
     sv("text", { x: X(0.97), y: Y(0.5), class: "cm-zone", "text-anchor": "end" }, "acepta"),
     sv("text", { x: X(0.03), y: Y(0.04), class: "cm-zone" }, "fallback"));
   points.forEach((pnt, i) => {
@@ -339,6 +339,15 @@ function kernelsFigure() {
     h("span", null, h("span", { class: "legend-key b" }), tex("(1 + d^2)^{-1}"), "t de Student (mapa)")));
 }
 
+// En el móvil los gráficos se estrechan y su texto encogería con ellos: --text-k lo agranda en la misma
+// proporción (con tope, para que las etiquetas no se pisen), y así se sigue leyendo a su tamaño normal.
+function fitCharts(root) {
+  for (const svg of root.querySelectorAll("svg.in-chart")) {
+    const w = svg.getBoundingClientRect().width, vb = svg.viewBox.baseVal.width;
+    svg.style.setProperty("--text-k", w && vb ? Math.min(1.4, Math.max(1, vb / w)).toFixed(3) : "1");
+  }
+}
+
 const kfold = () => h("div", { class: "kfold" }, [0, 1, 2, 3, 4].map((r) => h("div", { class: "kf-row" },
   h("span", { class: "kf-label" }, `Ronda ${r + 1}`),
   [0, 1, 2, 3, 4].map((c) => h("span", { class: "kf-cell" + (c === r ? " test" : "") }, c === r ? "examen" : "entrena")))));
@@ -354,7 +363,7 @@ function contextsTimeline() {
   return h("div", { class: "table-scroll" }, h("table", { class: "mini-table ctx-table" },
     h("thead", null, h("tr", null, h("th", null, "Turno"), names.map((n) => h("th", null, n)))),
     h("tbody", null, turns.map(([text, ctx], i) => h("tr", null, h("td", null, h("span", { class: "faint" }, `${i + 1} · `), text),
-      names.map((n) => h("td", null, ctx[n] ? h("span", { class: "life" }, h("span", { class: "life-bar", style: { width: ctx[n] * 18 + "px" } }), String(ctx[n]))
+      names.map((n) => h("td", null, ctx[n] ? h("span", { class: "life" }, h("span", { class: "life-bar", style: { "--turns": ctx[n] } }), String(ctx[n]))
         : h("span", { class: "faint" }, "—"))))))));
 }
 
@@ -573,7 +582,7 @@ export async function render(el) {
 
   // ----------------------------------------------------------- 7. regresión
   const lrChart = (() => {
-    const W = 300, H = 120, m = { l: 34, r: 26, t: 10, b: 26 };
+    const W = 300, H = 120, m = { l: 34, r: 30, t: 10, b: 26 };
     const X = (t) => m.l + (t / 14) * (W - m.l - m.r), Y = (v) => m.t + (H - m.t - m.b) * (1 - v / 0.5);
     const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart-svg in-chart small-chart", role: "img", "aria-label": "Tasa de aprendizaje por época" });
     for (const v of [0, 0.25, 0.5]) svg.append(sv("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), class: "grid" }), sv("text", { x: m.l - 5, y: Y(v) + 4, class: "tick", "text-anchor": "end" }, num(v, 2)));
@@ -701,11 +710,14 @@ export async function render(el) {
     h("p", null, "Si hubo plantilla exacta, los valores salen de ella. Si no, cada parámetro toma las entidades de su tipo que no estén dentro de otra. Cuando hay ", h("b", null, "varios del mismo tipo"), " («para 3 noches para 2 personas»: dos @sys.number), se reparten por lo que cada parámetro solía llevar a los lados en las frases anotadas:"),
     formula("\\op{puntos}(c, \\pi) = \\frac{L_{\\pi}[\\op{izq}(c)] + R_{\\pi}[\\op{der}(c)]}{N_{\\pi}}"),
     legend([["c", "una entidad candidata de la frase"], ["\\pi", "un parámetro (por ejemplo, noches)"], ["L_{\\pi}[u], R_{\\pi}[u]", "cuántas veces el parámetro llevaba u justo a la izquierda o a la derecha en las anotaciones (u es una raíz o un tipo de entidad)"], ["N_{\\pi}", "cuántas veces se anotó el parámetro"]]),
-    h("div", { class: "table-scroll" }, h("table", { class: "mini-table" },
+    // en el móvil cada candidata va en dos líneas (data-label pone el nombre de la columna delante)
+    h("div", { class: "table-scroll" }, h("table", { class: "mini-table cards-sm" },
       h("thead", null, h("tr", null, h("th", null, "Candidata"), h("th", null, "A los lados"), h("th", { class: "num" }, "noches"), h("th", { class: "num" }, "huéspedes"), h("th", null, "Se queda en"))),
       h("tbody", null,
-        h("tr", null, h("td", null, h("b", null, "3")), h("td", null, "para · ", h("b", null, "noches")), h("td", { class: "num" }, "0,9"), h("td", { class: "num" }, "0,4"), h("td", null, "noches")),
-        h("tr", null, h("td", null, h("b", null, "2")), h("td", null, "para · ", h("b", null, "personas")), h("td", { class: "num" }, "0,3"), h("td", { class: "num" }, "1,0"), h("td", null, "huéspedes"))))),
+        h("tr", null, h("td", null, h("b", null, "3")), h("td", null, "para · ", h("b", null, "noches")), h("td", { class: "num", dataset: { label: "noches" } }, "0,9"),
+          h("td", { class: "num", dataset: { label: "huéspedes" } }, "0,4"), h("td", { dataset: { label: "se queda en" } }, h("b", null, "noches"))),
+        h("tr", null, h("td", null, h("b", null, "2")), h("td", null, "para · ", h("b", null, "personas")), h("td", { class: "num", dataset: { label: "noches" } }, "0,3"),
+          h("td", { class: "num", dataset: { label: "huéspedes" } }, "1,0"), h("td", { dataset: { label: "se queda en" } }, h("b", null, "huéspedes")))))),
     h("p", { class: "small muted" }, "(Números de ejemplo: «para» va delante de los dos, pero «noches» y «personas» detrás deciden.) Un «un/una» suelto solo es el número 1 si lo de detrás encaja (", tex("R_{\\pi}[\\op{der}(c)] > 0"), "): «una noche» rellena las noches; «una habitación», no. El texto libre (", h("code", null, "@sys.any"), ") se captura entre las palabras que lo rodeaban en las frases anotadas («me llamo [X]») y se recorta antes de otro dato de la intención y sin muletillas delante («oye, …»)."),
     live(() => {
       const ps = Object.entries(an.parameters || {});
@@ -753,7 +765,7 @@ export async function render(el) {
 
   // ------------------------------------------------------------- en vivo
   function drawPills() {
-    const set = (id, v) => clear(pills.get(id)).append(v);
+    const set = (id, v) => { const el = pills.get(id); clear(el).append(v); el.title = v; };  // entero al pasar el ratón
     const best = an.ranking[0];
     const fixed = an.tokens.filter((t) => t.corrected);
     const stemmed = an.tokens.find((t) => t.kind === "word" && !t.corrected && t.stem !== t.norm && t.norm.length > 3);
@@ -810,5 +822,31 @@ export async function render(el) {
   const onScroll = () => { if (!frame) frame = requestAnimationFrame(spy); };
   if (main) main.addEventListener("scroll", onScroll, { passive: true });
   spy();
-  return { destroy: () => { if (main) main.removeEventListener("scroll", onScroll); } };
+
+  // en el móvil, las fórmulas que no caben se encogen y el texto de los gráficos no: al cambiar el ancho
+  // y cada vez que se dibuja lo de «Con tu frase»
+  let fitFrame = 0, lastWidth = 0;
+  const refit = () => {
+    if (!fitFrame) {
+      fitFrame = requestAnimationFrame(() => {
+        fitFrame = 0;
+        if (content.isConnected) { fitFormulas(content); fitCharts(content); }
+      });
+    }
+  };
+  const resized = new ResizeObserver(([e]) => {
+    if (Math.abs(e.contentRect.width - lastWidth) > 0.5) { lastWidth = e.contentRect.width; refit(); }
+  });
+  resized.observe(content);
+  const redrawn = new MutationObserver(refit);
+  redrawn.observe(content, { childList: true, subtree: true });
+  document.fonts.ready.then(refit);
+  return {
+    destroy: () => {
+      if (main) main.removeEventListener("scroll", onScroll);
+      resized.disconnect();
+      redrawn.disconnect();
+      cancelAnimationFrame(fitFrame);
+    },
+  };
 }

@@ -196,6 +196,52 @@ def test_pagina_entrenar(base_url, page):
     assert page.errors == []
 
 
+def test_formulas_como_en_tex(base_url, page):
+    """Como en TeX: los paréntesis normales no se estiran; los de \\left…\\right sí, y solo hasta lo que
+    encierran (van en su propio grupo). Un índice sin base («^{*}») es un superíndice, no «^ *»."""
+    page.goto(base_url + "/#/agents")
+    page.wait_for_selector(".agent-card")
+    r = page.evaluate("""async () => {
+        const { tex } = await import('/js/math.js');
+        const plain = tex('d(i,j) + [k = y]'), grouped = tex('x \\\\left( \\\\frac{a}{b} \\\\right)^2');
+        return {
+            plain: [...plain.querySelectorAll('mo')].filter((o) => '()[]'.includes(o.textContent)).map((o) => o.getAttribute('stretchy')),
+            grouped: [...grouped.querySelectorAll('mo')].map((o) => o.getAttribute('stretchy')),
+            group: grouped.querySelector('mo').parentElement.localName,
+            sup: tex('^{*}').firstElementChild.localName,
+        };
+    }""")
+    assert r == {"plain": ["false"] * 4, "grouped": ["true", "true"], "group": "mrow", "sup": "msup"}
+    assert page.errors == []
+
+
+@pytest.mark.parametrize("width", [320, 390])
+def test_por_dentro_en_el_movil(base_url, browser, width):
+    """En un móvil nada se sale ni se corta: las fórmulas que no caben se encogen (math.js:fitFormulas) y,
+    si ni así caben, empiezan por la izquierda y se desplazan; la página no se mueve a lo ancho."""
+    ctx = browser.new_context(viewport={"width": width, "height": 844}, locale="es-ES", is_mobile=True, has_touch=True)
+    ctx.add_init_script("localStorage.setItem('agente.sim', '0')")
+    page = ctx.new_page()
+    page.goto(f"{base_url}/#/a/pizzeria/inside")
+    page.wait_for_function("document.querySelectorAll('.inside .live-body').length > 0 && "
+                           "document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
+    page.wait_for_timeout(500)  # las fórmulas se ajustan en el fotograma siguiente
+    res = page.evaluate("""() => {
+        const main = document.querySelector('.main'), vw = document.documentElement.clientWidth;
+        const fuera = [...document.querySelectorAll('.inside *')].filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width && (r.right > vw + 0.5 || r.left < -0.5) && !el.closest('.formula, .table-scroll');
+        }).length;
+        const centradasSinCaber = [...document.querySelectorAll('.inside .formula')]
+            .filter((b) => b.scrollWidth > b.clientWidth + 1 && !b.classList.contains('scrolls')).length;
+        const cortadas = [...document.querySelectorAll('.inside .wf-label, .inside .bar-label, .inside .pl-val')]
+            .filter((el) => el.scrollWidth > el.clientWidth + 1).length;
+        return {desborde: main.scrollWidth - main.clientWidth, fuera, centradasSinCaber, cortadas};
+    }""")
+    assert res == {"desborde": 0, "fuera": 0, "centradasSinCaber": 0, "cortadas": 0}
+    ctx.close()
+
+
 def test_inicio_en_agentes_con_los_ejemplos_aparte(base_url, page):
     """Los ejemplos van debajo, en su grupo; arriba solo los agentes propios (o el aviso de que no hay)."""
     page.goto(base_url + "/")

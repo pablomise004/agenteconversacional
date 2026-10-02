@@ -4,6 +4,7 @@
 //   x^2  x_{ij}  \frac{a}{b}  \sqrt{x}  \sum_{j=1}^{K}  \max_k  \text{texto}  \op{sim} (palabra en
 //   redonda)  \mathbf{x}  \hat{p}  \left( … \right)  \cases{a & si … \\ b & si …}  \quad  \,
 //   letras griegas, ≤ ≥ · × → ∈ ‖ … y los números con coma decimal (0,65).
+// fitFormulas(root) encoge las fórmulas que no caben a lo ancho (en el móvil).
 
 const NS = "http://www.w3.org/1998/Math/MathML";
 
@@ -31,6 +32,10 @@ const LIMITS = new Set(["∑", "∏", "max", "min", "arg max", "arg min", "lim"]
 const ACCENTS = { hat: "^", bar: "¯", tilde: "~", vec: "→", dot: "˙" };
 const SPACES = { quad: "1em", qquad: "2em", ",": "0.17em", ":": "0.22em", ";": "0.28em", " ": "0.25em" };
 const MINUS = "−";
+// Paréntesis, corchetes y barras: como en TeX, solo se estiran con \left…\right. MathML los estira
+// siempre hasta lo más alto de su fila: sin esto, d(i,j) junto a una llave sale con paréntesis enormes.
+const FENCES = new Set(["(", ")", "[", "]", "|", "‖", "⟨", "⟩", "⌊", "⌋", "{", "}"]);
+const op = (ch) => m("mo", FENCES.has(ch) ? { stretchy: "false" } : null, ch);
 
 // letra en negrita matemática (𝐱, 𝐖): MathML Core no admite mathvariant="bold"
 const bold = (ch) => {
@@ -89,11 +94,14 @@ function parse(src, display) {
     }
     if (name === "mathbf") return m("mi", null, [...raw()].map(bold).join(""));
     if (name in ACCENTS) return m("mover", { accent: "true" }, arg(), m("mo", null, ACCENTS[name]));
-    if (name === "left" || name === "right") {  // los paréntesis de MathML ya se estiran solos
-      skip();
-      if (src[i] === ".") { i++; return null; }
-      return src[i] === "\\" ? (i++, command()) : m("mo", null, src[i++]);
+    // \left( … \right): un grupo propio, para que los paréntesis se estiren hasta lo que encierran
+    // (MathML los estira hasta lo más alto de su fila) y no hasta lo más alto de toda la fórmula
+    if (name === "left") {
+      const open = fence(), inner = list(true);
+      if (src.startsWith("\\right", i)) i += 6;
+      return m("mrow", null, open, inner, fence());
     }
+    if (name === "right") return fence();  // \right suelto, sin \left
     if (name === "cases") {
       const rows = raw().split("\\\\").map((r) => m("mtr", null, r.split("&").map((cell) =>
         m("mtd", null, row(parse(cell, display))))));
@@ -101,8 +109,17 @@ function parse(src, display) {
     }
     if (name in FUNCS) return m("mi", null, FUNCS[name]);
     if (name in IDENT) return m("mi", null, IDENT[name]);
-    if (name in OPS) return m("mo", null, OPS[name]);
+    if (name in OPS) return op(OPS[name]);
     return m("mtext", null, "\\" + name);  // desconocido: se ve tal cual
+  }
+
+  // el delimitador que va detrás de \left o \right (estos sí se estiran); «.» es ninguno
+  function fence() {
+    skip();
+    if (src[i] === ".") { i++; return null; }
+    const f = src[i] === "\\" ? (i++, command()) : op(src[i++]);
+    if (f) f.setAttribute("stretchy", "true");
+    return f;
   }
 
   function atom() {
@@ -119,30 +136,35 @@ function parse(src, display) {
     i++;
     if (/[a-zA-Z]/.test(c)) return m("mi", null, c);
     if (c === "'") return m("mo", null, "′");
-    return m("mo", null, c === "-" ? MINUS : c);
+    return op(c === "-" ? MINUS : c);
   }
 
-  const out = [];
-  while (true) {
-    skip();
-    if (i >= src.length) break;
-    let base = atom();
-    if (base === null) continue;
-    // índices: x_i, x^2, x_i^2 (en ∑ y max van debajo y encima si la fórmula va aparte)
-    let sub = null, sup = null;
-    for (;;) {
+  // la secuencia de elementos hasta el final (o hasta el \right que cierra un \left)
+  function list(untilRight) {
+    const out = [];
+    while (true) {
       skip();
-      if (src[i] === "_" && !sub) { i++; sub = arg(); } else if (src[i] === "^" && !sup) { i++; sup = arg(); } else break;
+      if (i >= src.length || (untilRight && src.startsWith("\\right", i))) break;
+      // ^{*} o _i sin nada delante: el índice va sobre una base vacía (si no, saldría «^ *»)
+      let base = src[i] === "^" || src[i] === "_" ? m("mrow") : atom();
+      if (base === null) continue;
+      // índices: x_i, x^2, x_i^2 (en ∑ y max van debajo y encima si la fórmula va aparte)
+      let sub = null, sup = null;
+      for (;;) {
+        skip();
+        if (src[i] === "_" && !sub) { i++; sub = arg(); } else if (src[i] === "^" && !sup) { i++; sup = arg(); } else break;
+      }
+      if (sub || sup) {
+        const limits = display && LIMITS.has(base.textContent);
+        if (sub && sup) base = m(limits ? "munderover" : "msubsup", null, base, sub, sup);
+        else if (sub) base = m(limits ? "munder" : "msub", null, base, sub);
+        else base = m(limits ? "mover" : "msup", null, base, sup);
+      }
+      out.push(base);
     }
-    if (sub || sup) {
-      const limits = display && LIMITS.has(base.textContent);
-      if (sub && sup) base = m(limits ? "munderover" : "msubsup", null, base, sub, sup);
-      else if (sub) base = m(limits ? "munder" : "msub", null, base, sub);
-      else base = m(limits ? "mover" : "msup", null, base, sup);
-    }
-    out.push(base);
+    return out;
   }
-  return out;
+  return list(false);
 }
 
 /** Fórmula en MathML. display: en su propia línea (con los límites de ∑ y max debajo). */
@@ -150,4 +172,38 @@ export function tex(src, { display = false, label = null } = {}) {
   const items = parse(src, display);
   return m("math", { display: display ? "block" : null, "aria-label": label },
     items.length === 1 ? items[0] : m("mrow", null, items));
+}
+
+/**
+ * Encoge (hasta `min`) las fórmulas de las cajas `.formula` de `root` que no caben a lo ancho, para que
+ * en el móvil se vean enteras sin desplazarse. Las que ni así caben marcan su caja con `.scrolls`: va
+ * alineada a la izquierda y se desplaza (centrada, lo que sobra por la izquierda no se alcanzaría).
+ * Hay que volver a llamarla si cambia el ancho o se dibujan fórmulas nuevas.
+ */
+export function fitFormulas(root, min = 0.75) {
+  const boxes = [...root.querySelectorAll(".formula")];
+  const items = boxes.flatMap((box) => [...box.children].filter((el) => el.localName === "math").map((el) => ({ box, el })));
+  for (const it of items) it.el.style.fontSize = "";  // primero todas a su tamaño normal y luego se mide
+  for (const it of items) {
+    const cs = getComputedStyle(it.box);
+    it.avail = it.box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 1;
+    it.size = parseFloat(getComputedStyle(it.el).fontSize);
+    it.least = Math.ceil(it.size * min);
+  }
+  // El ancho no es del todo proporcional a la letra (al dibujarla, el tamaño se redondea): se prueba en
+  // píxeles enteros y se baja uno más mientras no quepa. Cada vuelta mide todas juntas (una sola maquetación).
+  let todo = items;
+  for (let pass = 0; pass < 6 && todo.length; pass++) {
+    const widths = todo.map((it) => it.el.getBoundingClientRect().width);
+    todo = todo.filter((it, k) => {
+      if (widths[k] <= it.avail) return false;
+      const cur = parseFloat(it.el.style.fontSize) || it.size;
+      if (cur <= it.least) { it.tight = true; return false; }
+      it.el.style.fontSize = Math.max(it.least, Math.min(cur - 1, Math.floor((cur * it.avail) / widths[k]))) + "px";
+      return true;
+    });
+  }
+  for (const it of todo) it.tight = true;
+  const tight = new Set(items.filter((it) => it.tight).map((it) => it.box));
+  for (const box of boxes) box.classList.toggle("scrolls", tight.has(box));
 }

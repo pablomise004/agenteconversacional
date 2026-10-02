@@ -450,11 +450,28 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
   mezclarla con el parecido) y la referencia al código. Los gráficos se dibujan a mano en SVG o
   HTML (la cascada es HTML para que se lea en el móvil). Si cambia una fórmula del motor, cambia
   también aquí.
+- «Por dentro» en el móvil (container queries sobre `.cq`): con 560 px o menos el recorrido va en dos
+  columnas y la cascada y las barras ponen la etiqueta encima (entera) y la barra debajo, a todo el
+  ancho; con 440 o menos la tabla de parámetros se apila (`.cards-sm`, cada número con su columna
+  delante por `data-label`), la tabla de distancias se compacta y la raíz va debajo de la palabra.
+  Los gráficos SVG se estrechan con su `viewBox` y su texto encogería con ellos: `fitCharts()` pone
+  `--text-k` (ancho del `viewBox` / ancho real, hasta 1,4) y el CSS multiplica por él los tamaños.
+  Lo que aún no quepa (alguna fórmula a 320-360 px, la tabla de contextos a 320) se desplaza con una
+  sombra en el borde por el que sigue (fondos `local` + `scroll`, color en `--scroll-bg`). La prueba
+  e2e `test_por_dentro_en_el_movil` comprueba a 320 y 390 px que no hay nada fuera ni cortado.
 - Fórmulas (`math.js`): `tex("p_k = \\frac{e^{z_k}}{\\sum_j e^{z_j}}", {display})` traduce un
   subconjunto de TeX a MathML Core, que pinta el propio navegador (sin KaTeX ni CDN); crea los
   nodos uno a uno, nunca `innerHTML`. Las llaves y raíces que se estiran necesitan una fuente
   matemática (Cambria Math en Windows; en Linux sin ella se ven bien pero sin estirar).
-  `formula([a, b])` pone varias juntas y las baja de línea si no caben.
+  `formula([a, b])` pone varias juntas y las baja de línea si no caben. Como en TeX, los paréntesis,
+  corchetes y barras normales no se estiran (`stretchy="false"`: MathML los estiraría hasta lo más
+  alto de su fila, y «d(i,j)» junto a una llave salía con paréntesis enormes); los de `\left…\right`
+  sí, y van en su propio `mrow` para estirarse solo hasta lo que encierran. `fitFormulas(root)`
+  encoge las que no caben a lo ancho (hasta el 75 %, en píxeles enteros y comprobando cada vez:
+  el ancho no es proporcional a la letra porque el tamaño se redondea al dibujar) y marca con
+  `.scrolls` las que ni así caben, que se alinean a la izquierda: centradas con `justify-content:
+  center`, lo que sobra por la izquierda no se podría ver. «Por dentro» la vuelve a llamar al
+  cambiar el ancho (ResizeObserver) y al redibujar «Con tu frase» (MutationObserver).
 - Las tarjetas de una rejilla (`.grid-*`, `.agent-cards`) anulan el `margin-top` de `.card + .card`.
 - Logotipo: la cabeza de un lince ibérico (orejas con pinceles negros, barba en las mejillas, ojos
   con brillo) sobre el degradado de la marca, en `web/favicon.svg`; el mismo dibujo está en
@@ -468,7 +485,7 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
 | Comando | Qué cubre |
 |---|---|
 | `python -m pytest` | 134 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor, logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado y el agente del hotel (`tests/test_hotel.py`) |
-| `python -m pytest tests/e2e -m e2e` | 24 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
+| `python -m pytest tests/e2e -m e2e` | 27 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 
