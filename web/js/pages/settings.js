@@ -1,6 +1,6 @@
 // Ajustes del agente.
 import { api } from "../api.js";
-import { h, icon, clear, toast, errorToast, confirmDialog, switchInput, copyButton, downloadFile, timeAgo, pageHead, busy } from "../ui.js";
+import { h, icon, clear, toast, errorToast, confirmDialog, switchInput, copyButton, downloadFile, timeAgo, fullDate, pageHead, busy } from "../ui.js";
 import { navigate, refreshAgents, state } from "../app.js";
 
 const ZONES = ["Europe/Madrid", "Atlantic/Canary", "Europe/London", "Europe/Lisbon", "America/Mexico_City",
@@ -13,6 +13,42 @@ function section(ic, title, help, ...body) {
   return h("div", { class: "card" },
     h("div", { class: "card-head" }, icon(ic), h("h2", null, title), help ? h("span", { class: "help" }, help) : null),
     h("div", { class: "card-body col", style: { gap: "14px" } }, ...body));
+}
+
+// Servidores con cuentas: compartir el agente con un enlace (quien lo abre guarda su propia copia)
+function shareSection(agent) {
+  const box = h("div", { class: "col", style: { gap: "10px" } }, h("span", { class: "muted small" }, "Cargando…"));
+  const url = (code) => `${location.origin}/#/shared/${code}`;
+  const draw = (st) => {
+    clear(box);
+    if (!st.code) {
+      const create = h("button", { class: "btn primary", type: "button", onclick: () => busy(create, async () => {
+        try { draw(await api.share(agent.id)); toast("Enlace creado: cópialo y compártelo", "success"); } catch (e) { errorToast(e); }
+      }) }, icon("share"), "Crear un enlace para compartirlo");
+      box.append(h("div", { class: "row wrap" }, create));
+      return;
+    }
+    const link = h("input", { type: "text", readonly: true, value: url(st.code), "aria-label": "Enlace para compartir",
+      class: "share-link", onfocus: (e) => e.target.select() });
+    const update = h("button", { class: "btn sm", type: "button", onclick: () => busy(update, async () => {
+      try { draw(await api.share(agent.id)); toast("El enlace ya lleva los últimos cambios", "success"); } catch (e) { errorToast(e); }
+    }) }, icon("refresh"), "Actualizar con los cambios");
+    const stop = h("button", { class: "btn sm danger", type: "button", onclick: async () => {
+      if (!await confirmDialog("El enlace dejará de funcionar. Las copias que ya haya guardado la gente se quedan.",
+        { title: "Dejar de compartir", okLabel: "Dejar de compartir", danger: true })) return;
+      try { await api.unshare(agent.id); draw({ code: null }); toast("Ya no se comparte", "success"); } catch (e) { errorToast(e); }
+    } }, icon("x"), "Dejar de compartir");
+    box.append(
+      h("div", { class: "row share-row" }, link, copyButton(() => url(st.code), { cls: "btn" })),
+      h("div", { class: "muted small" }, "Copia del agente de ", h("span", { title: fullDate(st.sharedAt) }, timeAgo(st.sharedAt)),
+        ". Si lo cambias, pulsa «Actualizar con los cambios» para que el enlace los lleve."),
+      h("div", { class: "row wrap", style: { gap: "8px" } }, update, stop));
+  };
+  api.shareStatus(agent.id).then(draw).catch((e) => clear(box).append(h("span", { class: "muted small" }, e.message)));
+  return section("share", "Compartir", null,
+    h("p", { class: "muted", style: { margin: 0 } }, "Con el enlace, cualquiera puede guardar una copia de este agente en su cuenta, ",
+      "o descargarla para Lince instalado en su ordenador. Tu agente no cambia y nadie más puede tocarlo. Se comparte sin la clave de API ni el webhook."),
+    box);
 }
 
 export async function render(el) {
@@ -194,8 +230,10 @@ export async function render(el) {
     section("shield", "Seguridad", null,
       h("div", { class: "field" }, h("span", null, "Clave de API para hablar con el bot"), keyBox,
         h("span", { class: "hint" }, "Si la pones, las peticiones a /detect deben llevar la cabecera X-Api-Key.")),
-      h("div", { class: "notice info" }, icon("info"), h("div", null, "Para proteger esta consola en un servidor público, arráncalo con la variable de entorno ",
-        h("code", null, "AGENTE_ADMIN_TOKEN"), " y se pedirá ese token para entrar."))),
+      state.info.accounts
+        ? h("div", { class: "notice info" }, icon("info"), h("div", null, "En este servidor cada uno entra con su usuario: solo tú ves y cambias tus agentes."))
+        : h("div", { class: "notice info" }, icon("info"), h("div", null, "Para proteger esta consola en un servidor público, arráncalo con la variable de entorno ",
+          h("code", null, "AGENTE_ADMIN_TOKEN"), " y se pedirá ese token para entrar."))),
 
     section("cpu", "Modelo y datos", null,
       h("div", { class: "row wrap" }, modelBox, h("span", { class: "spacer" }), retrain),
@@ -214,6 +252,8 @@ export async function render(el) {
             navigate(`#/a/${encodeURIComponent(copy.id)}/intents`);
           } catch (e) { errorToast(e); }
         } }, icon("copy"), "Duplicar agente"))),
+
+    state.info.accounts ? shareSection(agent) : null,
 
     h("div", { class: "card danger-zone" },
       h("div", { class: "card-head" }, icon("alert"), h("h2", null, "Zona peligrosa")),

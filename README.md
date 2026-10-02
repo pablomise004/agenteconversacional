@@ -15,10 +15,11 @@ la conversación y **respuestas**. El bot entiende lo que escribe la gente (con 
 abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada frase**, puedes
 **corregirlo con un clic** y puedes **ver paso a paso cómo aprende** al entrenarlo.
 
-> **Pruébalo en internet:** <https://linceflow.duckdns.org>. **¿Estás en el instituto?** La red de
-> Educacyl bloquea los dominios `duckdns.org`, así que seguramente no abrirá: instala Lince en tu
-> ordenador siguiendo la [instalación en Windows, paso a paso](#instalación-en-windows-paso-a-paso).
-> Son tres pasos y después funciona sin internet.
+> **Pruébalo en internet:** <https://linceflow.duckdns.org>. Crea tu cuenta y tendrás tus propios
+> agentes. **¿Estás en el instituto?** La red de Educacyl bloquea los dominios `duckdns.org`, así
+> que seguramente no abrirá: instala Lince en tu ordenador siguiendo la
+> [instalación en Windows, paso a paso](#instalación-en-windows-paso-a-paso). Son tres pasos y
+> después funciona sin internet.
 
 ![Editor de intenciones con el simulador](docs/img/editor.png)
 
@@ -68,12 +69,16 @@ Hay una versión de Lince en internet: **<https://linceflow.duckdns.org>**.
 > dominios `duckdns.org`. Desde casa o con los datos del móvil sí funciona. Para usarlo en clase,
 > instálalo en tu ordenador: [instalación en Windows, paso a paso](#instalación-en-windows-paso-a-paso).
 
-- **Hablar con los bots de ejemplo** (sin instalar nada):
-  [hotel](https://linceflow.duckdns.org/chat?agent=hotel) y
-  [pizzería](https://linceflow.duckdns.org/chat?agent=pizzeria).
-- **La consola** (crear y cambiar agentes) es la misma para todos los que entran, así que está
-  protegida con un *token de administración*. Para crear **tus propios agentes**, instala Lince en
-  tu ordenador: allí todo es tuyo y no hace falta ningún token.
+- **Tu cuenta:** la primera vez pulsa **Crear cuenta** y elige un usuario y una contraseña (no hace
+  falta correo). Solo tú ves tus agentes, y entras desde cualquier ordenador o móvil con tu usuario.
+  Empiezas con los dos ejemplos para curiosear.
+- **Compartir un agente:** ábrelo y ve a **Ajustes → Compartir → Crear un enlace**. Quien abra el
+  enlace puede pulsar **Guardar en mis agentes** (se queda con una copia suya: lo que cambie no toca
+  el tuyo) o **Descargar JSON** para usarlo en Lince instalado en su ordenador.
+- **Hablar con los bots de ejemplo sin cuenta:** [hotel](https://linceflow.duckdns.org/chat?agent=hotel)
+  y [pizzería](https://linceflow.duckdns.org/chat?agent=pizzeria). Los tuyos también tienen su chat:
+  la dirección está en **Integraciones**.
+- **¿Has olvidado la contraseña?** Pídele a Pablo que te ponga otra.
 
 ## Instalación en Windows, paso a paso
 
@@ -155,8 +160,9 @@ La ventana negra explica qué ha pasado: léela antes de cerrarla.
 - **Para actualizar a una versión nueva:** cierra la ventana negra, descarga el ZIP nuevo y
   extráelo (paso 2), copia dentro la carpeta `data` de tu versión anterior y abre el `iniciar.bat`
   nuevo. La primera vez vuelve a preparar todo (uno o dos minutos con internet).
-- Los agentes de tu ordenador y los de la web de internet son independientes. Para pasar uno de un
-  sitio a otro: *Ajustes → Exportar JSON* en uno y *Agentes → Importar* en el otro.
+- Los agentes de tu ordenador y los de tu cuenta en la web de internet son independientes. Para
+  pasar uno de un sitio a otro: *Ajustes → Exportar JSON* en uno y *Agentes → Importar* en el otro.
+  Con un enlace compartido de la web, *Descargar JSON* e importarlo.
 
 ## Linux, macOS o a mano
 
@@ -326,11 +332,19 @@ la URL del webhook.
 
 ## Ponerlo en un servidor
 
+Hay dos formas de tener Lince en un servidor:
+
+- **Con cuentas de usuario** (`AGENTE_ACCOUNTS=1`), como <https://linceflow.duckdns.org>: cada
+  persona crea su cuenta, ve solo sus agentes y los comparte con enlaces. Los datos de cada una van
+  en su propia carpeta, `data/spaces/<id>/`.
+- **Solo para ti** (`AGENTE_ADMIN_TOKEN`): una sola consola, protegida con un token que se pide al
+  entrar.
+
 Con Docker (la imagen corre sin privilegios y trae comprobación de salud en `/api/info`):
 
 ```bash
 docker build -t lince .
-docker run -d -p 8000:8000 -v lince-datos:/data -e AGENTE_ADMIN_TOKEN=pon-aqui-un-secreto lince
+docker run -d -p 8000:8000 -v lince-datos:/data -e AGENTE_ACCOUNTS=1 lince
 ```
 
 Con **[Coolify](https://coolify.io)** (así está la versión de <https://linceflow.duckdns.org>):
@@ -340,17 +354,29 @@ Con **[Coolify](https://coolify.io)** (así está la versión de <https://lincef
 2. *Build Pack*: **Dockerfile**. *Ports Exposes*: **8000**.
 3. *Domains*: tu dominio con `https://` delante (Coolify pide el certificado solo; el dominio tiene
    que apuntar a la IP del servidor y los puertos 80 y 443 tienen que estar abiertos).
-4. *Environment Variables*: `AGENTE_ADMIN_TOKEN` con un secreto largo.
+4. *Environment Variables*: `AGENTE_ACCOUNTS` = `1` para tener cuentas, o `AGENTE_ADMIN_TOKEN` con
+   un secreto largo para que sea solo tuyo (no pongas las dos).
 5. *Persistent Storage → Volume Mount* con destino **`/data`**. Sin él, cada despliegue empieza de
-   cero y se pierden los agentes.
+   cero y se pierden los agentes y las cuentas.
 6. *Deploy*. Para actualizar después de un `git push`: *Redeploy* (o activa el despliegue automático).
 
-O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --no-browser`.
+**Si alguien olvida su contraseña**, el dueño del servidor le pone otra desde la pestaña *Terminal*
+de la aplicación en Coolify (o en una consola del servidor):
+
+```bash
+python -m app.users                    # lista de usuarios y cuántos agentes tiene cada uno
+python -m app.users password fulano    # contraseña nueva para «fulano» (la pide dos veces)
+```
+
+O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --no-browser`
+(con `--accounts` para tener cuentas).
 
 | Variable | Para qué |
 |---|---|
-| `AGENTE_ADMIN_TOKEN` | Protege la consola y la API de administración (se pide al entrar). Muy recomendable si el servidor es público |
-| `AGENTE_DATA_DIR` | Carpeta de datos (por defecto `./data`) |
+| `AGENTE_ACCOUNTS` | `1`: cuentas de usuario, cada uno con sus agentes y enlaces para compartirlos |
+| `AGENTE_ADMIN_TOKEN` | Protege la consola y la API de administración (se pide al entrar). Para un servidor solo tuyo |
+| `AGENTE_DATA_DIR` | Carpeta de datos (por defecto `./data`; en la imagen Docker, `/data`) |
+| `AGENTE_SPACES_PER_HOUR` / `AGENTE_SPACES_MAX` | Con cuentas: cuántas se pueden crear por hora (200) y en total (5.000) |
 | `HOST` / `PORT` | Dirección y puerto |
 
 Cada agente puede tener además una **clave de API** (*Ajustes → Seguridad*) que exige la cabecera
@@ -395,9 +421,9 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 134 pruebas: NLU, diálogo, webhook, API, importación, modelo, hotel
+python -m pytest                            # 146 pruebas: NLU, diálogo, webhook, API, cuentas, importación, modelo, hotel
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 27 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 28 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"   # --agente hotel "…" para el grande
 python tools/build_hotel.py                 # regenera examples/hotel.json (y comprueba sus anotaciones)
@@ -411,6 +437,8 @@ app/
   server.py        API REST (FastAPI) y servidor de la consola
   dialog.py        gestor de diálogo: sesiones, contextos, slot filling, webhook
   storage.py       agentes en JSON y conversaciones en SQLite
+  spaces.py        cuentas de usuario, espacios privados y agentes compartidos (AGENTE_ACCOUNTS)
+  users.py         python -m app.users: lista de usuarios y cambiar una contraseña
   agents.py        validación y normalización de agentes
   responses.py     texto de las respuestas ($parametro, #contexto.param…)
   webhook.py       llamadas al webhook (formato Dialogflow ES)

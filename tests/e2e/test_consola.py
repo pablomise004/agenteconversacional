@@ -29,12 +29,10 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-@pytest.fixture(scope="module")
-def base_url(tmp_path_factory):
+def _serve(app):
+    """Arranca la aplicación en un puerto libre; devuelve su dirección y cómo pararla."""
     port = _free_port()
-    config = uvicorn.Config(create_app(tmp_path_factory.mktemp("datos")), host="127.0.0.1", port=port,
-                            log_level="warning")
-    server = uvicorn.Server(config)
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     url = f"http://127.0.0.1:{port}"
@@ -44,9 +42,26 @@ def base_url(tmp_path_factory):
             break
         except OSError:
             time.sleep(0.1)
+
+    def stop():
+        server.should_exit = True
+        thread.join(timeout=5)
+    return url, stop
+
+
+@pytest.fixture(scope="module")
+def base_url(tmp_path_factory):
+    url, stop = _serve(create_app(tmp_path_factory.mktemp("datos")))
     yield url
-    server.should_exit = True
-    thread.join(timeout=5)
+    stop()
+
+
+@pytest.fixture(scope="module")
+def accounts_url(tmp_path_factory):
+    """Un servidor con cuentas de usuario (AGENTE_ACCOUNTS), como el público."""
+    url, stop = _serve(create_app(tmp_path_factory.mktemp("cuentas"), accounts=True))
+    yield url
+    stop()
 
 
 @pytest.fixture(scope="module")
@@ -397,3 +412,61 @@ def test_referencia_de_la_api(base_url, page):
     detect.locator(".try .btn.primary").click()
     playwright.expect(detect.locator(".resp")).to_contain_text("pedido.pizza")
     assert page.errors == []
+
+
+def _sign(page, url, user, password="clave-larga", new=True):
+    """Entra (o crea la cuenta) en la ventana obligatoria de un servidor con cuentas."""
+    page.goto(url)
+    page.wait_for_selector(".modal")
+    if new:
+        page.locator(".modal .tabs button", has_text="Crear cuenta").click()
+    inputs = page.locator(".modal input")
+    inputs.nth(0).fill(user)
+    inputs.nth(1).fill(password)
+    if new:
+        inputs.nth(2).fill(password)
+    page.locator(".modal .modal-foot .btn.primary").click()
+    page.wait_for_selector(".modal", state="detached")
+
+
+def test_cuentas_compartir_y_guardar_una_copia(accounts_url, browser):
+    """Con cuentas: cada uno ve solo lo suyo, y un enlace compartido le da a otro su propia copia."""
+    ana_ctx = browser.new_context(viewport={"width": 1440, "height": 900}, locale="es-ES")
+    ana = ana_ctx.new_page()
+    errors = []
+    ana.on("pageerror", lambda e: errors.append(str(e)))
+    _sign(ana, accounts_url + "/", "ana-e2e")
+    ana.wait_for_selector(".agent-group[data-group='mine'] .empty")  # empieza sin agentes propios
+    assert ana.locator(".user-btn").inner_text().strip().endswith("ana-e2e")
+    ana.locator("button", has_text="Crear agente").first.click()
+    ana.locator(".modal input").first.fill("Pastelería e2e")
+    ana.locator(".modal button.primary").click()
+    ana.wait_for_url("**/intents")
+    ana.goto(ana.url.replace("/intents", "/settings"))
+    ana.locator("button", has_text="Crear un enlace para compartirlo").click()
+    link = ana.locator(".share-link").input_value()
+    assert "/#/shared/" in link
+
+    beto_ctx = browser.new_context(viewport={"width": 1440, "height": 900}, locale="es-ES")
+    beto = beto_ctx.new_page()
+    beto.on("pageerror", lambda e: errors.append(str(e)))
+    _sign(beto, link, "beto-e2e")  # abre el enlace: primero entra y luego ve el agente
+    beto.wait_for_selector(".shared-card")
+    assert "Pastelería e2e" in beto.locator(".shared-card").inner_text()
+    beto.locator("button", has_text="Guardar en mis agentes").click()
+    beto.wait_for_url("**/intents")
+    beto.goto(accounts_url + "/#/agents")
+    beto.wait_for_selector(".agent-group[data-group='mine'] .agent-card h3")
+    assert beto.locator(".agent-group[data-group='mine'] .agent-card h3").all_inner_texts() == ["Pastelería e2e"]
+
+    # salir y volver a entrar: siguen sus agentes
+    ana.goto(accounts_url + "/#/agents")
+    ana.locator(".user-btn").click()
+    ana.locator(".popover .opt", has_text="Salir").click()
+    ana.wait_for_selector(".modal")
+    _sign(ana, accounts_url + "/", "ana-e2e", new=False)
+    ana.wait_for_selector(".agent-group[data-group='mine'] .agent-card h3")
+    assert ana.locator(".agent-group[data-group='mine'] .agent-card h3").all_inner_texts() == ["Pastelería e2e"]
+    assert errors == []
+    ana_ctx.close()
+    beto_ctx.close()

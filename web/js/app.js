@@ -1,11 +1,12 @@
 // Consola: estado global, enrutado por #hash y estructura de la página.
-import { api, getToken, setToken } from "./api.js";
+import { api, getToken, setToken, getSpaceKey, getUser, setSpace } from "./api.js";
 import {
   h, icon, logo, avatar, clear, toast, errorToast, modal, confirmDialog, closePopover, popover, optionList,
   initTooltips, skeletonPage, reducedMotion, syncThemeColor, themeButton,
 } from "./ui.js";
 import { createSimulator } from "./simulator.js";
 import { openPalette } from "./palette.js";
+import { signIn, userButton } from "./account.js";
 import * as agentsPage from "./pages/agents.js";
 import * as intentsPage from "./pages/intents.js";
 import * as intentEditor from "./pages/intent-editor.js";
@@ -18,13 +19,15 @@ import * as settingsPage from "./pages/settings.js";
 import * as learnPage from "./pages/learn.js";
 import * as guidePage from "./pages/guide.js";
 import * as insidePage from "./pages/inside.js";
+import * as sharedPage from "./pages/shared.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.6.0";
+export const APP_VERSION = "0.7.0";
 
 export const state = {
   info: null,
+  user: "",  // servidores con cuentas: quién ha entrado
   agents: [],
   agent: null,
   pending: 0,
@@ -49,10 +52,12 @@ export const NAV = [
   { href: "/docs", label: "API", icon: "code", external: true },
 ];
 
-const SECTION_TITLES = Object.fromEntries([...NAV.filter((n) => n.key).map((n) => [n.key, n.label]), ["agents", "Agentes"]]);
+const SECTION_TITLES = Object.fromEntries([...NAV.filter((n) => n.key).map((n) => [n.key, n.label]), ["agents", "Agentes"],
+  ["shared", "Agente compartido"]]);
 
 const ROUTES = [
   [/^agents$/, () => agentsPage],
+  [/^shared\/([^/]+)$/, () => sharedPage],
   [/^guide$/, () => guidePage],
   [/^a\/([^/]+)\/guide$/, () => guidePage],
   [/^inside$/, () => insidePage],
@@ -185,7 +190,8 @@ function buildLayout() {
     navEl,
     h("div", { class: "sidebar-foot" },
       themeButton(),
-      h("a", { class: "btn ghost sm", href: "#/agents", title: "Todos los agentes" }, icon("layers"), "Agentes"),
+      state.info && state.info.accounts ? userButton()
+        : h("a", { class: "btn ghost sm", href: "#/agents", title: "Todos los agentes" }, icon("layers"), "Agentes"),
       h("span", { class: "spacer" }),
       h("span", { class: "version", title: "Versión de " + APP_NAME }, state.info ? "v" + state.info.version : "")));
   topTitle = h("span", { class: "title grow ellipsis" }, "");
@@ -348,10 +354,10 @@ async function route() {
     state.agent = null;
     simulator.reset(true);
   }
-  const section = path.startsWith("a/") ? path.split("/")[2] : path;
+  const section = path.split("/")[path.startsWith("a/") ? 2 : 0];
   renderAgentSwitch();
   renderNav(section);
-  topTitle.textContent = state.agent ? state.agent.name : "Agentes";
+  topTitle.textContent = state.agent ? state.agent.name : SECTION_TITLES[section] || "Agentes";
   setPageTitle(SECTION_TITLES[section], state.agent && state.agent.name);
   if (current && current.destroy) current.destroy();
   current = null;
@@ -394,6 +400,21 @@ async function login() {
   setToken(token || "");
 }
 
+// Servidores con cuentas: con la llave guardada se comprueba que sigue valiendo; si no, a entrar.
+async function ensureAccount() {
+  if (getSpaceKey()) {
+    try {
+      state.user = (await api.account()).user || getUser();
+      return;
+    } catch (e) {
+      if (e.status !== 401) throw e;
+      setSpace("");
+    }
+  }
+  await signIn();
+  state.user = getUser();
+}
+
 async function start() {
   initTooltips();
   syncThemeColor();
@@ -411,6 +432,7 @@ async function start() {
       }
     }
   }
+  if (state.info.accounts) await ensureAccount();
   buildLayout();
   try {
     await refreshAgents();

@@ -111,7 +111,9 @@ export async function render(el) {
       h("button", { class: "card agent-card new", type: "button", onclick: createAgentDialog },
         h("span", { class: "plus" }, icon("plus")), "Nuevo agente"));
   }
-  page.append(group({ key: "mine", icon: "bot", title: "Tus agentes", count: mine.length }, grid ||
+  const privacy = state.info.accounts
+    ? "Solo los ves tú. Para pasarle uno a alguien, ábrelo y ve a Ajustes → Compartir: le llegará una copia." : null;
+  page.append(group({ key: "mine", icon: "bot", title: "Tus agentes", count: mine.length, help: privacy }, grid ||
     h("div", { class: "card agents-empty" }, emptyState({
       icon: "bot", title: "Todavía no tienes agentes",
       text: "Crea el primero desde cero o a partir de un ejemplo, o importa uno exportado de Dialogflow.",

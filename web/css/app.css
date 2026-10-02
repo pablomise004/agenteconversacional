@@ -627,6 +627,18 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
   padding: 8px 9px 3px; }
 .popover .pop-head { padding: 6px 9px; font-weight: 650; }
 .pop-sep { height: 1px; background: var(--border); margin: 5px 2px; }
+.pop-title { padding: 6px 10px 8px; font-size: 12.5px; color: var(--muted); }
+/* cuentas: el usuario en el pie de la barra lateral y la ventana de entrar */
+.user-btn { min-width: 0; max-width: 150px; gap: 7px; padding: 0 9px 0 5px; }
+.user-btn .ellipsis { min-width: 0; }
+.modal-body .logo { width: 48px; height: 48px; flex: none; border-radius: 13px; }
+/* compartir: el enlace en Ajustes y la página del agente compartido */
+.share-row { gap: 8px; }
+.share-link { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; }
+.shared-name { font-size: 18px; font-weight: 650; letter-spacing: -.015em; }
+.shared-stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.shared-stats span { display: inline-flex; align-items: center; gap: 5px; }
+.shared-stats svg.icon { width: 14px; height: 14px; color: var(--faint); }
 
 /* ------------------------------------------------------- modal y toasts */
 .modal-back { position: fixed; inset: 0; background: var(--overlay); z-index: 80; display: grid;

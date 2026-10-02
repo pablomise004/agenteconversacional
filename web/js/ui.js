@@ -100,6 +100,8 @@ const ICONS = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   message: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/>',
   keyboard: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M10 13h4M7 16h10"/>',
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
 };
 
 export function icon(name, cls = "") {
@@ -184,7 +186,8 @@ export function errorToast(err) {
 // ------------------------------------------------------------------ modales
 const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function modal({ title, body, actions = [], wide = false, onOpen }) {
+// closable: false → sin aspa ni Escape (la de entrar en un servidor con cuentas es obligatoria)
+export function modal({ title, body, actions = [], wide = false, onOpen, closable = true }) {
   return new Promise((resolve) => {
     const prevFocus = document.activeElement;
     let closed = false;
@@ -201,7 +204,7 @@ export function modal({ title, body, actions = [], wide = false, onOpen }) {
       resolve(value);
     };
     const onKey = (e) => {
-      if (e.key === "Escape") { e.stopPropagation(); close(null); return; }
+      if (e.key === "Escape") { e.stopPropagation(); if (closable) close(null); return; }
       if (e.key === "Tab") { // el foco no sale de la ventana
         const items = [...box.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null);
         if (!items.length) return;
@@ -224,10 +227,10 @@ export function modal({ title, body, actions = [], wide = false, onOpen }) {
       }, a.label)));
     const box = h("div", { class: "modal" + (wide ? " wide" : ""), role: "dialog", "aria-modal": "true", "aria-label": title },
       h("div", { class: "modal-head" }, h("h3", null, title), h("div", { class: "spacer" }),
-        h("button", { class: "btn ghost sm icon-only", type: "button", "aria-label": "Cerrar", onclick: () => close(null) }, icon("x"))),
+        closable ? h("button", { class: "btn ghost sm icon-only", type: "button", "aria-label": "Cerrar", onclick: () => close(null) }, icon("x")) : null),
       h("div", { class: "modal-body" }, body),
       actions.length ? foot : null);
-    const back = h("div", { class: "modal-back", onmousedown: (e) => { if (e.target === back) close(null); } }, box);
+    const back = h("div", { class: "modal-back", onmousedown: (e) => { if (e.target === back && closable) close(null); } }, box);
     document.body.append(back);
     document.addEventListener("keydown", onKey, true);
     const first = box.querySelector("input, textarea, select");

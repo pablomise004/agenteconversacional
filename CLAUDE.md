@@ -22,21 +22,28 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
   mismo estilo que la consola. La pizzería le parece el ejemplo perfecto para aprender; el hotel
   es para ver el potencial («que no parezca tonto ni se pierda con cualquier cosa»). Los ejemplos van
   aparte, debajo de sus agentes («Tus agentes» empieza vacío). El logotipo tiene que verse como un
-  lince de verdad y bonito (rediseñado en la 0.6.0: pinceles, barba, ojos con brillo).
+  lince de verdad y bonito (rediseñado en la 0.6.0: pinceles, barba, ojos con brillo). Lo comparte
+  con sus compañeros de clase (todos con Windows): la web pública tiene **cuentas** (cada uno ve solo
+  sus agentes y los comparte con un enlace que da una copia), pero la red del instituto (Educacyl)
+  bloquea `duckdns.org`, así que en clase usan la instalación local (README, muy paso a paso).
+- Despliegue: <https://linceflow.duckdns.org>, Coolify en un servidor Oracle ARM de 24 GB, con el
+  `Dockerfile` del repositorio, `AGENTE_ACCOUNTS=1` y un volumen en `/data`. Coolify construye desde
+  GitHub: tras subir cambios hay que pulsar *Redeploy*.
 
 ## Arranque y comandos
 
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
-python -m app                         # http://localhost:8000  (--port --host --data --no-browser)
-python -m pytest                      # 134 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 27 pruebas en navegador real
+python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
+python -m pytest                      # 146 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 28 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
 python tools/build_hotel.py           # regenera examples/hotel.json y comprueba sus anotaciones
 python tools/capturas_docs.py         # rehace las capturas de docs/img (Playwright)
 python tools/build_icons.py           # rehace favicon.ico y web/icons/*.png desde web/favicon.svg
+python -m app.users [password <usuario>]   # servidor con cuentas: usuarios / contraseña nueva
 ```
 
 En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, instala y lanza).
@@ -51,6 +58,13 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   desactivado porque depende de un CDN). Cada ruta lleva `summary=` en español, docstring y ejemplos.
 - `app/storage.py`: agentes en `data/agents/<id>.json`, conversaciones en `data/runtime.sqlite3`
   (`data/` no se sube a Git).
+- `app/spaces.py`: el servidor con cuentas (`AGENTE_ACCOUNTS=1` o `--accounts`): `Accounts` (scrypt,
+  bloqueo tras 8 fallos), `Spaces` (un espacio `data/spaces/<id>/` por usuario, con su `Storage`,
+  modelos y diálogo; la llave va en `X-Space-Key`), `Shares` (copias en `data/shared/`, sin clave de
+  API ni webhook) y `ModelPool` (modelos compartidos entre agentes iguales). Sin cuentas hay un único
+  `Space` (la carpeta `data/`): la instalación local funciona como siempre. Las rutas de conversación
+  aceptan la dirección pública «<espacio>.<agente>» (`publicId`); sin llave ni punto, los ejemplos de
+  `data/demo/`. En la consola: `js/account.js` (entrar, usuario, contraseña) y `pages/shared.js`.
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
   `busy`, `countUp`, `stagger`, tooltips, tema); `js/palette.js` el buscador Ctrl+K;

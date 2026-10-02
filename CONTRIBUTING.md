@@ -80,6 +80,8 @@ flowchart TB
 | `app/__main__.py` | Arranque: argumentos `--host --port --data --no-browser`, abre el navegador |
 | `app/server.py` | `create_app(data_dir)`: todas las rutas (con resumen en español para el OpenAPI), autenticación, ficheros estáticos (`/` = `web/`, `/guia` = `docs/`, `/docs` = `web/api.html`) |
 | `app/storage.py` | Agentes en JSON (escritura atómica, versión incremental) y SQLite (logs y sesiones) |
+| `app/spaces.py` | Servidor con cuentas (`AGENTE_ACCOUNTS`): `Accounts` (usuarios y contraseñas), `Spaces` (un espacio privado por usuario, con su `Storage`, sus modelos y su diálogo), `Shares` (agentes compartidos con un enlace) y `ModelPool` (modelos entrenados compartidos entre agentes iguales). En el modo normal hay un único `Space`: la carpeta `data/` |
+| `app/users.py` | `python -m app.users`: lista de usuarios y cambiar la contraseña de uno (para el dueño del servidor) |
 | `app/agents.py` | `normalize_agent()` y compañía: todo lo que entra se limpia y completa aquí |
 | `app/dialog.py` | `DialogManager.detect()`: un turno de conversación; `EngineCache` |
 | `app/responses.py` | Formateo de valores y sustitución de `$param`, `#ctx.param` |
@@ -101,6 +103,8 @@ flowchart TB
 | `web/js/app.js` | Estado global, rutas por `#hash`, barra lateral (selector de agente, navegación), títulos de pestaña |
 | `web/js/ui.js` | `h()` (crea DOM sin `innerHTML`), iconos y logotipo, tema, modales, avisos, tooltips, chips, popovers y los componentes comunes (ver [Consola web](#consola-web)) |
 | `web/js/palette.js` | Buscador / paleta de comandos (Ctrl+K) |
+| `web/js/account.js` | Servidor con cuentas: la ventana obligatoria de entrar o crear la cuenta, el botón del usuario (pie de la barra lateral) y cambiar la contraseña |
+| `web/js/pages/shared.js` | Un agente compartido (`#/shared/<código>`): guardar una copia en tu cuenta o descargar el JSON |
 | `web/api.html`, `web/js/apidocs.js`, `web/css/api.css` | Referencia de la API (`/docs`): lee `/openapi.json` y pinta cada ruta con un formulario «Pruébalo» |
 | `web/css/app.css` | Colores (claro y oscuro), fuente, componentes y animaciones; lo usan la consola y `/docs` |
 | `web/favicon.svg`, `web/icons/`, `web/favicon.ico`, `web/manifest.webmanifest` | Logotipo, iconos y manifiesto para instalar la consola como aplicación |
@@ -349,7 +353,7 @@ Resumen:
 
 | Método y ruta | Uso |
 |---|---|
-| `GET /api/info` | Versión, idiomas, entidades del sistema, si hace falta token y si hay que reiniciar (`restartNeeded`) |
+| `GET /api/info` | Versión, idiomas, entidades del sistema, si hace falta token, si hay cuentas (`accounts`) y si hay que reiniciar (`restartNeeded`) |
 | `GET/POST /api/agents`, `POST /api/agents/import` | Listar, crear, importar (JSON o ZIP de Dialogflow) |
 | `GET/PATCH/DELETE /api/agents/{id}` | Leer, cambiar ajustes, borrar |
 | `GET /api/agents/{id}/export`, `POST .../duplicate` | Exportar JSON, duplicar |
@@ -367,11 +371,42 @@ Resumen:
 | `GET /api/agents/{id}/logs`, `POST .../logs/{lid}/review` | Revisión: listar y aprobar/asignar/ignorar |
 | `GET /api/agents/{id}/conversations[/{sid}]`, `GET .../stats` | Historial y estadísticas (`daily`: mensajes por día local, según `tz`) |
 | `POST /v2/projects/{id}/agent/sessions/{sid}:detectIntent` | Compatible con Dialogflow ES |
+| `POST /api/accounts`, `POST /api/login` | Con cuentas: crear la cuenta o entrar (`{user, password}` → `spaceKey`) |
+| `GET /api/account`, `POST /api/account/password` | Con cuentas: el usuario de la llave; cambiar la contraseña |
+| `GET/POST/DELETE /api/agents/{id}/share` | Con cuentas: ver si se comparte, compartir (o actualizar la copia) y dejar de compartir |
+| `GET /api/shared/{código}[/download]`, `POST .../save` | Con cuentas: ver un agente compartido o descargarlo (sin cuenta) y guardar una copia en la tuya |
 
 Seguridad: si existe `AGENTE_ADMIN_TOKEN`, las rutas de administración (agentes, intenciones,
 entidades, entrenamiento, revisión, historial) exigen `Authorization: Bearer <token>`. Las de
 conversación (`detect`, `sessions/.../reset`, `public`, `:detectIntent`) y `/api/info` no; si el
 agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key`.
+
+Con cuentas (`AGENTE_ACCOUNTS=1`, `python -m app --accounts`), cada usuario tiene su espacio: una
+carpeta `data/spaces/<id>/` con la misma forma que `data/` (sus agentes, su SQLite y sus ejemplos).
+Al crear la cuenta o entrar, el servidor devuelve la **llave** del espacio (`spaceKey`, 32 caracteres
+al azar); la consola la guarda en el navegador y la manda en la cabecera `X-Space-Key`, y sin ella
+las rutas de administración devuelven 401. El nombre de la carpeta es la huella de la llave
+(`sha256`, 16 cifras hexadecimales), que es también la parte pública de la dirección de sus agentes
+(`publicId`, «<id>.pizzeria»): con la llave se administra; con la dirección solo se conversa (widget,
+chat y API de conversación). Sin llave ni punto, las rutas de conversación usan `data/demo/`, los
+ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
+
+- `data/users/<usuario>.json`: la contraseña con **scrypt** (sal propia, n=2¹⁴) y la llave de su
+  espacio; el espacio guarda su usuario en `account.json`. El usuario no distingue mayúsculas (de 3 a
+  30 caracteres sin tildes) y la contraseña tiene al menos 6. Tras 8 intentos fallidos seguidos, ese
+  usuario queda bloqueado 5 minutos; si el usuario no existe también se calcula el hash, para no
+  delatar cuáles existen. No hay recuperación por correo: `python -m app.users password <usuario>`.
+- Compartir guarda una copia en `data/shared/<código>.json` (código de 8 caracteres al azar), **sin
+  la clave de API ni el webhook** (la URL y las cabeceras pueden llevar secretos, y una copia no debe
+  llamar al servidor del original); `shares.json` del espacio apunta qué código tiene cada agente, así
+  que volver a compartir actualiza la copia sin cambiar el enlace. Borrar el agente quita su enlace.
+- Límites: 200 cuentas nuevas por hora y 5.000 en total (`AGENTE_SPACES_PER_HOUR`,
+  `AGENTE_SPACES_MAX`), 50 agentes por cuenta, 30 enlaces por cuenta y 5 MB por agente compartido.
+- Memoria: se quedan cargados los 100 espacios usados más recientemente, y `ModelPool` comparte los
+  modelos entrenados entre agentes con el mismo contenido para el motor (intenciones, entidades,
+  idioma, zona horaria, normalización y corrección; no el nombre ni el umbral): los ejemplos sin tocar
+  se entrenan una vez para todos (el hotel tarda unos 7 s y ocupa unos 40 MB). «Reentrenar» entrena de
+  nuevo de todos modos (`EngineCache.get(fresh=True)`).
 
 ## Información del modelo (`insights.py`)
 
@@ -484,8 +519,8 @@ agente tiene `apiKey`, esas rutas de conversación exigen la cabecera `X-Api-Key
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 134 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor, logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado y el agente del hotel (`tests/test_hotel.py`) |
-| `python -m pytest tests/e2e -m e2e` | 27 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K y referencia de la API con «Pruébalo» |
+| `python -m pytest` | 146 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor, logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
+| `python -m pytest tests/e2e -m e2e` | 28 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente, tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

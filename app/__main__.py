@@ -1,4 +1,4 @@
-"""Arranque: python -m app [--host 127.0.0.1] [--port 8000] [--no-browser]"""
+"""Arranque: python -m app [--host 127.0.0.1] [--port 8000] [--no-browser] [--accounts]"""
 
 import argparse
 import json
@@ -33,9 +33,13 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
     parser.add_argument("--data", default=None, help="carpeta de datos (por defecto ./data)")
     parser.add_argument("--no-browser", action="store_true", help="no abrir el navegador")
+    parser.add_argument("--accounts", action="store_true",
+                        help="cuentas de usuario: cada uno entra con la suya y ve solo sus agentes (servidor público)")
     args = parser.parse_args()
     if args.data:
         os.environ["AGENTE_DATA_DIR"] = args.data
+    if args.accounts:
+        os.environ["AGENTE_ACCOUNTS"] = "1"
 
     local = args.host in ("0.0.0.0", "127.0.0.1", "localhost")
     url = f"http://{'localhost' if local else args.host}:{args.port}"
@@ -63,7 +67,8 @@ def main() -> None:
     from .server import create_app
 
     app = create_app()
-    print(f"\n  Lince {__version__} en marcha: {url}\n  Referencia de la API: {url}/docs\n  (Ctrl+C para parar)\n")
+    mode = "\n  Con cuentas de usuario: cada uno ve solo sus agentes." if app.state.accounts else ""
+    print(f"\n  Lince {__version__} en marcha: {url}{mode}\n  Referencia de la API: {url}/docs\n  (Ctrl+C para parar)\n")
     if not args.no_browser:
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")

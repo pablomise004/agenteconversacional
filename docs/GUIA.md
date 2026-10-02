@@ -38,6 +38,20 @@ Los ejemplos se pueden abrir, probar y cambiar como cualquier agente. Si borras 
 aparecer al reiniciar; puedes crear una copia nueva cuando quieras en *Agentes → Crear agente*,
 eligiendo la plantilla. Esa copia (o un duplicado) ya es tuya y sale arriba, en *Tus agentes*.
 
+### En la web de internet: tu cuenta y compartir
+
+En la versión de internet (<https://linceflow.duckdns.org>) cada uno entra con su **usuario y
+contraseña** y solo ve sus agentes. La primera vez pulsa **Crear cuenta**; después entras con tu
+usuario desde cualquier ordenador o móvil. Tu nombre sale abajo a la izquierda: ahí puedes cambiar
+la contraseña o salir.
+
+Para **pasarle un agente a alguien**: ábrelo, ve a **Ajustes → Compartir** y pulsa **Crear un
+enlace**. Quien lo abra puede guardar **una copia suya** en su cuenta (lo que cambie no toca el tuyo)
+o descargarla para Lince instalado en su ordenador (*Agentes → Importar*). Si cambias el agente,
+pulsa **Actualizar con los cambios** para que el enlace los lleve; **Dejar de compartir** lo quita.
+
+Con Lince instalado en tu ordenador no hay cuentas: todo es tuyo y se guarda en la carpeta `data`.
+
 ## Los conceptos
 
 ### Agente

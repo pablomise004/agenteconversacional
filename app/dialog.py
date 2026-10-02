@@ -29,33 +29,37 @@ SLOT_ESCAPE_CONFIDENCE = 0.8  # otra intención así de segura interrumpe la pre
 
 
 class EngineCache:
-    """Un modelo entrenado por agente; se reentrena solo cuando el agente cambia."""
+    """Un modelo entrenado por agente; se reentrena solo cuando el agente cambia. Con `pool`
+    (spaces.ModelPool), los agentes con el mismo contenido comparten modelo aunque estén en espacios
+    distintos; `fresh` lo entrena de nuevo de todos modos (botón «Reentrenar»)."""
 
-    def __init__(self, storage: Storage):
+    def __init__(self, storage: Storage, pool=None):
         self.storage = storage
+        self.pool = pool
         self._engines: dict[str, tuple[int, NLUEngine]] = {}
         self._locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
         self.meta: dict[str, dict] = {}
 
-    def get(self, agent_id: str) -> NLUEngine:
+    def get(self, agent_id: str, fresh: bool = False) -> NLUEngine:
         agent = self.storage.agent_ref(agent_id)
         version = agent.get("version", 0)
         cached = self._engines.get(agent_id)
-        if cached and cached[0] == version:
+        if cached and cached[0] == version and not fresh:
             return cached[1]
         with self._locks[agent_id]:
             agent = self.storage.agent_ref(agent_id)
             version = agent.get("version", 0)
             cached = self._engines.get(agent_id)
-            if cached and cached[0] == version:
+            if cached and cached[0] == version and not fresh:
                 return cached[1]
             t0 = time.time()
-            engine = NLUEngine(agent)
+            engine = self.pool.get(agent, fresh) if self.pool else NLUEngine(agent)
             self._engines[agent_id] = (version, engine)
             self.meta[agent_id] = {
                 "version": version,
                 "trainedAt": time.time(),
-                "ms": int((time.time() - t0) * 1000),
+                # lo que tardó de verdad, aunque el modelo ya estuviera entrenado por otro igual
+                "ms": getattr(engine, "build_ms", None) or int((time.time() - t0) * 1000),
                 "examples": len(engine.examples),
                 "intents": len(engine.intents),
             }

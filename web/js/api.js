@@ -13,6 +13,31 @@ export function setToken(token) {
   } catch (e) { /* sin almacenamiento local */ }
 }
 
+// Servidores con cuentas: la llave del espacio del usuario (la da el servidor al entrar) va en cada
+// petición. Se guarda en el navegador y también en memoria, por si el navegador no deja guardar.
+const SPACE_KEY = "agente.space";
+const USER_KEY = "agente.user";
+let memory = { key: null, user: null };
+
+export function getSpaceKey() {
+  if (memory.key !== null) return memory.key;
+  try { return localStorage.getItem(SPACE_KEY) || ""; } catch (e) { return ""; }
+}
+
+export function getUser() {
+  if (memory.user !== null) return memory.user;
+  try { return localStorage.getItem(USER_KEY) || ""; } catch (e) { return ""; }
+}
+
+/** Guarda la llave y el usuario al entrar; sin llave, sale de la cuenta. */
+export function setSpace(key, user = "") {
+  memory = { key: key || "", user: key ? user : "" };
+  try {
+    if (key) { localStorage.setItem(SPACE_KEY, key); localStorage.setItem(USER_KEY, user); }
+    else { localStorage.removeItem(SPACE_KEY); localStorage.removeItem(USER_KEY); }
+  } catch (e) { /* sin almacenamiento local: se queda en memoria hasta cerrar la pestaña */ }
+}
+
 export class ApiError extends Error {
   constructor(message, status) {
     super(message);
@@ -24,6 +49,8 @@ export async function request(method, path, body, { raw = false, headers = {} } 
   const opts = { method, headers: { ...headers } };
   const token = getToken();
   if (token) opts.headers.Authorization = "Bearer " + token;
+  const space = getSpaceKey();
+  if (space) opts.headers["X-Space-Key"] = space;
   if (body instanceof Blob || body instanceof ArrayBuffer) {
     opts.body = body;
     opts.headers["Content-Type"] = "application/octet-stream";
@@ -101,4 +128,15 @@ export const api = {
   explain: (id, text, contexts) => request("POST", A(id) + "/explain", { text, contexts }),
   evaluate: (id, folds = 5) => request("POST", A(id) + "/evaluate", { folds }),
   guide: () => request("GET", "/guia/GUIA.md", undefined, { raw: true }),
+
+  // servidores con cuentas
+  register: (user, password) => request("POST", "/api/accounts", { user, password }),
+  login: (user, password) => request("POST", "/api/login", { user, password }),
+  account: () => request("GET", "/api/account"),
+  changePassword: (current, next) => request("POST", "/api/account/password", { current, new: next }),
+  shareStatus: (id) => request("GET", A(id) + "/share"),
+  share: (id) => request("POST", A(id) + "/share"),
+  unshare: (id) => request("DELETE", A(id) + "/share"),
+  shared: (code) => request("GET", `/api/shared/${enc(code)}`),
+  saveShared: (code) => request("POST", `/api/shared/${enc(code)}/save`),
 };

@@ -42,6 +42,8 @@ function widgetPreview() {
 export async function render(el) {
   const agent = state.agent;
   const origin = location.origin;
+  // dirección pública: en un servidor con cuentas, «<espacio>.<agente>»; en uno normal, el id
+  const pub = agent.publicId || agent.id;
   const key = agent.settings.apiKey;
   const opts = { title: agent.name, color: "#4f46e5", welcome: true, position: "right", theme: "auto" };
   const widgetBox = h("div");
@@ -49,7 +51,7 @@ export async function render(el) {
   const themeHelp = h("div", { class: "hint" });
   const demo = h("a", { class: "btn", target: "_blank", rel: "noopener" }, icon("external"), "Abrir chat de demostración");
   const drawWidget = () => {
-    const attrs = [`src="${origin}/widget.js"`, `data-agent="${agent.id}"`, `data-title="${opts.title.replace(/"/g, "&quot;")}"`,
+    const attrs = [`src="${origin}/widget.js"`, `data-agent="${pub}"`, `data-title="${opts.title.replace(/"/g, "&quot;")}"`,
       `data-color="${opts.color}"`];
     if (opts.theme !== "light") attrs.push(`data-theme="${opts.theme}"`);
     if (!opts.welcome) attrs.push('data-welcome="false"');
@@ -59,7 +61,7 @@ export async function render(el) {
     preview.update(opts);
     themeHelp.textContent = THEME_HELP[opts.theme];
     // la demostración abre el chat con lo elegido aquí (y la clave, si el agente la pide)
-    demo.href = "/chat?" + new URLSearchParams({ agent: agent.id, title: opts.title, color: opts.color, theme: opts.theme,
+    demo.href = "/chat?" + new URLSearchParams({ agent: pub, title: opts.title, color: opts.color, theme: opts.theme,
       ...(key ? { key } : {}) });
   };
   const title = h("input", { type: "text", value: opts.title, "aria-label": "Título", oninput: () => { opts.title = title.value; drawWidget(); } });
@@ -78,10 +80,10 @@ export async function render(el) {
   media.addEventListener("change", follow);
 
   const detectBody = { sessionId: "usuario-123", text: "quiero una pizza barbacoa familiar" };
-  const curl = `curl -X POST ${origin}/api/agents/${agent.id}/detect \\
+  const curl = `curl -X POST ${origin}/api/agents/${pub}/detect \\
   -H "Content-Type: application/json" \\${key ? `\n  -H "X-Api-Key: ${key}" \\` : ""}
   -d '${JSON.stringify(detectBody)}'`;
-  const js = `const res = await fetch("${origin}/api/agents/${agent.id}/detect", {
+  const js = `const res = await fetch("${origin}/api/agents/${pub}/detect", {
   method: "POST",
   headers: { "Content-Type": "application/json"${key ? `, "X-Api-Key": "${key}"` : ""} },
   body: JSON.stringify({ sessionId: "usuario-123", text: "hola" }),
@@ -90,7 +92,7 @@ const data = await res.json();
 console.log(data.fulfillmentText, data.intent, data.parameters);`;
   const py = `import requests
 
-r = requests.post("${origin}/api/agents/${agent.id}/detect",
+r = requests.post("${origin}/api/agents/${pub}/detect",
                   json={"sessionId": "usuario-123", "text": "hola"}${key ? `,\n                  headers={"X-Api-Key": "${key}"}` : ""})
 data = r.json()
 print(data["fulfillmentText"], data["intent"], data["parameters"])`;
@@ -107,7 +109,7 @@ print(data["fulfillmentText"], data["intent"], data["parameters"])`;
   "outputContexts": [ { "name": "pedido", "lifespan": 5, "parameters": { … } } ],
   "endConversation": false
 }`;
-  const df = `POST ${origin}/v2/projects/${agent.id}/agent/sessions/usuario-123:detectIntent
+  const df = `POST ${origin}/v2/projects/${pub}/agent/sessions/usuario-123:detectIntent
 {
   "queryInput": { "text": { "text": "hola", "languageCode": "${agent.language}" } }
 }`;
@@ -176,7 +178,7 @@ app.listen(5000);`;
         h("div", { class: "section-title", style: { margin: "6px 0 0" } }, "Respuesta"),
         codeBlock(response, { lang: "JSON", json: true }),
         h("p", { class: "muted small", style: { margin: 0 } }, "Para lanzar un evento en vez de texto: ", h("code", null, '{"sessionId": "…", "event": "WELCOME"}'),
-          ". Para empezar de cero: ", h("code", null, `POST /api/agents/${agent.id}/sessions/{sessionId}/reset`), "."))),
+          ". Para empezar de cero: ", h("code", null, `POST /api/agents/${pub}/sessions/{sessionId}/reset`), "."))),
 
     h("div", { class: "card" },
       h("div", { class: "card-head" }, icon("layers"), h("h2", null, "Compatible con Dialogflow")),

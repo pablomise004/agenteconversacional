@@ -5,7 +5,7 @@ import {
   h, icon, logo, clear, toast, codeBlock, codeTabs, copyButton, dataTable, fold, initTooltips, syncThemeColor,
   themeButton, confirmDialog, busy,
 } from "./ui.js";
-import { getToken, setToken } from "./api.js";
+import { getToken, setToken, getSpaceKey } from "./api.js";
 import { renderMarkdown } from "./markdown.js";
 
 const METHODS = ["get", "post", "put", "patch", "delete"];
@@ -47,6 +47,7 @@ function setKey(v) {
 async function getJSON(url) {
   const headers = {};
   if (getToken()) headers.Authorization = "Bearer " + getToken();
+  if (getSpaceKey()) headers["X-Space-Key"] = getSpaceKey();
   const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
@@ -144,7 +145,7 @@ function pathNode(path, values = {}) {
 
 function authOf(op) {
   const sec = (op.security || []).flatMap((s) => Object.keys(s));
-  return { admin: sec.includes("tokenAdmin"), key: sec.includes("claveApi") };
+  return { admin: sec.includes("tokenAdmin"), key: sec.includes("claveApi"), space: sec.includes("cuenta") };
 }
 
 function operations() {
@@ -300,6 +301,7 @@ function tryPanel(o, mediaType, media) {
     const lines = [`curl -X ${o.method.toUpperCase()} "${location.origin}${url}"`];
     if (auth.admin && getToken()) lines.push(`-H "Authorization: Bearer ${getToken()}"`);
     if (auth.key && getKey()) lines.push(`-H "X-Api-Key: ${getKey()}"`);
+    if (auth.space && getSpaceKey()) lines.push(`-H "X-Space-Key: ${getSpaceKey()}"`);
     if (bodyArea && bodyArea.value.trim()) {
       let body = bodyArea.value.trim();
       try { body = JSON.stringify(JSON.parse(body)); } catch (e) { /* tal cual */ }
@@ -322,6 +324,7 @@ function tryPanel(o, mediaType, media) {
     const headers = {};
     if (getToken()) headers.Authorization = "Bearer " + getToken();
     if (getKey()) headers["X-Api-Key"] = getKey();
+    if (getSpaceKey()) headers["X-Space-Key"] = getSpaceKey();
     let body;
     if (bodyArea && bodyArea.value.trim()) {
       try { JSON.parse(bodyArea.value); } catch (e) { toast("El cuerpo no es JSON válido: " + e.message, "error"); bodyArea.focus(); return; }
@@ -354,11 +357,14 @@ function tryPanel(o, mediaType, media) {
   }
   drawUrl();
   const needsToken = auth.admin && serverInfo && serverInfo.adminTokenRequired && !getToken();
+  const needsAccount = auth.space && serverInfo && serverInfo.accounts && !getSpaceKey();
   return h("div", { class: "try" },
     h("h3", null, icon("play"), "Pruébalo", h("span", { class: "spacer" }),
       h("span", { class: "faint small", style: { fontWeight: 400 } }, "envía la petición a este servidor")),
     needsToken ? h("div", { class: "notice warning" }, icon("lock"),
       h("div", null, "Este servidor pide token de administración: escríbelo en ", h("a", { href: "#auth" }, "Autenticación"), ".")) : null,
+    needsAccount ? h("div", { class: "notice warning" }, icon("user"),
+      h("div", null, "Para probar esta ruta, ", h("a", { href: "/" }, "entra en la consola"), " con tu usuario: la llave de tu cuenta se usa también aquí.")) : null,
     urlBox, form,
     h("div", { class: "actions" }, sendBtn, copyButton(curl, { label: "Copiar como curl", cls: "btn sm" })),
     out);
@@ -373,6 +379,7 @@ function opCard(o) {
     methodPill(o.method), pathNode(o.path), h("span", { class: "ep-sum" }, o.op.summary || ""),
     auth.admin ? h("span", { class: "ep-auth", title: "Necesita el token de administración (si el servidor lo pide)" }, icon("lock")) : null,
     auth.key ? h("span", { class: "ep-auth", title: "Pide la clave de API del agente (si la tiene)" }, icon("key")) : null,
+    auth.space ? h("span", { class: "ep-auth", title: "Necesita haber entrado con tu usuario" }, icon("user")) : null,
     icon("down", "chev"));
   const card = h("article", { class: "ep", id: o.id }, head, h("div", { class: "ep-body", id: o.id + "-body" }, inner));
   card.toggle = (on = !card.classList.contains("open")) => {
