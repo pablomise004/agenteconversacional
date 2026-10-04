@@ -137,6 +137,10 @@ def test_novedades_de_la_version_actual(client):
     res = client.get("/guia/NOVEDADES.md")
     assert res.status_code == 200
     assert f"\n## {__version__} · " in res.text
+    # el navegador tiene que preguntar antes de reutilizar su copia: si no, tras actualizar el
+    # servidor seguía enseñando las notas (y el JS y el CSS) de antes
+    for path in ("/guia/NOVEDADES.md", "/js/app.js", "/css/app.css", "/"):
+        assert client.get(path).headers["cache-control"] == "no-cache", path
 
 
 def test_logotipo_igual_en_la_consola():

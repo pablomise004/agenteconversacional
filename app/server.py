@@ -287,6 +287,16 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
     )
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                        allow_headers=["*"])
+
+    @app.middleware("http")
+    async def revalidate(request: Request, call_next):
+        """La consola, la guía y las notas de la versión se sirven con «no-cache»: el navegador guarda
+        su copia pero pregunta antes de usarla (un 304 si no ha cambiado). Sin esto la reutilizaba a
+        ojo durante horas y, tras actualizar el servidor, enseñaba JS, CSS o novedades antiguos."""
+        response = await call_next(request)
+        if request.method == "GET" and "cache-control" not in response.headers:
+            response.headers["Cache-Control"] = "no-cache"
+        return response
     app.state.accounts = accounts
     app.state.spaces = spaces if accounts else None  # para las pruebas
 

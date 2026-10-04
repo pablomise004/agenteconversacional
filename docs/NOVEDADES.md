@@ -13,6 +13,8 @@ de versión (abajo a la izquierda, o arriba en la referencia de la API).
 - **Fórmulas**: los trozos de una misma fila van alineados por su línea base, como en TeX: en «Por
   dentro», la suma entre los dos iguales ya no queda a otra altura que el resto.
 - Al cambiar de página muy deprisa, una página que tardaba en cargar ya no se pinta encima de la nueva.
+- Tras actualizar el servidor, el navegador ya no enseña la consola ni estas notas de antes: comprueba
+  siempre si hay una versión nueva.
 
 ## 0.9.1 · 2 de octubre de 2026
 
