@@ -300,8 +300,18 @@ class Accounts:
         if len(password or "") < self.MIN_PASSWORD:
             raise AccountError(f"La contraseña tiene que tener al menos {self.MIN_PASSWORD} caracteres.")
 
-    def register(self, user: str, password: str) -> tuple[str, Space]:
-        """Crea la cuenta y su espacio (con los ejemplos). Devuelve la llave del espacio."""
+    def guest(self) -> tuple[str, Space]:
+        """Un espacio sin cuenta: solo lo abre la llave que se queda en ese navegador."""
+        try:
+            return self.spaces.create()
+        except SpaceLimit as e:
+            raise AccountError(str(e), 429) from None
+
+    def register(self, user: str, password: str, adopt_key: str = "") -> tuple[str, Space]:
+        """Crea la cuenta y su espacio (con los ejemplos). Devuelve la llave del espacio.
+
+        Con la llave de un espacio sin cuenta (adopt_key: quien entró sin cuenta y ahora la crea), la
+        cuenta se queda con ese espacio y con todo lo que tenga."""
         name = (user or "").strip()
         path = self._path(name)
         if path is None:
@@ -311,10 +321,14 @@ class Accounts:
         with self._lock:
             if path.exists():
                 raise AccountError("Ese usuario ya existe: elige otro, o entra con su contraseña.", 409)
-            try:
-                key, space = self.spaces.create()
-            except SpaceLimit as e:
-                raise AccountError(str(e), 429) from None
+            guest = self.spaces.by_key(adopt_key) if adopt_key else None
+            if guest is not None and not self.user_of(guest):
+                key, space = adopt_key, guest
+            else:
+                try:
+                    key, space = self.spaces.create()
+                except SpaceLimit as e:
+                    raise AccountError(str(e), 429) from None
             salt = secrets.token_bytes(16)
             self._write(path, {"user": name, "salt": salt.hex(), "hash": self._hash(password, salt),
                                "space": key, "created": time.time()})

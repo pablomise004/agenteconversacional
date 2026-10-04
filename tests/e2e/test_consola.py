@@ -573,3 +573,37 @@ def test_cuentas_compartir_y_guardar_una_copia(accounts_url, browser):
     assert errors == []
     ana_ctx.close()
     beto_ctx.close()
+
+
+def test_entrar_sin_cuenta_y_crearla_despues(accounts_url, browser):
+    """Sin cuenta: se entra con el aviso de que los agentes solo se ven en este navegador; después se
+    puede crear la cuenta y se queda con lo que había."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900}, locale="es-ES")
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(accounts_url + "/")
+    page.wait_for_selector(".modal .guest-note")
+    assert "solo se verán en este navegador" in page.locator(".modal .guest-note").inner_text()
+    page.locator(".modal .modal-foot .btn", has_text="Entrar sin cuenta").click()
+    page.wait_for_selector(".modal", state="detached")
+    page.wait_for_selector(".agent-group[data-group='mine'] .empty")
+    assert page.locator(".user-btn").inner_text().strip() == "Sin cuenta"
+    page.locator("button", has_text="Crear agente").first.click()
+    page.locator(".modal input").first.fill("Panadería e2e")
+    page.locator(".modal button.primary").click()
+    page.wait_for_url("**/intents")
+    page.goto(accounts_url + "/#/agents")  # sigue dentro: la llave está en este navegador
+    page.locator(".agent-card", has_text="Panadería e2e").wait_for()
+    page.locator(".user-btn").click()
+    assert "solo se verán en este navegador" in page.locator(".popover").inner_text()
+    page.locator(".popover .opt", has_text="Crear una cuenta").click()
+    inputs = page.locator(".modal input")
+    inputs.nth(0).fill("carla-e2e")
+    inputs.nth(1).fill("clave-larga")
+    inputs.nth(2).fill("clave-larga")
+    page.locator(".modal .modal-foot .btn.primary").click()
+    page.wait_for_selector(".user-btn:has-text('carla-e2e')")  # la consola se recarga ya con la cuenta
+    page.locator(".agent-card", has_text="Panadería e2e").wait_for()
+    assert errors == []
+    ctx.close()

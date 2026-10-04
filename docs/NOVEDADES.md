@@ -3,6 +3,17 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.10.0 · 2 de octubre de 2026
+
+**Entrar sin cuenta y fórmulas bien alineadas.**
+
+- **Entrar sin cuenta** en la web pública, para probar Lince sin registrarse. Tus agentes solo se ven
+  en ese navegador: para usarlos en otro ordenador, expórtalos e impórtalos allí. Si luego creas una
+  cuenta (abajo a la izquierda, *Sin cuenta → Crear una cuenta*), se pasan a ella sin perder nada.
+- **Fórmulas**: los trozos de una misma fila van alineados por su línea base, como en TeX: en «Por
+  dentro», la suma entre los dos iguales ya no queda a otra altura que el resto.
+- Al cambiar de página muy deprisa, una página que tardaba en cargar ya no se pinta encima de la nueva.
+
 ## 0.9.1 · 2 de octubre de 2026
 
 **¿Y el teorema de Bayes?**

@@ -638,6 +638,10 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 /* cuentas: el usuario en el pie de la barra lateral y la ventana de entrar */
 .user-btn { min-width: 0; max-width: 150px; gap: 7px; padding: 0 9px 0 5px; }
 .user-btn .ellipsis { min-width: 0; }
+/* sin cuenta: avatar gris y una nota de dónde están sus agentes */
+.avatar.guest-av { --av1: #a1a1aa; --av2: #71717a; }
+.avatar.guest-av svg.icon { width: 13px; height: 13px; }
+.pop-note { margin: 0; padding: 0 10px 8px; max-width: 290px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
 .modal-body .logo { width: 48px; height: 48px; flex: none; border-radius: 13px; }
 /* compartir: el enlace en Ajustes y la página del agente compartido */
 .share-row { gap: 8px; }
@@ -1162,8 +1166,10 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 .in-list { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .in-steps { padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
 .in-steps.trace { margin: 0; }
+/* las fórmulas de una fila, alineadas por la línea base (como en TeX): centradas, una con subíndice o
+   con fracción quedaría más alta o más baja que su vecina («= 0,883» descolocado) */
 .formula { --scroll-bg: var(--panel-2); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
-  overflow-x: auto; overflow-y: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 44px;
+  overflow-x: auto; overflow-y: hidden; display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 44px;
   /* «safe»: si no cabe, a la izquierda (centrada, lo que sobrara por la izquierda no se podría ver) */
   justify-content: center; justify-content: safe center; }
 .formula.scrolls { justify-content: flex-start; }  /* ni encogida cabe (math.js:fitFormulas) */

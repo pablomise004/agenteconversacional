@@ -46,6 +46,12 @@ contraseña** y solo ve sus agentes. La primera vez pulsa **Crear cuenta**; desp
 usuario desde cualquier ordenador o móvil. Tu nombre sale abajo a la izquierda: ahí puedes cambiar
 la contraseña o salir.
 
+Si solo quieres probarlo, pulsa **Entrar sin cuenta**. Funciona igual, pero tus agentes **solo se ven
+en ese navegador**: si borras sus datos o entras desde otro ordenador, no los verás. Para llevarte un
+agente, expórtalo (*Ajustes → Exportar*) e impórtalo en el otro sitio (*Agentes → Importar*). Y si
+luego te decides, abajo a la izquierda, en **Sin cuenta → Crear una cuenta y guardarlos**, la cuenta
+se queda con todo lo que tenías.
+
 Para **pasarle un agente a alguien**: ábrelo, ve a **Ajustes → Compartir** y pulsa **Crear un
 enlace**. Quien lo abra puede guardar **una copia suya** en su cuenta (lo que cambie no toca el tuyo)
 o descargarla para Lince instalado en su ordenador (*Agentes → Importar*). Si cambias el agente,

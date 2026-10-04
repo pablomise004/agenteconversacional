@@ -669,7 +669,7 @@ export async function render(el) {
     h("div", { class: "bayes" },
       h("div", { class: "bayes-head" }, h("span", { class: "bayes-icon" }, icon("scale")),
         h("div", null, h("h3", null, "¿Y el teorema de Bayes?"),
-          h("p", null, "El clasificador de texto «de libro» es ", h("b", null, "Naive Bayes"), ", el de los primeros filtros de spam. Lince no lo usa, pero se parecen más de lo que parece: tienen la misma forma y lo que cambia es de dónde salen los pesos."))),
+          h("p", null, "El clasificador de texto «de libro» es ", h("b", null, "Naive Bayes"), ", el de los primeros filtros de spam. Lince no lo usa, aunque los dos tienen mucho en común: la misma forma, y solo cambia de dónde salen los pesos."))),
       h("div", { class: "bayes-duel" },
         h("div", { class: "duel nb" },
           h("div", { class: "duel-head" }, h("b", null, "Naive Bayes"), h("span", { class: "duel-tag" }, "cuenta")),

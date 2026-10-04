@@ -374,7 +374,8 @@ Resumen:
 | `GET /api/agents/{id}/logs`, `POST .../logs/{lid}/review` | Revisión: listar y aprobar/asignar/ignorar |
 | `GET /api/agents/{id}/conversations[/{sid}]`, `GET .../stats` | Historial y estadísticas (`daily`: mensajes por día local, según `tz`) |
 | `POST /v2/projects/{id}/agent/sessions/{sid}:detectIntent` | Compatible con Dialogflow ES |
-| `POST /api/accounts`, `POST /api/login` | Con cuentas: crear la cuenta o entrar (`{user, password}` → `spaceKey`) |
+| `POST /api/accounts`, `POST /api/login` | Con cuentas: crear la cuenta o entrar (`{user, password}` → `spaceKey`). Si al crearla se manda la llave de un espacio sin cuenta (`X-Space-Key`), la cuenta se queda con ese espacio |
+| `POST /api/guest` | Con cuentas: entrar sin cuenta (un espacio sin usuario, con los ejemplos; su llave solo la tiene ese navegador) |
 | `GET /api/account`, `POST /api/account/password` | Con cuentas: el usuario de la llave; cambiar la contraseña |
 | `GET/POST/DELETE /api/agents/{id}/share` | Con cuentas: ver si se comparte, compartir (o actualizar la copia) y dejar de compartir |
 | `GET /api/shared/{código}[/download]`, `POST .../save` | Con cuentas: ver un agente compartido o descargarlo (sin cuenta) y guardar una copia en la tuya |
@@ -394,6 +395,10 @@ las rutas de administración devuelven 401. El nombre de la carpeta es la huella
 chat y API de conversación). Sin llave ni punto, las rutas de conversación usan `data/demo/`, los
 ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
 
+- **Sin cuenta** (`POST /api/guest`): un espacio como los demás pero sin `account.json`, con el mismo
+  límite de espacios por hora. Su llave solo la tiene el navegador que lo creó (no hay usuario con el
+  que recuperarla). Si después se crea una cuenta mandando esa llave, `Accounts.register` adopta el
+  espacio en vez de crear otro; la llave de un espacio que ya tiene usuario no se puede adoptar.
 - `data/users/<usuario>.json`: la contraseña con **scrypt** (sal propia, n=2¹⁴) y la llave de su
   espacio; el espacio guarda su usuario en `account.json`. El usuario no distingue mayúsculas (de 3 a
   30 caracteres sin tildes) y la contraseña tiene al menos 6. Tras 8 intentos fallidos seguidos, ese
@@ -539,8 +544,8 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 149 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
-| `python -m pytest tests/e2e -m e2e` | 32 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
+| `python -m pytest` | 150 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
+| `python -m pytest tests/e2e -m e2e` | 33 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

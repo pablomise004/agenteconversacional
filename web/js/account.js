@@ -1,14 +1,20 @@
-// Cuentas (servidores con AGENTE_ACCOUNTS): entrar o crear la cuenta, el botón del usuario de la
-// barra lateral y cambiar la contraseña. La llave del espacio la guarda api.js y va en cada petición.
+// Cuentas (servidores con AGENTE_ACCOUNTS): entrar, crear la cuenta o entrar sin cuenta, el botón del
+// usuario de la barra lateral y cambiar la contraseña. La llave del espacio la guarda api.js y va en
+// cada petición. Sin cuenta, la llave solo está en este navegador (getUser() vacío).
 import { api, getUser, setSpace } from "./api.js";
-import { h, icon, logo, avatar, modal, segmented, toast, errorToast, busy, popover, closePopover } from "./ui.js";
+import { h, icon, logo, avatar, modal, segmented, toast, errorToast, busy, popover, closePopover, confirmDialog } from "./ui.js";
 
 const field = (label, input, hint) => h("label", { class: "field" }, label, input, hint ? h("span", { class: "hint" }, hint) : null);
+const GUEST_NOTE = "Tus agentes solo se verán en este navegador. Para usarlos en otro ordenador, expórtalos e impórtalos allí; o crea una cuenta más tarde y se pasarán a ella.";
 
-/** Ventana para entrar o crear la cuenta; no se cierra hasta que se entra. */
-export async function signIn() {
-  let mode = "login";
-  let submitBtn = null;
+/**
+ * Ventana para entrar, crear la cuenta o entrar sin cuenta; no se cierra hasta que se entra.
+ * Con { upgrade: true } (quien entró sin cuenta y ahora la crea) solo crea la cuenta y se puede
+ * cerrar: el servidor le pasa el espacio que ya tenía, con todos sus agentes.
+ */
+export async function signIn({ upgrade = false } = {}) {
+  let mode = upgrade ? "register" : "login";
+  let submitBtn = null, guestBtn = null;
   const user = h("input", { type: "text", autocomplete: "username", maxlength: "30", spellcheck: "false",
     autocapitalize: "none", placeholder: "Por ejemplo: lucia.garcia" });
   const pass = h("input", { type: "password", autocomplete: "current-password" });
@@ -27,7 +33,7 @@ export async function signIn() {
     pass.autocomplete = reg ? "new-password" : "current-password";
     if (submitBtn) submitBtn.textContent = reg ? "Crear cuenta" : "Entrar";
   };
-  const tabs = segmented({ items: [{ key: "login", label: "Entrar" }, { key: "register", label: "Crear cuenta" }],
+  const tabs = upgrade ? null : segmented({ items: [{ key: "login", label: "Entrar" }, { key: "register", label: "Crear cuenta" }],
     active: mode, label: "Entrar o crear una cuenta", onChange: (k) => { mode = k; paint(); user.focus(); } });
 
   const submit = () => busy(submitBtn, async () => {
@@ -45,25 +51,50 @@ export async function signIn() {
       return false;
     }
   });
+  // sin cuenta: un espacio cuya llave solo se queda en este navegador
+  const enterAsGuest = () => busy(guestBtn, async () => {
+    error.hidden = true;
+    try {
+      const res = await api.guest();
+      setSpace(res.spaceKey, "");
+      return true;
+    } catch (e) {
+      show(e.message);
+      return false;
+    }
+  });
   for (const inp of [user, pass, pass2]) {
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitBtn.click(); } });
   }
 
-  await modal({
-    title: "Entra en Lince",
-    closable: false,
+  const result = await modal({
+    title: upgrade ? "Crea tu cuenta" : "Entra en Lince",
+    closable: upgrade,
     body: [
       h("div", { class: "row", style: { gap: "14px" } }, logo("logo signin-logo"),
-        h("p", { class: "muted", style: { margin: 0 } }, "Cada uno tiene su cuenta: solo tú ves tus agentes, y los compartes con un enlace cuando quieras.")),
+        h("p", { class: "muted", style: { margin: 0 } }, upgrade
+          ? "Tus agentes se pasan a la cuenta: podrás abrirlos desde cualquier ordenador con tu usuario y tu contraseña."
+          : "Cada uno tiene su cuenta: solo tú ves tus agentes, y los compartes con un enlace cuando quieras.")),
       tabs,
       h("label", { class: "field" }, "Usuario", user, userHint),
       field("Contraseña", pass),
       repeat, keep, error,
+      upgrade ? null : h("div", { class: "notice info guest-note" }, icon("info"),
+        h("div", null, h("b", null, "¿Solo quieres probarlo?"), " Entra sin cuenta. ", GUEST_NOTE)),
     ],
-    actions: [{ label: "Entrar", primary: true, validate: submit, value: true }],
-    onOpen: (box) => { submitBtn = box.querySelector(".modal-foot .btn.primary"); paint(); },
+    actions: [
+      upgrade ? { label: "Cancelar", value: null } : { label: "Entrar sin cuenta", value: "guest", validate: enterAsGuest },
+      { label: upgrade ? "Crear cuenta" : "Entrar", primary: true, validate: submit, value: true },
+    ],
+    onOpen: (box) => {
+      [guestBtn, submitBtn] = box.querySelectorAll(".modal-foot .btn");
+      paint();
+    },
   });
-  toast(mode === "register" ? `Cuenta creada. ¡Hola, ${getUser()}!` : `¡Hola, ${getUser()}!`, "success");
+  if (!result) return false;
+  if (result === "guest") toast("Has entrado sin cuenta: tus agentes se guardan en este navegador.", "success", 4500);
+  else toast(mode === "register" ? `Cuenta creada. ¡Hola, ${getUser()}!` : `¡Hola, ${getUser()}!`, "success");
+  return true;
 }
 
 async function changePassword() {
@@ -100,14 +131,35 @@ function signOut() {
   location.reload();
 }
 
-/** Botón con el usuario (barra lateral): cambiar la contraseña o salir. */
+/** Botón con el usuario (barra lateral): cambiar la contraseña o salir. Sin cuenta, «Sin cuenta». */
 export function userButton() {
   const name = getUser();
+  if (!name) return guestButton();
   const btn = h("button", { class: "btn ghost sm user-btn", type: "button", title: "Tu cuenta", "aria-haspopup": "menu",
     onclick: () => popover(btn, h("div", { class: "agent-menu" },
       h("div", { class: "pop-title" }, "Has entrado como ", h("b", null, name)),
       h("button", { class: "opt", type: "button", onclick: () => { closePopover(); changePassword().catch(errorToast); } }, icon("key"), "Cambiar la contraseña…"),
       h("button", { class: "opt", type: "button", onclick: () => { closePopover(); signOut(); } }, icon("logout"), "Salir"))) },
   avatar(name, "sm"), h("span", { class: "ellipsis" }, name));
+  return btn;
+}
+
+// sin cuenta: recuerda dónde están los agentes, permite crear la cuenta sin perderlos y avisa al salir
+function guestButton() {
+  const btn = h("button", { class: "btn ghost sm user-btn", type: "button", title: "Estás sin cuenta", "aria-haspopup": "menu",
+    onclick: () => popover(btn, h("div", { class: "agent-menu" },
+      h("div", { class: "pop-title" }, h("b", null, "Estás sin cuenta")),
+      h("p", { class: "pop-note" }, GUEST_NOTE),
+      h("button", { class: "opt", type: "button", onclick: async () => {
+        closePopover();
+        try { if (await signIn({ upgrade: true })) location.reload(); } catch (e) { errorToast(e); }
+      } }, icon("user"), "Crear una cuenta y guardarlos…"),
+      h("button", { class: "opt", type: "button", onclick: async () => {
+        closePopover();
+        const ok = await confirmDialog("Sin cuenta, al salir ya no podrás volver a abrir estos agentes. Si quieres conservarlos, crea una cuenta o expórtalos antes (Ajustes → Exportar).",
+          { title: "¿Salir sin cuenta?", okLabel: "Salir", danger: true });
+        if (ok) signOut();
+      } }, icon("logout"), "Salir…"))) },
+  h("span", { class: "avatar sm guest-av" }, icon("user")), h("span", { class: "ellipsis" }, "Sin cuenta"));
   return btn;
 }

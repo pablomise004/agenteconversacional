@@ -424,14 +424,28 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
             return HTTPException(e.status, str(e))
 
         @app.post("/api/accounts", tags=["cuentas"], status_code=201, summary="Crear una cuenta")
-        def register(req: Credentials):
+        def register(req: Credentials, request: Request):
             """Crea el usuario y su espacio privado, con los agentes de ejemplo. Devuelve la llave del
-            espacio (`spaceKey`): mándala en la cabecera `X-Space-Key` en las demás peticiones."""
+            espacio (`spaceKey`): mándala en la cabecera `X-Space-Key` en las demás peticiones.
+
+            Si la petición lleva la llave de un espacio sin cuenta (`X-Space-Key`, de quien entró sin
+            cuenta), la cuenta se queda con ese espacio: no se pierde nada de lo que tenía."""
             try:
-                key, sp = users.register(req.user, req.password)
+                key, sp = users.register(req.user, req.password, request.headers.get("x-space-key", ""))
             except AccountError as e:
                 raise account_error(e) from None
             return {"spaceKey": key, "user": req.user.strip(), "spaceId": sp.public_id}
+
+        @app.post("/api/guest", tags=["cuentas"], status_code=201, summary="Entrar sin cuenta")
+        def guest():
+            """Un espacio sin usuario ni contraseña, con los agentes de ejemplo. Su llave (`spaceKey`) se
+            queda en ese navegador: desde otro no se puede abrir (para llevarse un agente, se exporta y se
+            importa). Si luego se crea una cuenta con esa llave, la cuenta se queda con el espacio."""
+            try:
+                key, sp = users.guest()
+            except AccountError as e:
+                raise account_error(e) from None
+            return {"spaceKey": key, "user": "", "spaceId": sp.public_id, "guest": True}
 
         @app.post("/api/login", tags=["cuentas"], summary="Entrar")
         def login(req: Credentials):
@@ -445,8 +459,10 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
 
         @app.get("/api/account", tags=["cuentas"], dependencies=ADMIN, summary="Mi cuenta")
         def account(sp: Space = SPACE):
-            """El usuario dueño de la llave y cuántos agentes tiene (sirve para comprobar que la llave vale)."""
-            return {"user": users.user_of(sp), "spaceId": sp.public_id, "agents": len(sp.storage.list_agents())}
+            """El usuario dueño de la llave y cuántos agentes tiene (sirve para comprobar que la llave vale).
+            `guest` es `true` si es un espacio sin cuenta."""
+            user = users.user_of(sp)
+            return {"user": user, "guest": not user, "spaceId": sp.public_id, "agents": len(sp.storage.list_agents())}
 
         @app.post("/api/account/password", tags=["cuentas"], dependencies=ADMIN, summary="Cambiar la contraseña")
         def change_password(req: PasswordChange, sp: Space = SPACE):

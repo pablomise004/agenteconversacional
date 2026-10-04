@@ -131,6 +131,7 @@ export const api = {
 
   // servidores con cuentas
   register: (user, password) => request("POST", "/api/accounts", { user, password }),
+  guest: () => request("POST", "/api/guest"),
   login: (user, password) => request("POST", "/api/login", { user, password }),
   account: () => request("GET", "/api/account"),
   changePassword: (current, next) => request("POST", "/api/account/password", { current, new: next }),

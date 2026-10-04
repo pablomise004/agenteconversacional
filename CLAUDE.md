@@ -41,8 +41,8 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 149 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 32 pruebas en navegador real
+python -m pytest                      # 150 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 33 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
@@ -70,7 +70,9 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   API ni webhook) y `ModelPool` (modelos compartidos entre agentes iguales). Sin cuentas hay un único
   `Space` (la carpeta `data/`): la instalación local funciona como siempre. Las rutas de conversación
   aceptan la dirección pública «<espacio>.<agente>» (`publicId`); sin llave ni punto, los ejemplos de
-  `data/demo/`. En la consola: `js/account.js` (entrar, usuario, contraseña) y `pages/shared.js`.
+  `data/demo/`. **Sin cuenta** (`POST /api/guest`): un espacio sin usuario cuya llave solo está en ese
+  navegador; si luego crea la cuenta con esa llave, la cuenta se queda con el espacio. En la consola:
+  `js/account.js` (entrar, crear la cuenta, entrar sin cuenta, contraseña) y `pages/shared.js`.
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
   `busy`, `countUp`, `stagger`, `tocNav` (índice de Guía y «Por dentro»), `selectMenu` (en lugar de

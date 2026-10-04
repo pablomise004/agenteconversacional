@@ -24,7 +24,7 @@ import * as sharedPage from "./pages/shared.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.9.1";
+export const APP_VERSION = "0.10.0";
 
 export const state = {
   info: null,
@@ -310,7 +310,12 @@ function placePill(pill) {
 }
 
 // ------------------------------------------------------------------ rutas
+// cada navegación lleva su número: si mientras espera (el agente, la página) empieza otra, lo que
+// llegue tarde de la vieja se descarta en vez de pintar encima de la nueva
+let routeSeq = 0;
+
 async function route() {
+  const seq = ++routeSeq;
   const hash = location.hash || "";
   if (ignoreHash) { ignoreHash = false; return; }
   if (current && current.canLeave && !current.canLeave() && hash !== currentHash) {
@@ -340,14 +345,18 @@ async function route() {
   if (path.startsWith("a/")) {
     const id = params[0];
     if (!state.agent || state.agent.id !== id) {
+      let agent;
       try {
-        state.agent = await api.agent(id);
+        agent = await api.agent(id);
       } catch (e) {
+        if (seq !== routeSeq) return;
         errorToast(e);
         state.agent = null;
         navigate("#/agents");
         return;
       }
+      if (seq !== routeSeq) return;
+      state.agent = agent;
       simulator.reset(true);
       refreshPending();
     }
@@ -376,7 +385,9 @@ async function route() {
   });
   obs.observe(host, { childList: true });
   try {
-    current = (await mod.render(host, params, query)) || null;
+    const page = (await mod.render(host, params, query)) || null;
+    if (seq === routeSeq) current = page;
+    else if (page && page.destroy) page.destroy();  // ya se ha ido a otra página
   } catch (e) {
     console.error(e);
     host.append(h("div", { class: "page" }, h("div", { class: "notice danger" }, icon("alert"), "Error al cargar la página: " + e.message)));

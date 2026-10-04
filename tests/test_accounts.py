@@ -49,6 +49,29 @@ def test_crear_cuenta_y_entrar(client, tmp_path):
     assert CLAVE not in guardado and "hash" in json.loads(guardado)
 
 
+def test_entrar_sin_cuenta_y_crearla_despues(client):
+    """Sin cuenta: un espacio con los ejemplos que solo abre la llave de ese navegador. Si luego se
+    crea la cuenta desde él, la cuenta se queda con ese espacio y con lo que tenga."""
+    r = client.post("/api/guest")
+    assert r.status_code == 201 and r.json()["guest"] is True and r.json()["user"] == ""
+    h = {"X-Space-Key": r.json()["spaceKey"]}
+    assert client.get("/api/account", headers=h).json() == {"user": "", "guest": True, "spaceId": r.json()["spaceId"], "agents": 2}
+    client.post("/api/agents", json={"name": "Pastelería"}, headers=h)
+    # otro invitado no ve nada de él
+    otro = {"X-Space-Key": client.post("/api/guest").json()["spaceKey"]}
+    assert "pasteleria" not in [a["id"] for a in client.get("/api/agents", headers=otro).json()]
+    # crea la cuenta desde el invitado: misma llave, mismos agentes
+    cuenta_nueva = client.post("/api/accounts", json={"user": "carla", "password": CLAVE}, headers=h)
+    assert cuenta_nueva.status_code == 201 and cuenta_nueva.json()["spaceKey"] == h["X-Space-Key"]
+    assert client.get("/api/account", headers=h).json()["user"] == "carla"
+    assert client.post("/api/login", json={"user": "carla", "password": CLAVE}).json()["spaceKey"] == h["X-Space-Key"]
+    assert "pasteleria" in [a["id"] for a in client.get("/api/agents", headers=h).json()]
+    # la llave de una cuenta no se puede «adoptar» para otra: la nueva tiene su propio espacio
+    otra = client.post("/api/accounts", json={"user": "dani", "password": CLAVE}, headers=h).json()
+    assert otra["spaceKey"] != h["X-Space-Key"]
+    assert client.get("/api/account", headers=h).json()["user"] == "carla"
+
+
 def test_cada_uno_ve_solo_lo_suyo(client):
     ana, beto = cuenta(client, "ana"), cuenta(client, "beto")
     client.post("/api/agents", json={"name": "Pastelería"}, headers=ana)
