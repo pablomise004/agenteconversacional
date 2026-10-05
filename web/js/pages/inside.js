@@ -676,7 +676,7 @@ export async function render(el) {
           formula("P(k \\mid \\text{frase}) \\propto P(k) \\prod_f P(f \\mid k)^{n_f}"),
           h("div", { class: "duel-step" }, icon("down"), "con logaritmos, el producto se vuelve una suma"),
           formula("z_k = \\hl{1}{\\ln P(k)} + \\sum_f \\hl{3}{n_f}\\, \\hl{2}{\\ln P(f \\mid k)}"),
-          h("p", null, "Los pesos se ", h("b", null, "cuentan"), ": cuántas veces sale cada rasgo en las frases de cada intención, más una pizca (", tex("\\alpha = 1"), ") para lo que no ha visto nunca. Lo de «ingenuo» es que da por hecho que los rasgos son independientes."),
+          h("p", null, "Los pesos se ", h("b", null, "cuentan"), ": cuántas veces sale cada rasgo en las frases de cada intención, más un pequeño suavizado (", tex("\\alpha = 1"), ") para lo que no ha visto nunca. Lo de «ingenuo» es que da por hecho que los rasgos son independientes."),
           formula("P(f \\mid k) = \\frac{\\op{cuenta}(f, k) + \\alpha}{\\op{total}(k) + \\alpha\\, V}")),
         h("div", { class: "duel lr" },
           h("div", { class: "duel-head" }, h("b", null, "Regresión logística"), h("span", { class: "duel-tag" }, "ajusta")),

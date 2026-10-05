@@ -203,7 +203,7 @@ export async function render(el, [, intentId]) {
         h("p", { class: "muted small", style: { margin: "0 0 10px" } },
           intent.isFallback
             ? "En el fallback, las frases son ejemplos negativos: cosas que NO debe entender como otra intención."
-            : "Pon al menos 10 formas distintas de decirlo. Selecciona palabras con el ratón para marcarlas como entidades; doble clic para editar."),
+            : "Pon al menos 10 formas distintas de decirlo. Para marcar una entidad, selecciona la palabra con el ratón o haz doble clic en ella; para cambiar el texto, usa el lápiz."),
         h("div", { class: "phrase-add" }, input, h("button", { class: "btn", type: "button", onclick: add }, icon("plus"), "Añadir")),
         phrasesBox));
   }
@@ -250,7 +250,6 @@ export async function render(el, [, intentId]) {
         systemEntities: state.info.systemEntities,
         colorOf,
         onChange: (anns) => { p.annotations = anns; syncParams(); touch(); },
-        onEditText: startEdit,
       });
       row.append(h("span", { class: "quote" }, "“"), phraseEl,
         h("div", { class: "actions row", style: { gap: "2px" } },

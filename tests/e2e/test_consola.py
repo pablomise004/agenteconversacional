@@ -116,8 +116,9 @@ def select_text(page, locator, word):
             if (i >= 0) {
                 const r = document.createRange();
                 r.setStart(n, i); r.setEnd(n, i + word.length);
+                el.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, button: 0}));
                 const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-                el.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+                document.dispatchEvent(new MouseEvent('mouseup', {bubbles: true, button: 0}));
                 return;
             }
         }
@@ -607,3 +608,45 @@ def test_entrar_sin_cuenta_y_crearla_despues(accounts_url, browser):
     page.locator(".agent-card", has_text="Panadería e2e").wait_for()
     assert errors == []
     ctx.close()
+
+
+def test_anotar_con_doble_clic_y_soltando_fuera(base_url, page):
+    """Anotar una entidad con el ratón: con doble clic en la palabra (antes ponía la frase en modo
+    editar y la marca no se veía hasta guardar) y arrastrando hasta soltar fuera de la frase (antes no
+    salía el menú)."""
+    iid = next(i["id"] for i in api(base_url, "/api/agents/pizzeria")["intents"] if i["name"] == "pedido.pizza")
+    page.goto(f"{base_url}/#/a/pizzeria/intents/{iid}")
+    page.wait_for_selector(".phrase-row .phrase")
+    word_box = """([phrase, word]) => {
+        const el = [...document.querySelectorAll('.phrase-row .phrase')].find((r) => r.textContent === phrase);
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let n;
+        while ((n = walker.nextNode())) {
+            const i = n.nodeValue.indexOf(word);
+            if (i >= 0) {
+                const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + word.length);
+                const b = r.getBoundingClientRect();
+                return { x1: b.left + 1, x2: b.right - 1, y: b.top + b.height / 2, right: el.getBoundingClientRect().right };
+            }
+        }
+    }"""
+    marks = lambda phrase: page.evaluate("""(phrase) => [...[...document.querySelectorAll('.phrase-row .phrase')]
+        .find((r) => r.textContent === phrase).querySelectorAll('.ann')].map((s) => s.textContent)""", phrase)
+
+    b = page.evaluate(word_box, ["quiero hacer un pedido", "pedido"])
+    page.mouse.dblclick((b["x1"] + b["x2"]) / 2, b["y"])
+    page.locator(".popover input").fill("@pizza")
+    page.keyboard.press("Enter")
+    assert page.locator(".phrase-edit").count() == 0  # no entra en modo editar el texto
+    assert marks("quiero hacer un pedido") == ["pedido"]
+
+    b = page.evaluate(word_box, ["quiero pedir una pizza", "pizza"])
+    page.mouse.move(b["x1"], b["y"])
+    page.mouse.down()
+    page.mouse.move(b["right"] + 80, b["y"] + 30, steps=8)  # se pasa del final de la frase
+    page.mouse.up()
+    page.locator(".popover input").fill("@pizza")
+    page.keyboard.press("Enter")
+    assert marks("quiero pedir una pizza") == ["pizza"]
+    assert page.locator(".dirty-pill").is_visible()
+    assert page.errors == []

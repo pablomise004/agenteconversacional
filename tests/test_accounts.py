@@ -30,22 +30,22 @@ def test_sin_cuenta_no_se_entra(client):
 
 
 def test_crear_cuenta_y_entrar(client, tmp_path):
-    h = cuenta(client, "Fulano")
+    h = cuenta(client, "Lucia")
     agents = client.get("/api/agents", headers=h).json()
     assert sorted(a["id"] for a in agents) == ["hotel", "pizzeria"] and all(a["example"] for a in agents)
     me = client.get("/api/account", headers=h).json()
-    assert me["user"] == "Fulano" and me["agents"] == 2
+    assert me["user"] == "Lucia" and me["agents"] == 2
     assert {a["publicId"] for a in agents} == {f"{me['spaceId']}.hotel", f"{me['spaceId']}.pizzeria"}
     # el usuario no distingue mayúsculas; la llave es la misma con la que se creó
-    r = client.post("/api/login", json={"user": "fulano", "password": CLAVE}).json()
-    assert r["spaceKey"] == h["X-Space-Key"] and r["user"] == "Fulano"
-    assert client.post("/api/login", json={"user": "fulano", "password": "otra-cosa"}).status_code == 401
+    r = client.post("/api/login", json={"user": "lucia", "password": CLAVE}).json()
+    assert r["spaceKey"] == h["X-Space-Key"] and r["user"] == "Lucia"
+    assert client.post("/api/login", json={"user": "lucia", "password": "otra-cosa"}).status_code == 401
     assert client.post("/api/login", json={"user": "nadie", "password": CLAVE}).status_code == 401
-    assert client.post("/api/accounts", json={"user": "FULANO", "password": CLAVE}).status_code == 409
+    assert client.post("/api/accounts", json={"user": "LUCIA", "password": CLAVE}).status_code == 409
     assert client.post("/api/accounts", json={"user": "a", "password": CLAVE}).status_code == 400
-    assert client.post("/api/accounts", json={"user": "mengano", "password": "corta"}).status_code == 400
+    assert client.post("/api/accounts", json={"user": "marcos", "password": "corta"}).status_code == 400
     # la contraseña no se guarda tal cual
-    guardado = (tmp_path / "users" / "fulano.json").read_text(encoding="utf-8")
+    guardado = (tmp_path / "users" / "lucia.json").read_text(encoding="utf-8")
     assert CLAVE not in guardado and "hash" in json.loads(guardado)
 
 

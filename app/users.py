@@ -1,7 +1,7 @@
 """Cuentas de un servidor con usuarios (AGENTE_ACCOUNTS), para su dueño.
 
     python -m app.users                    lista los usuarios con sus agentes
-    python -m app.users password fulano    pone otra contraseña a «fulano» (la pide dos veces)
+    python -m app.users password lucia    pone otra contraseña a «lucia» (la pide dos veces)
 
 Usa la carpeta de datos de AGENTE_DATA_DIR (en la imagen Docker, /data) o la de --data. En Coolify se
 ejecuta desde la pestaña Terminal de la aplicación.

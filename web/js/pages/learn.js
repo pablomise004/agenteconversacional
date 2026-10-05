@@ -162,7 +162,7 @@ export async function render(el, _params, query) {
     const first = hist[0], last = hist[hist.length - 1];
     return `Al empezar todos los pesos valen 0 y no sabe nada (error ${format.nf(2).format(first.loss)}, acierta el ${pctf(first.accuracy)} por casualidad). ` +
       `Al terminar, el error es ${format.nf(2).format(last.loss)} y acierta el ${pctf(last.accuracy)} de sus propias frases. ` +
-      "Ojo: acertar las frases que ya conoce es fácil; el examen de abajo mide frases nuevas.";
+      "Nota: acertar las frases que ya conoce es fácil; el examen de abajo mide frases nuevas.";
   }
 
   function learningCurves(r) {

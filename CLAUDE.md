@@ -42,7 +42,7 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
 python -m pytest                      # 150 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 33 pruebas en navegador real
+pip install playwright && python -m pytest tests/e2e -m e2e   # 34 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
@@ -149,7 +149,8 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - Tras cambiar código Python (o hacer `git pull`) hay que reiniciar el servidor; JS/CSS se sirven en
   caliente (recargar). La consola avisa si el servidor va con código anterior (`restartNeeded` en
   `/api/info` y `APP_VERSION` de `web/js/app.js` frente a `app/__init__.py`: al subir la versión,
-  cambiar las dos y añadir sus notas arriba en `docs/NOVEDADES.md`, en lenguaje sencillo).
+  cambiar las dos y añadir sus notas arriba en `docs/NOVEDADES.md`, en lenguaje sencillo; **fechadas el
+  2 de octubre de 2026**, que lo pidió así).
 - No hay Node instalado; la consola no lo necesita.
 
 ## Ideas pendientes (por orden de utilidad)

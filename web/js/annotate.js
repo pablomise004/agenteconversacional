@@ -52,7 +52,8 @@ export function entityGroups({ params = [], entities = [], systemEntities = [], 
 /**
  * opts: text, annotations, getParams() -> parámetros de la intención,
  *       getEntities(), systemEntities, colorOf(param) -> índice de color,
- *       onChange(annotations), readOnly, onEditText()
+ *       onChange(annotations), readOnly
+ * Se anota seleccionando con el ratón o con doble clic en una palabra (el texto se edita aparte).
  */
 export function annotatedPhrase(opts) {
   let annotations = (opts.annotations || []).map((a) => ({ ...a })).sort((a, b) => a.start - b.start);
@@ -127,13 +128,17 @@ export function annotatedPhrase(opts) {
   };
 
   if (!opts.readOnly) {
-    el.addEventListener("mouseup", () => {
+    // un extremo de la selección fuera de la frase (se arrastró más allá del final o del principio)
+    // cuenta como el final o el principio del texto
+    const offsetIn = (node, offset) => (el.contains(node) ? offsetOf(el, node, offset)
+      : el.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING ? text.length : 0);
+    const pick = () => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.rangeCount) return;
       const range = sel.getRangeAt(0);
-      if (!el.contains(range.startContainer) || !el.contains(range.endContainer)) return;
-      let start = offsetOf(el, range.startContainer, range.startOffset);
-      let end = offsetOf(el, range.endContainer, range.endOffset);
+      if (!el.contains(range.startContainer) && !el.contains(range.endContainer)) return;
+      let start = offsetIn(range.startContainer, range.startOffset);
+      let end = offsetIn(range.endContainer, range.endOffset);
       if (start > end) [start, end] = [end, start];
       // ajustar a palabras completas, como Dialogflow
       while (start > 0 && WORD.test(text[start - 1]) && WORD.test(text[start])) start--;
@@ -144,9 +149,10 @@ export function annotatedPhrase(opts) {
       const rect = range.getBoundingClientRect();
       sel.removeAllRanges();
       entityMenu(start, end, rect);
-    });
-    if (opts.onEditText) el.addEventListener("dblclick", (e) => {
-      if (e.target === el) opts.onEditText();
+    };
+    // se escucha el soltar en todo el documento: si se suelta fuera de la frase, también vale
+    el.addEventListener("mousedown", (e) => {
+      if (e.button === 0) document.addEventListener("mouseup", () => setTimeout(pick), { once: true });
     });
   }
   render();

@@ -72,7 +72,7 @@ Hay una versión de Lince en internet: **<https://linceflow.duckdns.org>**.
 
 - **Tu cuenta:** la primera vez pulsa **Crear cuenta** y elige un usuario y una contraseña (no hace
   falta correo). Solo tú ves tus agentes, y entras desde cualquier ordenador o móvil con tu usuario.
-  Empiezas con los dos ejemplos para curiosear.
+  Empiezas con los dos agentes de ejemplo para explorarlos.
 - **Sin cuenta:** si solo quieres probarlo, pulsa **Entrar sin cuenta**. Tus agentes se quedan solo en
   ese navegador: para usarlos en otro ordenador, expórtalos e impórtalos allí. Si luego creas una
   cuenta (abajo a la izquierda, **Sin cuenta → Crear una cuenta**), se pasan a ella.
@@ -369,7 +369,7 @@ de la aplicación en Coolify (o en una consola del servidor):
 
 ```bash
 python -m app.users                    # lista de usuarios y cuántos agentes tiene cada uno
-python -m app.users password fulano    # contraseña nueva para «fulano» (la pide dos veces)
+python -m app.users password lucia     # contraseña nueva para «lucia» (la pide dos veces)
 ```
 
 O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --no-browser`

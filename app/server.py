@@ -170,7 +170,7 @@ class Credentials(BaseModel):
     user: str = Field(..., description="Usuario: de 3 a 30 caracteres (letras sin tildes ni eñes, números, puntos o guiones)")
     password: str = Field(..., description="Contraseña: al menos 6 caracteres")
 
-    model_config = {"json_schema_extra": {"examples": [{"user": "fulano", "password": "una-contraseña-larga"}]}}
+    model_config = {"json_schema_extra": {"examples": [{"user": "lucia.garcia", "password": "una-contraseña-larga"}]}}
 
 
 class PasswordChange(BaseModel):

@@ -3,6 +3,17 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.10.1 · 2 de octubre de 2026
+
+**Anotar entidades sin sorpresas.**
+
+- **Doble clic en una palabra** para marcarla como entidad: la marca se ve al momento. Antes el doble
+  clic también ponía la frase en modo «editar texto» y el color no aparecía hasta guardar. Para
+  cambiar el texto de una frase está el lápiz.
+- Al seleccionar arrastrando, ya se puede soltar el ratón fuera de la frase: antes no salía el menú de
+  entidades.
+- Textos y ejemplos más serios (adiós a «fulano» y «mengano»).
+
 ## 0.10.0 · 2 de octubre de 2026
 
 **Entrar sin cuenta y fórmulas bien alineadas.**
