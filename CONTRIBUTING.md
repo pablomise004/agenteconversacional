@@ -79,7 +79,7 @@ flowchart TB
 | Ruta | Responsabilidad |
 |---|---|
 | `app/__main__.py` | Arranque: argumentos `--host --port --data --no-browser`, abre el navegador |
-| `app/server.py` | `create_app(data_dir)`: todas las rutas (con resumen en español para el OpenAPI), autenticación, ficheros estáticos (`/` = `web/`, `/guia` = `docs/`, `/docs` = `web/api.html`) |
+| `app/server.py` | `create_app(data_dir)`: todas las rutas (con resumen en español para el OpenAPI), autenticación, ficheros estáticos (`/` = `web/`, `/guia` = `docs/`, `/docs` = `web/api.html`), las páginas con lo que pone el servidor (`page()`), las cabeceras de seguridad y caché y CORS solo en las rutas públicas (ver [Web pública](#web-pública-seguridad-caché-y-portada)) |
 | `app/storage.py` | Agentes en JSON (escritura atómica, versión incremental) y SQLite (logs y sesiones) |
 | `app/spaces.py` | Servidor con cuentas (`AGENTE_ACCOUNTS`): `Accounts` (usuarios y contraseñas), `Spaces` (un espacio privado por usuario, con su `Storage`, sus modelos y su diálogo), `Shares` (agentes compartidos con un enlace) y `ModelPool` (modelos entrenados compartidos entre agentes iguales). En el modo normal hay un único `Space`: la carpeta `data/` |
 | `app/users.py` | `python -m app.users`: lista de usuarios y cambiar la contraseña de uno (para el dueño del servidor) |
@@ -101,15 +101,19 @@ flowchart TB
 | `app/nlu/classifier.py` | `Vectorizer` (TF-IDF por clases) e `IntentClassifier` (regresión logística SGD + similitud); `NaiveBayes` (multinomial con las mismas frases y rasgos, sin TF-IDF) se entrena al lado solo para compararlo en «Por dentro»: no decide nada |
 | `app/nlu/engine.py` | `NLUEngine`: entrenamiento, `analyze()`, plantillas, parámetros, auto-anotación, informe |
 | `app/nlu/insights.py` | Rasgos por intención, mapa t-SNE, explicación de una frase (con `compare_bayes`: probabilidades de los dos modelos y cuánto empujan los rasgos de una misma palabra en cada uno), validación cruzada |
-| `web/js/app.js` | Estado global, rutas por `#hash`, barra lateral (selector de agente, navegación), títulos de pestaña |
+| `web/js/app.js` | Estado global, rutas por `#hash` (cada página se descarga con `import()` la primera vez que se abre), barra lateral (selector de agente, navegación), títulos de pestaña, registro del service worker |
 | `web/js/ui.js` | `h()` (crea DOM sin `innerHTML`), iconos y logotipo, tema, modales, avisos, tooltips, chips, popovers y los componentes comunes (ver [Consola web](#consola-web)) |
 | `web/js/palette.js` | Buscador / paleta de comandos (Ctrl+K) |
 | `web/js/notes.js` | El número de versión (barra lateral y `/docs`) como botón: abre `docs/NOVEDADES.md` en una ventana con una línea de tiempo; un punto avisa de una versión sin ver (`agente.seenVersion` en `localStorage`) |
-| `web/js/account.js` | Servidor con cuentas: la ventana obligatoria de entrar o crear la cuenta, el botón del usuario (pie de la barra lateral) y cambiar la contraseña |
+| `web/index.html` | La consola y, solo con cuentas, la **portada** (`#landing`, entre `<!-- portada -->` y `<!-- /portada -->`): qué es Lince y el formulario de entrar, ya en el HTML |
+| `web/js/account.js` | Servidor con cuentas: da vida al formulario de la portada (`signInPage()`), crear la cuenta desde «Sin cuenta», el botón del usuario (pie de la barra lateral) y cambiar la contraseña |
 | `web/js/pages/shared.js` | Un agente compartido (`#/shared/<código>`): guardar una copia en tu cuenta o descargar el JSON |
 | `web/api.html`, `web/js/apidocs.js`, `web/css/api.css` | Referencia de la API (`/docs`): lee `/openapi.json` y pinta cada ruta con un formulario «Pruébalo» |
 | `web/css/app.css` | Colores (claro y oscuro), fuente, componentes y animaciones; lo usan la consola y `/docs` |
 | `web/favicon.svg`, `web/icons/`, `web/favicon.ico`, `web/manifest.webmanifest` | Logotipo, iconos y manifiesto para instalar la consola como aplicación |
+| `web/sw.js`, `web/offline.html` | Service worker: sin conexión con el servidor, una página que lo explica (no guarda nada más) |
+| `web/og.png` | Imagen de las vistas previas al pegar el enlace (1200 × 630, la genera `tools/build_icons.py`) |
+| `requirements.lock` | Versiones exactas que instala el `Dockerfile` (`requirements.txt` resuelto en Linux con Python 3.12) |
 | `web/fonts/` | Inter (OFL), solo el alfabeto latino: la consola no depende de internet |
 | `web/js/annotate.js` | Frase anotable: seleccionar texto → elegir entidad |
 | `web/js/charts.js` | Gráficos SVG/HTML: línea, barras, barras divergentes, columnas, puntos, matriz, medidor |
@@ -120,7 +124,7 @@ flowchart TB
 | `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias; tema claro, oscuro o automático con `data-theme`, colores en variables CSS) y página de chat de demostración (`?theme=`, `?title=`, `?color=`, `?key=`) |
 | `examples/pizzeria.json`, `examples/hotel.json` | Agentes de ejemplo: la pizzería (pequeña, para aprender) y el hotel (88 intenciones, para ver el potencial). `seed_examples()` (`server.py`) copia cada uno la primera vez que arranca el servidor con él y lo apunta en `data/seeded_examples.json`: un ejemplo borrado no vuelve. Las copias llevan `"example": true` y la consola las enseña aparte (grupo «Ejemplos», debajo de «Tus agentes», también en el menú de agentes) |
 | `tools/build_pizzeria.py`, `tools/build_hotel.py` | Generan los ejemplos a partir de frases con la notación `[texto](parámetro)`. El del hotel además comprueba que cada anotación coincide con lo que detecta el motor (y que no queda nada sin anotar), que no hay frases repetidas y que la normalización no inventa parámetros |
-| `tools/build_icons.py` | Genera `favicon.ico` y los PNG de `web/icons/` a partir de `web/favicon.svg` (Playwright con Edge, Chrome o Chromium) |
+| `tools/build_icons.py` | Genera `favicon.ico`, los PNG de `web/icons/` y `web/og.png` a partir de `web/favicon.svg` (Playwright con Edge, Chrome o Chromium) |
 | `tools/capturas_docs.py` | Rehace las capturas de `docs/img/` con la consola actual (Playwright) |
 
 ## Formato de un agente
@@ -439,6 +443,47 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
   fallos son «no entendida») y, en cambio, acierta el 91,5 % de frases nuevas escritas aparte.
   Tarda unos 20 s con las 2.300 frases del hotel.
 
+## Web pública: seguridad, caché y portada
+
+Lo que sigue lo hace el servidor siempre (también en local), pero está pensado para la web pública.
+
+- **Cabeceras** (`protect()` en `server.py`): `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, `Permissions-Policy` (sin cámara, micrófono, ubicación…),
+  `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy` (`cross-origin` para lo
+  que otras webs cargan: `widget.js`, iconos, `og.png`; `same-origin` para lo demás) y
+  `Strict-Transport-Security` solo si se llegó por https (`X-Forwarded-Proto`, que pone Traefik).
+- **CSP**: cada página (`page()`) lleva su `Content-Security-Policy`: scripts solo de aquí, más los
+  `<script>` en línea por su huella sha256 (se calcula del HTML que se manda, así que se puede editar
+  sin tocar nada más) y, si está configurado, el origen de Vigía (también en `connect-src`, para sus
+  envíos). `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` y `frame-ancestors 'none'`
+  (con `X-Frame-Options: DENY`), salvo `/chat`, que se puede incrustar en cualquier web. Los estilos
+  en línea sí se permiten (los usa el widget en su `<style>` y no ejecutan código). Consecuencias: nada
+  de `onclick="…"` en el HTML ni de `eval`/`new Function`, y en las pruebas las esperas de Playwright
+  van como funciones (`wait_for_function("() => …")`): con texto suelto Playwright usa `eval`.
+- **CORS** (`PublicCORS`): `Access-Control-Allow-Origin: *` solo en `PUBLIC_ROUTES` (conversar,
+  `public`, `:detectIntent` y `/openapi.json`), que es lo que usan el widget y las aplicaciones de
+  otros. Si añades una ruta que se tenga que llamar desde otra web, añádela ahí.
+- **Caché con huella**: `page()` cambia en el HTML las direcciones de `js/`, `css/` y `fonts/` por
+  `/v/<huella>/…` (`assets_stamp()`: nombre, tamaño y fecha de esos ficheros), que se sirven con
+  `max-age` de un año e `immutable`. Los módulos se importan entre sí con rutas relativas, así que todo
+  el árbol cuelga de la misma huella; si un día un módulo se importa con ruta absoluta (`/js/…`), se
+  saltaría la huella. Al cambiar cualquier fichero la huella cambia y el navegador lo pide de nuevo;
+  las páginas, la guía y la API van con `no-cache` (preguntan antes de usar su copia). Sin paso de
+  compilación.
+- **Portada** (solo con cuentas; sin ellas `page()` quita el bloque `<!-- portada -->`): está en el
+  HTML, así que se pinta sin esperar al JS (es lo que mide el LCP) y la leen los buscadores; sus
+  botones vienen apagados hasta que `account.js:signInPage()` les da vida. Quien ya tiene la llave
+  guardada no la ve: el script del `<head>` pone `data-boot="app"` y el CSS la esconde; si la llave
+  ya no vale, `signInPage()` lo quita. Los campos llevan `id` y `name` (Chrome avisa si no).
+- **Service worker** (`web/sw.js`, lo registra `app.js`): solo responde a las navegaciones, y solo
+  cuando falla la red, con `offline.html`. No guarda la consola: con conexión todo llega del servidor
+  y nunca se ve algo viejo. Si cambias `offline.html`, sube el número de `CACHE`.
+- **Buscadores y vistas previas**: título y descripción en cada página; `page()` añade `canonical`,
+  `og:url` y `og:image` con la dirección con la que se visita (`CANONICAL`: portada y `/docs`);
+  `/chat` lleva `noindex`. `robots.txt` y `sitemap.xml` son rutas de `server.py`.
+- **Dependencias**: el `Dockerfile` instala `requirements.lock`; `requirements.txt` (con topes) es
+  para las instalaciones locales y para generar el lock (el comando está en su cabecera).
+
 ## Consola web
 
 - `h(tag, props, ...children)` construye el DOM; el texto siempre como nodos de texto (nunca
@@ -447,6 +492,9 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
   `render(el, params, query)` y puede devolver `{canLeave, save, destroy}` (aviso de cambios sin
   guardar y Ctrl+S).
 - La raíz (`#/` o sin hash) abre la lista de agentes.
+- Al empezar solo se descargan `app.js`, `ui.js`, `api.js`, el simulador, las cuentas, las notas y la
+  lista de agentes; cada página se pide con `import()` la primera vez que se abre (`ROUTES`), mientras
+  llega el agente. La paleta (Ctrl+K) se descarga cuando el navegador está desocupado.
 - Cada página se dibuja en su propio contenedor dentro de `#page`: si el usuario cambia de página
   antes de que termine de cargar, lo que llegue tarde no se mezcla con la nueva. Si tarda más de
   150 ms se ve un esqueleto de carga, siempre que la página no añada nada hasta tener sus datos
@@ -544,8 +592,8 @@ ejemplos de demostración (`/chat?agent=hotel`), que nadie puede cambiar.
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 151 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
-| `python -m pytest tests/e2e -m e2e` | 34 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» y un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar) |
+| `python -m pytest` | 159 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, cabeceras de seguridad y CSP (con las huellas de los scripts), CORS solo en las rutas públicas, JS/CSS con huella, vistas previas, `robots.txt` y `sitemap.xml`, portada solo con cuentas, service worker, dependencias fijadas, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
+| `python -m pytest tests/e2e -m e2e` | 36 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar), la portada (sin JS y con JS, foco visible al instante con el tabulador, sin errores de la CSP) y la página sin conexión del service worker |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 
@@ -576,6 +624,9 @@ respuestas sin repetir).
   no funciona), está en inglés y no se puede adaptar al estilo de la consola. La propia reutiliza
   `ui.js` y `app.css` y añade lo que más se usa aquí: ejemplos en español y «Pruébalo» con los
   agentes reales.
+- **Huella en la dirección** (`/v/<huella>/…`) en vez de un paso de compilación que ponga una huella
+  en el nombre de cada fichero: el navegador guarda el JS y el CSS un año y, aun así, se edita en caliente
+  y se instala solo con Python.
 - **Fuente incluida** (Inter, OFL) en vez de Google Fonts: la consola tiene que funcionar sin
   conexión y no debe hacer peticiones a terceros.
 - **Agentes en JSON** (versionables, fáciles de copiar) y **SQLite** para lo que crece (conversaciones).

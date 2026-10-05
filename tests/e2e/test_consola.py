@@ -5,6 +5,9 @@ Se saltan solas si no está instalado Playwright. Para ejecutarlas:
     python -m pytest tests/e2e -m e2e
 Usan Microsoft Edge o Google Chrome si están instalados; si no, el Chromium de
 Playwright (`python -m playwright install chromium`).
+
+Las páginas llevan Content-Security-Policy, que no deja evaluar texto como código: las esperas
+van como funciones (`wait_for_function("() => …")`); con una expresión suelta Playwright usaría eval.
 """
 
 import json
@@ -140,7 +143,7 @@ def test_por_dentro_calcula_con_la_frase(base_url, page):
     """«Por dentro» analiza la frase de ejemplo, rellena el recorrido y se puede cambiar la frase."""
     page.goto(f"{base_url}/#/inside")
     # que haya cajas y estén llenas (sin la primera condición se cumple antes de pintarse la página)
-    page.wait_for_function("document.querySelectorAll('.inside .live-body').length > 0 && "
+    page.wait_for_function("() => document.querySelectorAll('.inside .live-body').length > 0 && "
                            "document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
     assert page.locator(".pl-val").first.inner_text().endswith("tokens")
     assert page.locator(".wf-row.total").count() == 1
@@ -249,7 +252,7 @@ def test_por_dentro_en_el_movil(base_url, browser, width):
     ctx.add_init_script("localStorage.setItem('agente.sim', '0')")
     page = ctx.new_page()
     page.goto(f"{base_url}/#/a/pizzeria/inside")
-    page.wait_for_function("document.querySelectorAll('.inside .live-body').length > 0 && "
+    page.wait_for_function("() => document.querySelectorAll('.inside .live-body').length > 0 && "
                            "document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
     page.wait_for_timeout(500)  # las fórmulas se ajustan en el fotograma siguiente
     res = page.evaluate("""() => {
@@ -427,7 +430,7 @@ def test_tema_oscuro(base_url, page):
     page.wait_for_selector(".list-item")
     page.locator("button[aria-label='Cambiar tema claro u oscuro']").click()
     # el cambio va animado (View Transitions): se aplica en el siguiente fotograma
-    page.wait_for_function("document.documentElement.dataset.theme === 'dark'")
+    page.wait_for_function("() => document.documentElement.dataset.theme === 'dark'")
     bg = page.evaluate("getComputedStyle(document.body).backgroundColor")
     r, g, b = [int(x) for x in bg[bg.index("(") + 1:bg.index(")")].split(",")[:3]]
     assert max(r, g, b) < 60 and max(r, g, b) - min(r, g, b) <= 4  # gris oscuro neutro
@@ -524,18 +527,17 @@ def test_referencia_de_la_api(base_url, page):
 
 
 def _sign(page, url, user, password="clave-larga", new=True):
-    """Entra (o crea la cuenta) en la ventana obligatoria de un servidor con cuentas."""
+    """Entra (o crea la cuenta) en la portada de un servidor con cuentas."""
     page.goto(url)
-    page.wait_for_selector(".modal")
+    page.wait_for_selector("#landing .signin-submit:enabled")
     if new:
-        page.locator(".modal .tabs button", has_text="Crear cuenta").click()
-    inputs = page.locator(".modal input")
-    inputs.nth(0).fill(user)
-    inputs.nth(1).fill(password)
+        page.locator("#landing [role=tab]", has_text="Crear cuenta").click()
+    page.fill("#signin-user", user)
+    page.fill("#signin-pass", password)
     if new:
-        inputs.nth(2).fill(password)
-    page.locator(".modal .modal-foot .btn.primary").click()
-    page.wait_for_selector(".modal", state="detached")
+        page.fill("#signin-pass2", password)
+    page.locator("#landing .signin-submit").click()
+    page.wait_for_selector("#landing", state="detached")
 
 
 def test_cuentas_compartir_y_guardar_una_copia(accounts_url, browser):
@@ -572,7 +574,7 @@ def test_cuentas_compartir_y_guardar_una_copia(accounts_url, browser):
     ana.goto(accounts_url + "/#/agents")
     ana.locator(".user-btn").click()
     ana.locator(".popover .opt", has_text="Salir").click()
-    ana.wait_for_selector(".modal")
+    ana.wait_for_selector("#landing .signin-submit:enabled")
     _sign(ana, accounts_url + "/", "ana-e2e", new=False)
     ana.wait_for_selector(".agent-group[data-group='mine'] .agent-card h3")
     assert ana.locator(".agent-group[data-group='mine'] .agent-card h3").all_inner_texts() == ["Pastelería e2e"]
@@ -589,10 +591,10 @@ def test_entrar_sin_cuenta_y_crearla_despues(accounts_url, browser):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(accounts_url + "/")
-    page.wait_for_selector(".modal .guest-note")
-    assert "solo se verán en este navegador" in page.locator(".modal .guest-note").inner_text()
-    page.locator(".modal .modal-foot .btn", has_text="Entrar sin cuenta").click()
-    page.wait_for_selector(".modal", state="detached")
+    page.wait_for_selector("#signin-guest:enabled")
+    assert "solo se verán en este navegador" in page.locator("#landing .signin-guest-note").inner_text()
+    page.locator("#signin-guest").click()
+    page.wait_for_selector("#landing", state="detached")
     page.wait_for_selector(".agent-group[data-group='mine'] .empty")
     assert page.locator(".user-btn").inner_text().strip() == "Sin cuenta"
     page.locator("button", has_text="Crear agente").first.click()
@@ -655,3 +657,62 @@ def test_anotar_con_doble_clic_y_soltando_fuera(base_url, page):
     assert marks("quiero pedir una pizza") == ["pizza"]
     assert page.locator(".dirty-pill").is_visible()
     assert page.errors == []
+
+
+def test_portada_de_la_web_publica(accounts_url, browser):
+    """La portada viene en el HTML (se ve sin JS, con su h1, su <main> y enlaces); con JS el formulario
+    funciona, la CSP no bloquea nada y el foco se ve en cuanto se llega con el tabulador."""
+    ctx = browser.new_context(viewport={"width": 1366, "height": 768}, locale="es-ES", java_script_enabled=False)
+    page = ctx.new_page()
+    page.goto(accounts_url + "/")
+    assert page.locator("main#landing h1").is_visible()
+    assert page.locator("#signin-user").is_visible() and page.locator(".signin-submit").is_disabled()
+    assert page.locator("#landing a[href^='/chat?agent=']").count() == 2
+    ctx.close()
+
+    ctx = browser.new_context(viewport={"width": 1366, "height": 768}, locale="es-ES")
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" and "401" not in m.text else None)
+    page.goto(accounts_url + "/")
+    page.wait_for_selector("#landing .signin-submit:enabled")
+    assert page.locator("[role=dialog], .modal").count() == 0
+    # el foco cambia el aspecto al instante (con transición, justo al llegar aún no se veía)
+    page.locator("#landing [role=tab]").first.focus()
+    for _ in range(2):
+        page.keyboard.press("Tab")
+        look = page.evaluate("[document.activeElement.id, getComputedStyle(document.activeElement).boxShadow]")
+        assert look[0] in ("signin-user", "signin-pass") and look[1] != "none", look
+    # crear cuenta: aparece la repetición de la contraseña y el título cambia
+    page.keyboard.press("Shift+Tab")
+    page.keyboard.press("Shift+Tab")
+    page.keyboard.press("ArrowRight")
+    assert page.locator("#signin-pass2").is_visible() and page.locator("#signin-title").inner_text() == "Crea tu cuenta"
+    page.locator("#landing [role=tab]", has_text="Entrar").click()
+    page.fill("#signin-user", "nadie-e2e")
+    page.fill("#signin-pass", "una-que-no-es")
+    page.locator(".signin-submit").click()
+    playwright.expect(page.locator("#signin-error")).to_be_visible()
+    assert page.locator("#signin-pass2").is_hidden()
+    assert errors == []
+    ctx.close()
+
+
+def test_sin_conexion_sale_una_pagina_que_lo_explica(base_url, browser):
+    """El service worker: sin conexión con el servidor, una página que lo explica en vez del error del navegador."""
+    ctx = browser.new_context(viewport={"width": 1366, "height": 768}, locale="es-ES")
+    page = ctx.new_page()
+    page.goto(base_url + "/#/agents")
+    page.wait_for_selector(".agent-card")
+    page.evaluate("navigator.serviceWorker.ready.then(() => true)")
+    page.reload()
+    page.wait_for_function("() => !!navigator.serviceWorker.controller")
+    ctx.set_offline(True)
+    page.goto(base_url + "/docs")
+    playwright.expect(page.locator("h1")).to_have_text("No hay conexión con el servidor de Lince")
+    assert page.evaluate("document.querySelector('img').naturalWidth") > 0  # el logotipo, guardado
+    ctx.set_offline(False)
+    page.locator("a", has_text="Volver a intentarlo").click()
+    page.wait_for_selector(".agent-card")
+    ctx.close()

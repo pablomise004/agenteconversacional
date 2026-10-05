@@ -1,7 +1,6 @@
 // Notas de la versión: docs/NOVEDADES.md en una ventana, al pulsar el número de versión (en la
 // consola y en la referencia de la API). Un punto en el número avisa de que hay novedades sin ver.
 import { h, modal, stagger } from "./ui.js";
-import { renderMarkdown } from "./markdown.js";
 
 const SEEN_KEY = "agente.seenVersion";
 
@@ -48,7 +47,7 @@ function parse(md) {
   return releases.map((r) => ({ ...r, text: r.lines.join("\n").trim() }));
 }
 
-function release(r, current) {
+function release(r, current, renderMarkdown) {
   const mine = r.version === current;
   return h("section", { class: "note-rel" + (mine ? " current" : "") },
     h("div", { class: "note-head" },
@@ -65,9 +64,11 @@ export async function openReleaseNotes(version) {
   try {
     const res = await fetch("/guia/NOVEDADES.md");
     if (!res.ok) throw new Error(res.statusText);
-    const releases = parse(await res.text());
+    // el visor de Markdown se descarga solo cuando se abren las novedades
+    const [{ renderMarkdown }, text] = await Promise.all([import("./markdown.js"), res.text()]);
+    const releases = parse(text);
     if (!releases.length) throw new Error("vacío");
-    list.replaceChildren(...releases.map((r) => release(r, version)));
+    list.replaceChildren(...releases.map((r) => release(r, version, renderMarkdown)));
     stagger(list, 6);
   } catch (err) {
     list.replaceChildren(h("p", { class: "muted" }, "No se han podido cargar las novedades."));

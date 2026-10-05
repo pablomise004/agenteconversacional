@@ -6,19 +6,23 @@ el esquema OpenAPI, en /openapi.json.
 
 from __future__ import annotations
 
+import base64
 import copy
+import hashlib
 import html
 import json
 import mimetypes
 import os
+import re
 import secrets
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.security import APIKeyHeader, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -52,6 +56,77 @@ def code_stamp() -> float:
     """Última modificación del código Python del servidor. Si cambia con el servidor en
     marcha (p. ej. tras un git pull), /api/info lo indica y la consola pide reiniciarlo."""
     return max((p.stat().st_mtime for p in Path(__file__).resolve().parent.rglob("*.py")), default=0.0)
+
+
+# ------------------------------------------------- caché y cabeceras de seguridad
+# El JS, el CSS y la fuente de las páginas se piden con una huella de su contenido en la dirección
+# (/v/<huella>/js/app.js): el navegador los guarda un año sin volver a preguntar y, en cuanto cambia un
+# fichero, la huella es otra y los pide de nuevo. Así no hace falta un paso de compilación.
+VERSIONED = ("js", "css", "fonts")
+ASSET_URL = re.compile(r'(href|src)="/?((?:js|css|fonts)/[^"]+)"')
+ASSET_TYPES = {".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2"}
+LONG_CACHE = "public, max-age=31536000, immutable"
+IMAGE_CACHE = "public, max-age=2592000"  # iconos e imagen de las vistas previas: 30 días
+# Rutas que se llaman desde otras webs (el widget, el chat incrustado, tu aplicación): solo en ellas
+# se abre CORS. El resto de la API es de la consola, que va en este mismo origen.
+PUBLIC_ROUTES = re.compile(r"/api/agents/[^/]+/(detect|public|sessions/[^/]+/reset)|/v2/projects/.+:detectIntent|/openapi\.json")
+# lo que otras webs cargan con <script> o <img>: el widget y las imágenes de las vistas previas
+SHARED_FILES = re.compile(r"/widget\.js|/og\.png|/favicon\.(svg|ico)|/icons/[^/]+")
+INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.S)
+# la portada (qué es Lince y el formulario de entrar) solo tiene sentido en la web pública, con cuentas
+LANDING = re.compile(r"[ \t]*<!-- portada -->.*?<!-- /portada -->\n?", re.S)
+CANONICAL = {"index.html": "/", "api.html": "/docs"}
+
+
+def assets_stamp() -> str:
+    """Huella de los ficheros de web/js, web/css y web/fonts (nombre, tamaño y fecha): cambia en cuanto
+    se toca cualquiera, también con el servidor en marcha."""
+    sha = hashlib.sha1()
+    for folder in VERSIONED:
+        for p in sorted((WEB_DIR / folder).rglob("*")):
+            if p.is_file():
+                st = p.stat()
+                sha.update(f"{p.relative_to(WEB_DIR).as_posix()}:{st.st_size}:{st.st_mtime_ns};".encode())
+    return sha.hexdigest()[:10]
+
+
+def script_hashes(page: str) -> list[str]:
+    """Huellas de los <script> en línea de una página: la CSP los permite así, sin 'unsafe-inline'."""
+    return ["'sha256-" + base64.b64encode(hashlib.sha256(s.encode("utf-8")).digest()).decode("ascii") + "'"
+            for s in INLINE_SCRIPT.findall(page)]
+
+
+def content_policy(scripts: list[str] | tuple = (), others: list[str] | tuple = (), frame: str = "'none'") -> str:
+    """Content-Security-Policy de las páginas: scripts solo de aquí (y los en línea por su huella),
+    nada de plugins ni de <base>, y quién puede meter la página en un iframe (`frame`). Los estilos en
+    línea se permiten: los usan el widget (su <style>) y algunos atributos, y no ejecutan código."""
+    return "; ".join([
+        "default-src 'self'",
+        "script-src " + " ".join(["'self'", *scripts, *others]),
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "connect-src " + " ".join(["'self'", *others]),
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors " + frame,
+    ])
+
+
+class PublicCORS:
+    """CORS abierto («*») solo en las rutas públicas (PUBLIC_ROUTES): las demás no responden a otras
+    webs, así que ninguna puede leer la API de la consola desde el navegador de quien la visita."""
+
+    def __init__(self, app):
+        self.app = app
+        self.cors = CORSMiddleware(app, allow_origins=["*"], allow_methods=["GET", "POST", "OPTIONS"],
+                                   allow_headers=["*"])
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and PUBLIC_ROUTES.fullmatch(scope["path"]):
+            await self.cors(scope, receive, send)
+        else:
+            await self.app(scope, receive, send)
 
 
 # Grupos de la referencia de la API, en el orden en que se muestran
@@ -286,17 +361,43 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         docs_url=None,  # la referencia de la API es una página propia (/docs), sin depender de un CDN
         redoc_url=None,
     )
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-                       allow_headers=["*"])
+    app.add_middleware(PublicCORS)
+
+    # Vigía (vitales y errores de las páginas, en una web del dueño): solo si el servidor lo tiene
+    # configurado (AGENTE_VIGIA_CLAVE en Coolify), así las instalaciones locales no mandan nada
+    vigia_key = os.environ.get("AGENTE_VIGIA_CLAVE", "").strip()
+    vigia_src = os.environ.get("AGENTE_VIGIA_SRC", "").strip() or "https://nexopablooms.duckdns.org/herramientas/vigia/vigia.js"
+    vigia_origin = "{0.scheme}://{0.netloc}".format(urlsplit(vigia_src)) if vigia_key else ""
+
+    def is_https(request: Request) -> bool:
+        # detrás de Traefik (Coolify) la conexión con el servidor es http: el proxy dice cómo llegó
+        return request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
 
     @app.middleware("http")
-    async def revalidate(request: Request, call_next):
-        """La consola, la guía y las notas de la versión se sirven con «no-cache»: el navegador guarda
-        su copia pero pregunta antes de usarla (un 304 si no ha cambiado). Sin esto la reutilizaba a
-        ojo durante horas y, tras actualizar el servidor, enseñaba JS, CSS o novedades antiguos."""
+    async def protect(request: Request, call_next):
+        """Cabeceras de caché y de seguridad de todas las respuestas.
+
+        Caché: lo que lleva huella (/v/…) se guarda un año; las imágenes, 30 días; lo demás (las páginas,
+        la guía, las notas de la versión, la API) va con «no-cache»: el navegador guarda su copia pero
+        pregunta antes de usarla (un 304 si no ha cambiado), así que tras actualizar el servidor no se
+        queda con lo de antes. Seguridad: sin adivinar tipos (nosniff), sin mandar la dirección completa
+        a otras webs, sin cámara ni micrófono, ventana aislada (COOP), ficheros solo para esta web salvo
+        los que se incrustan en otras (CORP), solo https una vez visto por https (HSTS) y, en las páginas
+        que no son de incrustar, sin iframes ajenos (las páginas llevan su propia CSP, ver page())."""
         response = await call_next(request)
-        if request.method == "GET" and "cache-control" not in response.headers:
-            response.headers["Cache-Control"] = "no-cache"
+        path, headers = request.url.path, response.headers
+        if request.method in ("GET", "HEAD") and "cache-control" not in headers:
+            headers["Cache-Control"] = IMAGE_CACHE if SHARED_FILES.fullmatch(path) and path != "/widget.js" else "no-cache"
+        headers["X-Content-Type-Options"] = "nosniff"
+        headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        headers.setdefault("Cross-Origin-Resource-Policy", "cross-origin" if SHARED_FILES.fullmatch(path) else "same-origin")
+        if is_https(request):
+            headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        if headers.get("content-type", "").startswith("text/html") and "content-security-policy" not in headers:
+            headers["Content-Security-Policy"] = content_policy()
+            headers["X-Frame-Options"] = "DENY"
         return response
     app.state.accounts = accounts
     app.state.spaces = spaces if accounts else None  # para las pruebas
@@ -1015,31 +1116,72 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         return out
 
     # ------------------------------------------------------- web estática
-    # Vigía (vitales y errores de las páginas, en una web del dueño): solo si el servidor lo tiene
-    # configurado (AGENTE_VIGIA_CLAVE en Coolify), así las instalaciones locales no mandan nada
-    vigia_key = os.environ.get("AGENTE_VIGIA_CLAVE", "").strip()
-    vigia_src = os.environ.get("AGENTE_VIGIA_SRC", "").strip() or "https://nexopablooms.duckdns.org/herramientas/vigia/vigia.js"
+    def origin(request: Request) -> str:
+        """La dirección de la web tal como la ve quien la visita (para los enlaces absolutos)."""
+        return ("https" if is_https(request) else request.url.scheme) + "://" + request.headers.get("host", request.url.netloc)
 
-    def page(name: str):
-        if not vigia_key:
-            return FileResponse(WEB_DIR / name)
-        tag = f'<script src="{html.escape(vigia_src)}" data-clave="{html.escape(vigia_key)}" defer></script>\n'
-        return HTMLResponse((WEB_DIR / name).read_text(encoding="utf-8").replace("</body>", tag + "</body>", 1))
+    def page(name: str, request: Request) -> HTMLResponse:
+        """Una página de web/ con lo que pone el servidor: el JS, el CSS y la fuente con su huella, las
+        direcciones absolutas de las vistas previas (Open Graph), Vigía si está configurado, la portada
+        solo con cuentas y la CSP con las huellas de sus scripts en línea."""
+        text = (WEB_DIR / name).read_text(encoding="utf-8")
+        if not accounts:
+            text = LANDING.sub("", text)
+        stamp = assets_stamp()
+        text = ASSET_URL.sub(lambda m: f'{m[1]}="/v/{stamp}/{m[2]}"', text)
+        base = html.escape(origin(request))
+        head = [f'<meta property="og:image" content="{base}/og.png">\n']
+        if name in CANONICAL:
+            url = base + CANONICAL[name]
+            head = [f'<link rel="canonical" href="{url}">\n', f'<meta property="og:url" content="{url}">\n', *head]
+        text = text.replace("</head>", "  ".join(["", *head]) + "</head>", 1)
+        if vigia_key:
+            tag = f'<script src="{html.escape(vigia_src)}" data-clave="{html.escape(vigia_key)}" defer></script>\n'
+            text = text.replace("</body>", tag + "</body>", 1)
+        others = [vigia_origin] if vigia_origin else []
+        if name == "chat.html":  # el chat se puede meter en un iframe de cualquier web
+            headers = {"Content-Security-Policy": content_policy(script_hashes(text), others, "*"),
+                       "Cross-Origin-Resource-Policy": "cross-origin"}
+        else:
+            headers = {"Content-Security-Policy": content_policy(script_hashes(text), others), "X-Frame-Options": "DENY"}
+        return HTMLResponse(text, headers=headers)
 
     @app.get("/", include_in_schema=False)
     @app.get("/index.html", include_in_schema=False)
-    def console_page():
-        return page("index.html")
+    def console_page(request: Request):
+        return page("index.html", request)
 
     @app.get("/docs", include_in_schema=False)
     @app.get("/docs/", include_in_schema=False)
-    def api_docs():
+    def api_docs(request: Request):
         """Referencia de la API con el estilo de la consola (lee /openapi.json)."""
-        return page("api.html")
+        return page("api.html", request)
 
     @app.get("/chat", include_in_schema=False)
-    def chat_page():
-        return page("chat.html")
+    def chat_page(request: Request):
+        return page("chat.html", request)
+
+    @app.get("/v/{stamp}/{path:path}", include_in_schema=False)
+    def versioned(stamp: str, path: str):
+        """JS, CSS y fuente con huella (ver ASSET_URL): siempre el fichero actual, guardado un año."""
+        folder = path.split("/", 1)[0]
+        file = (WEB_DIR / path).resolve()
+        if folder not in VERSIONED or not file.is_relative_to(WEB_DIR / folder) or not file.is_file():
+            raise HTTPException(404, "No encontrado")
+        return FileResponse(file, media_type=ASSET_TYPES.get(file.suffix), headers={"Cache-Control": LONG_CACHE})
+
+    @app.get("/robots.txt", include_in_schema=False)
+    def robots(request: Request):
+        return PlainTextResponse(f"User-agent: *\nDisallow: /api/\nDisallow: /v2/\n\nSitemap: {origin(request)}/sitemap.xml\n")
+
+    @app.get("/sitemap.xml", include_in_schema=False)
+    def sitemap(request: Request):
+        """Las páginas que se pueden indexar: la portada y la referencia de la API."""
+        base = html.escape(origin(request))
+        urls = "".join(f"  <url><loc>{base}{url}</loc><lastmod>{time.strftime('%Y-%m-%d', time.gmtime((WEB_DIR / name).stat().st_mtime))}"
+                       f"</lastmod></url>\n" for name, url in CANONICAL.items())
+        return Response('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+                        f"{urls}</urlset>\n", media_type="application/xml")
 
     @app.get("/widget.js", include_in_schema=False)
     def widget_js():

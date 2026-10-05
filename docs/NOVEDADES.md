@@ -3,6 +3,26 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.11.0 · 2 de octubre de 2026
+
+**Una portada de verdad, más rápida y más segura.**
+
+- **Portada nueva** en la web pública: antes de entrar se ve qué es Lince, una frase de ejemplo con lo
+  que entiende el agente, enlaces para hablar con la pizzería y el hotel sin cuenta y, al lado, el
+  formulario para entrar, crear la cuenta o entrar sin cuenta. Ya no es una ventana sobre una página
+  vacía, y quien ya ha entrado va directo a sus agentes.
+- **Carga más rápida**: la portada llega dibujada desde el servidor (no espera al JavaScript), cada
+  página de la consola se descarga la primera vez que se abre y el navegador guarda el JavaScript, el
+  CSS y la letra hasta que cambian. Al volver, apenas hay que descargar nada.
+- **Se puede instalar** como aplicación (Chrome y Edge ofrecen «Instalar») y, si se pierde la conexión
+  con el servidor, sale una página que explica qué pasa en vez del error del navegador.
+- **Más segura**: el servidor manda las cabeceras de seguridad recomendadas (solo https, sin iframes
+  ajenos, scripts solo de Lince…) y la API de la consola ya no se puede leer desde otras webs. El
+  widget, el chat y la API de conversación siguen funcionando desde cualquier web, como siempre.
+- Al pegar el enlace en WhatsApp, Telegram o X sale una **tarjeta con imagen**, y los buscadores
+  encuentran la portada y la referencia de la API.
+- Al pasar con el tabulador por botones y campos, el foco se ve al instante.
+
 ## 0.10.3 · 2 de octubre de 2026
 
 - **Deslizadores**: la parte rellena llega justo hasta el tirador. En «Por dentro» (paso 9) se quedaba

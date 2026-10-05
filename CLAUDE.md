@@ -42,14 +42,14 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 151 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 34 pruebas en navegador real
+python -m pytest                      # 159 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 36 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
 python tools/build_hotel.py           # regenera examples/hotel.json y comprueba sus anotaciones
 python tools/capturas_docs.py         # rehace las capturas de docs/img (Playwright)
-python tools/build_icons.py           # rehace favicon.ico y web/icons/*.png desde web/favicon.svg
+python tools/build_icons.py           # rehace favicon.ico, web/icons/*.png y web/og.png desde web/favicon.svg
 python -m app.users [password <usuario>]   # servidor con cuentas: usuarios / contraseña nueva
 ```
 
@@ -73,8 +73,17 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   aceptan la dirección pública «<espacio>.<agente>» (`publicId`); sin llave ni punto, los ejemplos de
   `data/demo/`. **Sin cuenta** (`POST /api/guest`): un espacio sin usuario cuya llave solo está en ese
   navegador; si luego crea la cuenta con esa llave, la cuenta se queda con el espacio. En la consola:
-  `js/account.js` (entrar, crear la cuenta, entrar sin cuenta, contraseña), `pages/share.js` (Compartir,
+  `js/account.js` (la portada, crear la cuenta, entrar sin cuenta, contraseña), `pages/share.js` (Compartir,
   con su entrada en el menú) y `pages/shared.js` (abrir un enlace compartido).
+- Web pública (0.11.0, tras una auditoría): con cuentas, `index.html` trae una **portada** estática
+  (`#landing`, bloque `<!-- portada -->` que `page()` quita sin cuentas) con h1, texto, enlaces y el
+  formulario, al que `account.js:signInPage()` da vida; quien ya tiene llave no la ve (`data-boot`).
+  `server.py` manda cabeceras de seguridad (`protect()`), CSP por página con las huellas de sus
+  `<script>` en línea (`page()`), CORS solo en `PUBLIC_ROUTES` (`PublicCORS`), el JS/CSS/fuente con
+  huella (`/v/<huella>/…`, un año de caché), `robots.txt`, `sitemap.xml` y `og.png`. `web/sw.js` solo
+  enseña `offline.html` si no hay red. Las páginas de la consola se cargan con `import()`. El
+  `Dockerfile` instala `requirements.lock` (generado en Linux con Python 3.12: ver su cabecera).
+  Detalles en CONTRIBUTING, «Web pública».
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
   `busy`, `countUp`, `stagger`, `tocNav` (índice de Guía y «Por dentro»), `selectMenu` (en lugar de
@@ -108,6 +117,9 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   gráficos están validados para daltonismo; si se cambian, revalidar.
 - Antes de crear un componente nuevo, mira si ya hay uno en `ui.js`. Las páginas empiezan con
   `pageHead({icon, title, sub, actions})`; las tablas de datos usan `dataTable()` (ordenables).
+- Por la CSP: nada de `onclick="…"` en el HTML ni `eval`; en las pruebas, `wait_for_function("() => …")`
+  (con texto suelto Playwright usa `eval` y la CSP lo bloquea). Los módulos se importan con rutas
+  relativas (si no, se saltan la huella de la caché).
 - Microanimaciones cortas en CSS y siempre desactivadas con `prefers-reduced-motion`. Los `title`
   se ven como tooltips propios. El logotipo está en `web/favicon.svg` y en `ui.js:logo()` (una
   prueba comprueba que son el mismo dibujo; tras cambiarlo, `tools/build_icons.py`).

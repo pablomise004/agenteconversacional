@@ -5,27 +5,13 @@ import {
   initTooltips, skeletonPage, reducedMotion, syncThemeColor, themeButton,
 } from "./ui.js";
 import { createSimulator } from "./simulator.js";
-import { openPalette } from "./palette.js";
-import { signIn, userButton } from "./account.js";
+import { signInPage, userButton } from "./account.js";
 import { versionButton } from "./notes.js";
 import * as agentsPage from "./pages/agents.js";
-import * as intentsPage from "./pages/intents.js";
-import * as intentEditor from "./pages/intent-editor.js";
-import * as entitiesPage from "./pages/entities.js";
-import * as analyzerPage from "./pages/analyzer.js";
-import * as trainingPage from "./pages/training.js";
-import * as historyPage from "./pages/history.js";
-import * as integrationsPage from "./pages/integrations.js";
-import * as settingsPage from "./pages/settings.js";
-import * as sharePage from "./pages/share.js";
-import * as learnPage from "./pages/learn.js";
-import * as guidePage from "./pages/guide.js";
-import * as insidePage from "./pages/inside.js";
-import * as sharedPage from "./pages/shared.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.10.3";
+export const APP_VERSION = "0.11.0";
 
 export const state = {
   info: null,
@@ -58,26 +44,37 @@ export const NAV = [
 const SECTION_TITLES = Object.fromEntries([...NAV.filter((n) => n.key).map((n) => [n.key, n.label]), ["agents", "Agentes"],
   ["shared", "Agente compartido"]]);
 
+// Cada página se descarga la primera vez que se abre: al entrar solo hace falta la lista de agentes
+// (y «Por dentro», la más pesada, solo llega a quien la visita)
 const ROUTES = [
   [/^agents$/, () => agentsPage],
-  [/^shared\/([^/]+)$/, () => sharedPage],
-  [/^guide$/, () => guidePage],
-  [/^a\/([^/]+)\/guide$/, () => guidePage],
-  [/^inside$/, () => insidePage],
-  [/^a\/([^/]+)\/inside$/, () => insidePage],
-  [/^a\/([^/]+)\/learn$/, () => learnPage],
-  [/^a\/([^/]+)\/intents$/, () => intentsPage],
-  [/^a\/([^/]+)\/intents\/([^/]+)$/, () => intentEditor],
-  [/^a\/([^/]+)\/entities$/, () => entitiesPage],
-  [/^a\/([^/]+)\/entities\/([^/]+)$/, () => entitiesPage],
-  [/^a\/([^/]+)\/analyzer$/, () => analyzerPage],
-  [/^a\/([^/]+)\/training$/, () => trainingPage],
-  [/^a\/([^/]+)\/history$/, () => historyPage],
-  [/^a\/([^/]+)\/history\/(.+)$/, () => historyPage],
-  [/^a\/([^/]+)\/integrations$/, () => integrationsPage],
-  [/^a\/([^/]+)\/settings$/, () => settingsPage],
-  [/^a\/([^/]+)\/share$/, () => sharePage],
+  [/^shared\/([^/]+)$/, () => import("./pages/shared.js")],
+  [/^guide$/, () => import("./pages/guide.js")],
+  [/^a\/([^/]+)\/guide$/, () => import("./pages/guide.js")],
+  [/^inside$/, () => import("./pages/inside.js")],
+  [/^a\/([^/]+)\/inside$/, () => import("./pages/inside.js")],
+  [/^a\/([^/]+)\/learn$/, () => import("./pages/learn.js")],
+  [/^a\/([^/]+)\/intents$/, () => import("./pages/intents.js")],
+  [/^a\/([^/]+)\/intents\/([^/]+)$/, () => import("./pages/intent-editor.js")],
+  [/^a\/([^/]+)\/entities$/, () => import("./pages/entities.js")],
+  [/^a\/([^/]+)\/entities\/([^/]+)$/, () => import("./pages/entities.js")],
+  [/^a\/([^/]+)\/analyzer$/, () => import("./pages/analyzer.js")],
+  [/^a\/([^/]+)\/training$/, () => import("./pages/training.js")],
+  [/^a\/([^/]+)\/history$/, () => import("./pages/history.js")],
+  [/^a\/([^/]+)\/history\/(.+)$/, () => import("./pages/history.js")],
+  [/^a\/([^/]+)\/integrations$/, () => import("./pages/integrations.js")],
+  [/^a\/([^/]+)\/settings$/, () => import("./pages/settings.js")],
+  [/^a\/([^/]+)\/share$/, () => import("./pages/share.js")],
 ];
+
+// La paleta (Ctrl+K) no hace falta para empezar: se descarga en segundo plano en cuanto la consola está
+// lista y, desde entonces, se abre al momento (sin perder lo que se teclee justo después de Ctrl+K)
+let palette = null;
+const loadPalette = () => import("./palette.js").then((m) => (palette = m));
+function openPalette() {
+  if (palette) palette.openPalette();
+  else loadPalette().then((m) => m.openPalette(), errorToast);
+}
 
 let root, sidebar, mainEl, pageEl, simulator, navEl, topTitle, agentBtn;
 let current = null; // página activa {canLeave, destroy, save}
@@ -339,12 +336,15 @@ async function route() {
     navigate("#/agents");
     return;
   }
-  let match = null, mod = null;
-  for (const [re, loader] of ROUTES) {
+  let match = null, loader = null;
+  for (const [re, load] of ROUTES) {
     match = path.match(re);
-    if (match) { mod = loader(); break; }
+    if (match) { loader = load; break; }
   }
-  if (!mod) { navigate("#/"); return; }
+  if (!loader) { navigate("#/"); return; }
+  // la página empieza a descargarse ya, mientras llega el agente (si falla, se dice más abajo)
+  const modReady = Promise.resolve(loader());
+  modReady.catch(() => {});
   const params = match.slice(1).map(decodeURIComponent);
   if (path.startsWith("a/")) {
     const id = params[0];
@@ -389,6 +389,8 @@ async function route() {
   });
   obs.observe(host, { childList: true });
   try {
+    const mod = await modReady;
+    if (seq !== routeSeq) return;  // mientras se descargaba se ha ido a otra página
     const page = (await mod.render(host, params, query)) || null;
     if (seq === routeSeq) current = page;
     else if (page && page.destroy) page.destroy();  // ya se ha ido a otra página
@@ -427,13 +429,23 @@ async function ensureAccount() {
       setSpace("");
     }
   }
-  await signIn();
+  await signInPage();
   state.user = getUser();
+}
+
+// Service worker (web/sw.js): sin conexión con el servidor enseña una página que lo explica en vez del
+// error del navegador, y hace que la consola se pueda instalar como aplicación. No guarda nada más: con
+// conexión todo llega del servidor, como siempre.
+function registerServiceWorker() {
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register("/sw.js").catch(() => { /* sin él, la consola funciona igual */ });
+  }
 }
 
 async function start() {
   initTooltips();
   syncThemeColor();
+  registerServiceWorker();
   try {
     state.info = await api.info();
   } catch (e) {
@@ -471,6 +483,8 @@ async function start() {
     }
   });
   route();
+  // cuando el navegador esté desocupado (lo primero es la página que se abre)
+  (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => loadPalette().catch(() => {}));
 }
 
 start();

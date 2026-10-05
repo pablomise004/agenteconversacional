@@ -3,9 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lince</title>
-  <meta name="description" content="Lince: crea chatbots en español y mira cómo aprenden. Alternativa libre y local a Dialogflow.">
+  <title>Lince · Crea chatbots en español y mira cómo aprenden</title>
+  <meta name="description" content="Lince es una alternativa libre a Dialogflow para crear chatbots en español: le enseñas con frases de ejemplo y ves por dentro cómo decide.">
   <meta name="theme-color" content="#f7f7f8">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Lince">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:title" content="Lince · Crea chatbots en español y mira cómo aprenden">
+  <meta property="og:description" content="Alternativa libre a Dialogflow: le enseñas con frases de ejemplo, aprende a entenderlas y te deja ver por dentro cómo decide.">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Lince: crea chatbots en español y mira cómo aprenden">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16,11 +25,86 @@
     try {
       const t = localStorage.getItem("agente.theme");
       if (t) document.documentElement.dataset.theme = t;
+      // quien ya ha entrado va directo a la consola: la portada no llega a verse
+      if (localStorage.getItem("agente.space")) document.documentElement.dataset.boot = "app";
     } catch (e) {}
+  </script>
+  <script type="application/ld+json">
+    {"@context": "https://schema.org", "@type": "WebApplication", "name": "Lince",
+     "description": "Alternativa libre a Dialogflow para crear chatbots en español y ver por dentro cómo aprenden.",
+     "applicationCategory": "DeveloperApplication", "operatingSystem": "Web, Windows, Linux, macOS", "inLanguage": "es",
+     "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
+     "codeRepository": "https://github.com/pablomise004/agenteconversacional"}
   </script>
 </head>
 <body>
   <div id="app" class="app">
+    <!-- portada -->
+    <main class="landing" id="landing">
+      <div class="landing-grid">
+        <section class="landing-intro">
+          <a class="landing-brand" href="/"><img src="favicon.svg" alt="" width="40" height="40"><span>Lince</span></a>
+          <h1>Crea chatbots en español y <em>mira cómo aprenden</em></h1>
+          <p class="landing-lead">Lince es una alternativa libre a Dialogflow. Le enseñas con frases de ejemplo lo que puede querer la gente, aprende a reconocerlo y te deja ver por dentro cómo decide cada respuesta.</p>
+          <figure class="landing-demo" aria-label="Ejemplo de lo que entiende un agente">
+            <p class="ld-msg">quiero <mark class="ld-c1">dos</mark> pizzas <mark class="ld-c2">barbacoa</mark> <mark class="ld-c3">familiares</mark></p>
+            <figcaption class="ld-result">
+              <span class="ld-intent"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>pedido.pizza</span>
+              <span class="ld-param ld-c1">cantidad <b>2</b></span>
+              <span class="ld-param ld-c2">pizza <b>barbacoa</b></span>
+              <span class="ld-param ld-c3">tamano <b>familiar</b></span>
+            </figcaption>
+          </figure>
+        </section>
+
+        <section class="landing-card" aria-labelledby="signin-title">
+          <h2 id="signin-title">Entra en Lince</h2>
+          <p class="landing-card-sub">Cada uno tiene su cuenta: solo tú ves tus agentes, y los compartes con un enlace cuando quieras.</p>
+          <div class="notice info" id="signin-shared" hidden><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg><div>Te han pasado un agente. Entra (o crea tu cuenta) y podrás guardar una copia.</div></div>
+          <form class="signin-form" id="signin" method="post" novalidate>
+            <div class="tabs signin-tabs" role="tablist" aria-label="Entrar o crear una cuenta">
+              <button type="button" role="tab" class="active" aria-selected="true" data-mode="login">Entrar</button>
+              <button type="button" role="tab" aria-selected="false" data-mode="register">Crear cuenta</button>
+            </div>
+            <label class="field" for="signin-user">Usuario
+              <input type="text" id="signin-user" name="username" autocomplete="username" maxlength="30" spellcheck="false" autocapitalize="none" placeholder="Por ejemplo: lucia.garcia">
+              <span class="hint" data-register hidden>De 3 a 30 caracteres: letras sin tildes ni eñes, números, puntos o guiones.</span>
+            </label>
+            <label class="field" for="signin-pass">Contraseña
+              <input type="password" id="signin-pass" name="password" autocomplete="current-password">
+            </label>
+            <label class="field" for="signin-pass2" data-register hidden>Repite la contraseña
+              <input type="password" id="signin-pass2" name="password-repeat" autocomplete="new-password">
+            </label>
+            <p class="hint-line" data-register hidden>Apunta tu contraseña: si la olvidas, solo quien lleva este servidor puede ponerte otra.</p>
+            <div class="notice danger" id="signin-error" role="alert" hidden><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div></div></div>
+            <button class="btn primary signin-submit" type="submit" disabled>Entrar</button>
+          </form>
+          <div class="signin-or" aria-hidden="true"><span>o</span></div>
+          <button class="btn signin-guest" id="signin-guest" type="button" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg>Entrar sin cuenta</button>
+          <p class="signin-guest-note">Para probarlo. Tus agentes solo se verán en este navegador: para usarlos en otro ordenador, expórtalos e impórtalos allí, o crea una cuenta más tarde y se pasarán a ella.</p>
+          <noscript><p class="signin-guest-note">Para entrar hace falta tener JavaScript activado.</p></noscript>
+        </section>
+
+        <section class="landing-more" aria-label="Qué puedes hacer con Lince">
+          <ul class="landing-features">
+            <li><span class="lf-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              <div><h2>Entiende lo que le escriben</h2><p>Intenciones, entidades, fechas, números y hasta faltas de ortografía, con contextos para seguir el hilo de la conversación.</p></div></li>
+            <li><span class="lf-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              <div><h2>Míralo aprender</h2><p>Entrénalo paso a paso, ponle un examen con frases que no ha visto y sigue una frase por dentro del modelo, fórmula a fórmula.</p></div></li>
+            <li><span class="lf-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/></svg></span>
+              <div><h2>Publícalo donde quieras</h2><p>Un widget para tu web, un chat con su propio enlace y una API compatible con la de Dialogflow ES.</p></div></li>
+          </ul>
+          <nav class="landing-links" aria-label="Pruébalo y más información">
+            <a href="/chat?agent=pizzeria"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/></svg>Habla con la pizzería de ejemplo</a>
+            <a href="/chat?agent=hotel"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/></svg>Habla con el hotel de ejemplo</a>
+            <a href="/docs"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>Referencia de la API</a>
+            <a href="https://github.com/pablomise004/agenteconversacional" rel="noopener"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 4h7a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H2zM22 4h-7a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h8z"/></svg>Código y guía en GitHub</a>
+          </nav>
+        </section>
+      </div>
+    </main>
+    <!-- /portada -->
     <noscript><p style="padding:20px">Esta consola necesita JavaScript.</p></noscript>
   </div>
   <script type="module" src="js/app.js"></script>

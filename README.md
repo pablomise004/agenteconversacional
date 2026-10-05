@@ -83,6 +83,8 @@ Hay una versión de Lince en internet: **<https://linceflow.duckdns.org>**.
   y [pizzería](https://linceflow.duckdns.org/chat?agent=pizzeria). Los tuyos también tienen su chat:
   la dirección está en **Integraciones**.
 - **¿Has olvidado la contraseña?** Pídele a Pablo que te ponga otra.
+- **Como aplicación:** en Chrome o Edge, el botón **Instalar** de la barra de direcciones la deja con su
+  icono, en su propia ventana.
 
 ## Instalación en Windows, paso a paso
 
@@ -387,6 +389,25 @@ O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --
 Cada agente puede tener además una **clave de API** (*Ajustes → Seguridad*) que exige la cabecera
 `X-Api-Key` para hablar con el bot.
 
+Sin configurar nada más, el servidor ya:
+
+- Manda las **cabeceras de seguridad** recomendadas: `Content-Security-Policy` (scripts solo de Lince),
+  sin iframes ajenos (salvo `/chat`, que está para incrustarlo), `nosniff`, `Referrer-Policy`,
+  `Permissions-Policy`, `COOP`/`CORP` y `Strict-Transport-Security` cuando se llega por https (detrás
+  de un proxy como el de Coolify lo sabe por `X-Forwarded-Proto`).
+- Solo responde a **otras webs** (CORS) en lo que usan el widget y tu aplicación: conversar
+  (`/detect`, `:detectIntent`), los datos públicos del agente y `/openapi.json`. La API de la consola
+  solo se usa desde la propia consola.
+- Sirve el JavaScript, el CSS y la letra con una **huella** en la dirección (`/v/<huella>/…`): el
+  navegador los guarda un año y, en cuanto cambia un fichero, la huella es otra.
+- Tiene `robots.txt`, `sitemap.xml` y la imagen de las vistas previas (`og.png`), con direcciones
+  absolutas sacadas de la dirección con la que se visita.
+
+La imagen de Docker instala las versiones exactas de [`requirements.lock`](requirements.lock) (las de
+`requirements.txt` resueltas en Linux con Python 3.12): dos despliegues del mismo commit llevan lo
+mismo. Para actualizarlas, vuelve a generarlo (el comando está al principio del fichero) y pasa las
+pruebas.
+
 ## Cómo funciona por dentro
 
 Todo el procesamiento del lenguaje es propio y local (sin servicios externos):
@@ -426,14 +447,14 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 146 pruebas: NLU, diálogo, webhook, API, cuentas, importación, modelo, hotel
+python -m pytest                            # 159 pruebas: NLU, diálogo, webhook, API, cuentas, seguridad, modelo, hotel
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 28 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 36 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"   # --agente hotel "…" para el grande
 python tools/build_hotel.py                 # regenera examples/hotel.json (y comprueba sus anotaciones)
 python tools/capturas_docs.py               # rehace las capturas de docs/img con la consola actual
-python tools/build_icons.py                 # rehace favicon.ico y los iconos PNG desde web/favicon.svg
+python tools/build_icons.py                 # rehace favicon.ico, los iconos PNG y og.png desde web/favicon.svg
 ```
 
 ```
@@ -450,8 +471,9 @@ app/
   importer.py      importación de JSON y ZIP de Dialogflow
   validation.py    avisos de calidad del agente
   nlu/             motor de lenguaje: tokenizador, stemmer, entidades, clasificador, motor, insights
-web/               consola (HTML/CSS/JS sin compilación), api.html (referencia de la API),
-                   widget.js, chat.html, logotipo e iconos, fuente Inter
+web/               consola (HTML/CSS/JS sin compilación; index.html trae la portada de la web
+                   pública), api.html (referencia de la API), widget.js, chat.html, sw.js y
+                   offline.html (sin conexión), logotipo, iconos y og.png, fuente Inter
 docs/              guía de uso, novedades de cada versión e imágenes (la arquitectura está en CONTRIBUTING.md)
 examples/          agentes de ejemplo (pizzería y hotel), que se copian al arrancar
 tests/             pruebas automáticas (tests/e2e: navegador)

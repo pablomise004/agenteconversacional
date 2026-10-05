@@ -191,7 +191,7 @@ def scenes(browser, base, only):
         ctx.add_init_script("localStorage.setItem('agente.sim', '0')")
         page = ctx.new_page()
         page.goto(base + "/#/a/pizzeria/inside")
-        page.wait_for_function("document.querySelectorAll('.inside .live-body').length > 0 && "
+        page.wait_for_function("() => document.querySelectorAll('.inside .live-body').length > 0 && "
                                "document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
         page.wait_for_timeout(800)
         scroll_to(page, "#in-regresion", offset=-500)
@@ -210,7 +210,7 @@ def scenes(browser, base, only):
             page.fill(".sim-foot input", text)
             page.press(".sim-foot input", "Enter")
             # la primera respuesta tarda más: entrena el modelo del hotel
-            page.wait_for_function(f"document.querySelectorAll('.sim .msg.bot').length > {before}", timeout=30000)
+            page.wait_for_function(f"() => document.querySelectorAll('.sim .msg.bot').length > {before}", timeout=30000)
             page.wait_for_timeout(700)
         shot(page, "hotel")
         ctx.close()

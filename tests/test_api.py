@@ -1,7 +1,10 @@
 """Pruebas de la API REST."""
 
+import base64
+import hashlib
 import io
 import json
+import re
 import time
 import zipfile
 
@@ -106,7 +109,9 @@ def test_copias_de_un_ejemplo_son_propias(client):
 
 
 def test_consola_api_y_recursos(client):
-    assert "<title>Lince</title>" in client.get("/").text
+    page = client.get("/").text
+    title = re.search(r"<title>(.+)</title>", page).group(1)
+    assert title.startswith("Lince · ") and 30 <= len(title) <= 60  # lo que sale en los buscadores
     for path in ("/docs", "/docs/"):
         r = client.get(path)
         assert r.status_code == 200 and "apidocs.js" in r.text
@@ -158,6 +163,125 @@ def test_vigia_solo_si_esta_configurado(tmp_path, monkeypatch):
         assert res.status_code == 200 and res.headers["content-type"].startswith("text/html"), path
         assert 'vigia.js" data-clave="abc123" defer></script>\n</body>' in res.text, path
     assert "<title>" in publica.get("/").text  # la página sigue entera
+    # la CSP deja cargar el script de Vigía y mandar sus datos a su web
+    csp = publica.get("/").headers["content-security-policy"]
+    assert "script-src 'self'" in csp and csp.count("https://nexopablooms.duckdns.org") == 2
+
+
+def test_cabeceras_de_seguridad(client):
+    """Cabeceras del informe de seguridad: sin adivinar tipos, sin mandar la dirección completa a otras
+    webs, sin cámara ni micrófono, ventana aislada, sin iframes ajenos (salvo el chat, que se incrusta) y
+    HSTS solo cuando se llega por https (detrás de Traefik lo dice X-Forwarded-Proto)."""
+    for path in ("/", "/docs", "/chat", "/api/info", "/js/app.js", "/offline.html"):
+        h = client.get(path).headers
+        assert h["x-content-type-options"] == "nosniff", path
+        assert h["referrer-policy"] == "strict-origin-when-cross-origin", path
+        assert "camera=()" in h["permissions-policy"] and h["cross-origin-opener-policy"] == "same-origin", path
+        assert "strict-transport-security" not in h, path  # en local, por http
+    assert client.get("/", headers={"x-forwarded-proto": "https"}).headers["strict-transport-security"].startswith("max-age=31536000")
+    console = client.get("/").headers
+    assert console["x-frame-options"] == "DENY" and "frame-ancestors 'none'" in console["content-security-policy"]
+    chat = client.get("/chat").headers
+    assert "x-frame-options" not in chat and "frame-ancestors *" in chat["content-security-policy"]
+    # lo que otras webs cargan (el widget) se puede usar desde fuera; el resto, solo desde aquí
+    assert client.get("/widget.js").headers["cross-origin-resource-policy"] == "cross-origin"
+    assert client.get("/api/info").headers["cross-origin-resource-policy"] == "same-origin"
+
+
+def test_csp_permite_solo_los_scripts_de_la_pagina(client):
+    """Ni 'unsafe-inline' ni 'unsafe-eval' en los scripts: los <script> en línea van por su huella."""
+    for path in ("/", "/docs", "/chat"):
+        res = client.get(path)
+        csp = res.headers["content-security-policy"]
+        script_src = next(d for d in csp.split("; ") if d.startswith("script-src "))
+        assert "unsafe" not in script_src and "object-src 'none'" in csp and "base-uri 'self'" in csp, path
+        inline = re.findall(r"<script>(.*?)</script>", res.text, re.S)
+        assert inline, path
+        for code in inline:
+            digest = base64.b64encode(hashlib.sha256(code.encode("utf-8")).digest()).decode()
+            assert f"'sha256-{digest}'" in script_src, path
+
+
+def test_cors_solo_en_las_rutas_publicas(client):
+    """Otras webs pueden hablar con un agente (el widget, tu aplicación), pero no leer la API de la consola."""
+    origin = {"Origin": "https://otra-web.example"}
+    preflight = dict(origin, **{"Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"})
+    for path in ("/api/agents/pizzeria/detect", "/api/agents/x.pizzeria/sessions/s1/reset",
+                 "/v2/projects/pizzeria/agent/sessions/s1:detectIntent"):
+        res = client.options(path, headers=preflight)
+        assert res.status_code == 200 and res.headers["access-control-allow-origin"] == "*", path
+    assert client.get("/api/agents/pizzeria/public", headers=origin).headers["access-control-allow-origin"] == "*"
+    for path in ("/api/agents", "/api/info", "/api/agents/pizzeria"):
+        assert "access-control-allow-origin" not in client.get(path, headers=origin).headers, path
+    assert "access-control-allow-origin" not in client.options("/api/agents", headers=preflight).headers
+
+
+def test_js_css_y_fuente_con_huella(client):
+    """Las páginas piden el JS, el CSS y la fuente con una huella en la dirección: se guardan un año y,
+    al cambiar un fichero, la huella cambia (el navegador los vuelve a pedir)."""
+    page = client.get("/").text
+    stamp = re.search(r'src="/v/([0-9a-f]{10})/js/app.js"', page).group(1)
+    assert f'href="/v/{stamp}/css/app.css"' in page and f'href="/v/{stamp}/fonts/inter-latin.woff2"' in page
+    for path, kind in (("js/app.js", "text/javascript"), ("js/pages/inside.js", "text/javascript"),
+                       ("css/app.css", "text/css"), ("fonts/inter-latin.woff2", "font/woff2")):
+        res = client.get(f"/v/{stamp}/{path}")
+        assert res.status_code == 200 and res.headers["content-type"].startswith(kind), path
+        assert res.headers["cache-control"] == "public, max-age=31536000, immutable", path
+    assert f'href="/v/{stamp}/css/api.css"' in client.get("/docs").text
+    # solo esas carpetas, y sin salirse de ellas
+    for path in ("index.html", "js/../favicon.svg", "js/../../app/server.py", "js/no-existe.js"):
+        assert client.get(f"/v/{stamp}/{path}").status_code == 404, path
+    assert client.get("/icons/icon-192.png").headers["cache-control"] == "public, max-age=2592000"
+
+
+def test_vistas_previas_robots_y_sitemap(client):
+    """Lo que leen los buscadores y lo que enseñan WhatsApp, Telegram o X al pegar el enlace."""
+    page = client.get("/", headers={"host": "lince.example", "x-forwarded-proto": "https"}).text
+    assert '<link rel="canonical" href="https://lince.example/">' in page
+    assert '<meta property="og:url" content="https://lince.example/">' in page
+    assert '<meta property="og:image" content="https://lince.example/og.png">' in page
+    for tag in ('property="og:title"', 'property="og:description"', 'name="twitter:card"', '"@type": "WebApplication"'):
+        assert tag in page, tag
+    og = client.get("/og.png")
+    assert og.status_code == 200 and og.content[:8] == b"\x89PNG\r\n\x1a\n"
+    assert struct_size(og.content) == (1200, 630)
+    assert '<link rel="canonical" href="http://testserver/docs">' in client.get("/docs").text
+    robots = client.get("/robots.txt").text
+    assert "Disallow: /api/" in robots and "Sitemap: http://testserver/sitemap.xml" in robots
+    sitemap = client.get("/sitemap.xml")
+    assert sitemap.headers["content-type"].startswith("application/xml")
+    assert re.findall(r"<loc>(.+?)</loc>", sitemap.text) == ["http://testserver/", "http://testserver/docs"]
+
+
+def struct_size(png: bytes) -> tuple[int, int]:
+    """Ancho y alto de una imagen PNG (cabecera IHDR)."""
+    import struct
+    return struct.unpack(">II", png[16:24])
+
+
+def test_portada_solo_en_la_web_publica(tmp_path, monkeypatch):
+    """Con cuentas, la página trae ya en el HTML qué es Lince y el formulario de entrar (se pinta sin esperar
+    al JS y la leen los buscadores); en una instalación local se abre directamente la consola."""
+    monkeypatch.delenv("AGENTE_ADMIN_TOKEN", raising=False)
+    local = TestClient(create_app(tmp_path / "local")).get("/").text
+    assert "<main" not in local and "<h1" not in local and 'id="landing"' not in local
+    publica = TestClient(create_app(tmp_path / "publica", accounts=True)).get("/").text
+    assert publica.count("<h1") == 1 and publica.count("<main") == 1
+    assert 'name="username"' in publica and 'name="password"' in publica
+    links = re.findall(r'<a [^>]*href="(/[^"]*)"', publica)
+    assert {"/docs", "/chat?agent=pizzeria", "/chat?agent=hotel"} <= set(links)
+
+
+def test_service_worker_y_pagina_sin_conexion(client):
+    """El service worker (instalable y una página clara si no hay conexión) y lo que guarda para entonces."""
+    sw = client.get("/sw.js")
+    assert sw.status_code == 200 and sw.headers["content-type"].startswith(("text/javascript", "application/javascript"))
+    for path in re.findall(r'"(/[^"]+)"', sw.text.split("addAll(")[1].split(")")[0]):
+        assert client.get(path).status_code == 200, path
+    assert "iniciar.bat" in client.get("/offline.html").text
+    manifest = client.get("/manifest.webmanifest").json()
+    assert manifest["display"] == "standalone" and manifest["start_url"] == "/" and manifest["id"] == "/"
+    assert {i["sizes"] for i in manifest["icons"]} >= {"192x192", "512x512"}
 
 
 def test_logotipo_igual_en_la_consola():
@@ -352,3 +476,22 @@ def test_importar_zip_dialogflow(client):
 def test_validacion(client):
     items = client.get("/api/agents/pizzeria/validate").json()
     assert not [i for i in items if i["level"] == "error"]
+
+
+def test_dependencias_fijadas_para_el_servidor():
+    """El Dockerfile instala requirements.lock (versiones exactas) y en él están todas las de
+    requirements.txt, cada una dentro de su rango."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    assert "pip install -r requirements.lock" in (root / "Dockerfile").read_text(encoding="utf-8")
+    lines = [ln for ln in (root / "requirements.lock").read_text(encoding="utf-8").splitlines() if ln and not ln.startswith("#")]
+    pinned = dict(ln.split("==") for ln in lines)
+    assert all(re.fullmatch(r"\d+(\.\d+)*", v) for v in pinned.values()), pinned
+    norm = lambda name: name.lower().replace("_", "-")
+    pinned = {norm(k): tuple(int(x) for x in v.split(".")) for k, v in pinned.items()}
+    for req in (root / "requirements.txt").read_text(encoding="utf-8").split():
+        version = pinned[norm(re.split(r"[<>=,]", req)[0])]
+        for op, ver in re.findall(r"(>=|<)([\d.]+)", req):
+            limit = tuple(int(x) for x in ver.split("."))
+            assert (version >= limit) if op == ">=" else (version < limit), (req, version)

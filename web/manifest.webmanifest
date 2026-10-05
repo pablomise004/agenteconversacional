@@ -1,6 +1,7 @@
 {
   "name": "Lince · Chatbots en español",
   "short_name": "Lince",
+  "id": "/",
   "description": "Crea chatbots en español y mira cómo aprenden. Alternativa libre y local a Dialogflow.",
   "lang": "es",
   "start_url": "/",

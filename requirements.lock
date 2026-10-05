@@ -1,0 +1,21 @@
+# Versiones exactas que instala el Dockerfile (el servidor): dos despliegues del mismo commit instalan
+# lo mismo. Sale de requirements.txt en Linux con Python 3.12, como la imagen:
+#   python3.12 -m venv /tmp/lock && /tmp/lock/bin/pip install -r requirements.txt && /tmp/lock/bin/pip freeze
+# Al cambiar requirements.txt (o para actualizar), vuelve a generarlo y pasa las pruebas con esas versiones.
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+fastapi==0.142.2
+h11==0.16.0
+idna==3.20
+numpy==2.5.3
+opentelemetry-api==1.45.0
+pydantic==2.13.5
+pydantic_core==2.46.5
+snowballstemmer==3.1.1
+starlette==1.7.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+tzdata==2026.5
+uvicorn==0.54.0

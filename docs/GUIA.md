@@ -42,8 +42,9 @@ agente → Copia de un agente*. Esa copia (o un duplicado) ya es tuya y sale arr
 ### En la web de internet: tu cuenta y compartir
 
 En la versión de internet (<https://linceflow.duckdns.org>) cada uno entra con su **usuario y
-contraseña** y solo ve sus agentes. La primera vez pulsa **Crear cuenta**; después entras con tu
-usuario desde cualquier ordenador o móvil. Tu nombre sale abajo a la izquierda: ahí puedes cambiar
+contraseña** y solo ve sus agentes. En la portada, la primera vez pulsa **Crear cuenta**; después
+entras con tu usuario desde cualquier ordenador o móvil (y, mientras no salgas, ese navegador te
+lleva directo a tus agentes). Tu nombre sale abajo a la izquierda: ahí puedes cambiar
 la contraseña o salir.
 
 Si solo quieres probarlo, pulsa **Entrar sin cuenta**. Funciona igual, pero tus agentes **solo se ven
@@ -51,6 +52,10 @@ en ese navegador**: si borras sus datos o entras desde otro ordenador, no los ve
 agente, expórtalo (*Ajustes → Exportar*) e impórtalo en el otro sitio (*Agentes → Importar*). Y si
 luego te decides, abajo a la izquierda, en **Sin cuenta → Crear una cuenta y guardarlos**, la cuenta
 se queda con todo lo que tenías.
+
+En Chrome o Edge puedes **instalarla como aplicación** (botón *Instalar* de la barra de direcciones):
+se abre en su propia ventana, con el icono del lince. Si se pierde la conexión con el servidor, sale una
+página que lo explica y un botón para volver a intentarlo.
 
 Para **pasarle un agente a alguien**: ábrelo, ve a **Compartir** (en el menú de la izquierda) y pulsa
 **Crear un enlace**. Quien lo abra puede guardar **una copia suya** en su cuenta (lo que cambie no toca el tuyo)
