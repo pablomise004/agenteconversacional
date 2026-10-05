@@ -743,6 +743,16 @@ def test_chat_de_ejemplo_con_volver_y_tema(base_url, browser):
     assert widget.get_attribute("data-agente-theme") == "dark"
     bg = page.evaluate("getComputedStyle(document.querySelector('[data-agente-widget]').shadowRoot.querySelector('.panel')).backgroundColor")
     assert bg == "rgb(28, 28, 28)"
+    # con el teclado, la tarjeta del chat se marca mientras el foco está dentro (el widget va en su shadow
+    # DOM: para la página, el que tiene el foco es su contenedor); con el ratón, no
+    outline = "() => getComputedStyle(document.querySelector('[data-agente-widget]')).outlineStyle"
+    page.locator("[data-agente-widget] >> css=input").focus()  # el campo de escribir, como al abrir el chat
+    assert page.evaluate(outline) == "none"
+    page.keyboard.press("Shift+Tab")  # al botón de antes, dentro del widget (enviar está apagado sin texto)
+    assert page.evaluate("() => document.activeElement.matches('[data-agente-widget]')")
+    assert page.evaluate(outline) == "solid"
+    page.mouse.click(5, 5)
+    assert page.evaluate(outline) == "none"
     page.locator("#back").click()
     page.wait_for_url("**/#/agents")
     assert errors == []

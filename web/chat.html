@@ -52,6 +52,12 @@
     #chat { width: 100%; max-width: 560px; height: min(760px, calc(100% - 96px)); border-radius: 22px; overflow: hidden;
       background: var(--card); box-shadow: var(--shadow); animation: in .5s cubic-bezier(.2, .8, .2, 1) both; }
     @keyframes in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+    /* con el teclado (data-keyboard, ver js/chat-page.js), la tarjeta se marca mientras el foco está dentro.
+       El contorno del contenedor del widget es el que miran los comprobadores, pero queda bajo el panel: el que
+       se ve es el de la tarjeta (por fuera; en el móvil, que ocupa toda la pantalla, por dentro) */
+    #chat { position: relative; }
+    [data-keyboard] #chat [data-agente-widget]:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
+    [data-keyboard] #chat:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 
     /* «Volver» y el cambio de tema (no salen dentro de un iframe) */
     .bar { width: 100%; max-width: 560px; display: flex; align-items: center; justify-content: space-between;
@@ -90,6 +96,10 @@
       .bar { max-width: none; height: 48px; flex: none; padding: 0 6px; box-sizing: border-box; background: var(--card);
         border-bottom: 1px solid var(--line); }
       #chat, [data-embedded] #chat { flex: 1; min-height: 0; height: auto; max-width: none; border-radius: 0; box-shadow: none; }
+      [data-keyboard] #chat:focus-within { outline: none; }
+      /* por encima del panel del widget, que lleva el z-index más alto posible para no quedar tapado en otras webs */
+      [data-keyboard] #chat:focus-within::after { content: ""; position: absolute; inset: 0; z-index: 2147483647;
+        pointer-events: none; box-shadow: inset 0 0 0 2px var(--accent); }
       .made { display: none; }
     }
     @media (prefers-reduced-motion: reduce) { #chat, .bar { animation: none; } .bar-btn svg { transition: none; } }

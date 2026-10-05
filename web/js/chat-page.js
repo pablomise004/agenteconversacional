@@ -20,6 +20,12 @@
   syncThemeColor();
   system.addEventListener("change", syncThemeColor);
 
+  // Con el teclado, la tarjeta del chat se marca mientras el foco está dentro: el widget va en su propio
+  // shadow DOM y, para la página (y para los comprobadores de accesibilidad), el foco lo tiene su
+  // contenedor, no el botón de dentro. Con el ratón o el dedo no se marca.
+  addEventListener("keydown", function (e) { if (e.key === "Tab") root.dataset.keyboard = ""; }, true);
+  addEventListener("pointerdown", function () { delete root.dataset.keyboard; }, true);
+
   function fail(msg) {
     var d = document.createElement("div");
     d.className = "error";
