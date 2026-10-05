@@ -54,7 +54,8 @@ luego te decides, abajo a la izquierda, en **Sin cuenta → Crear una cuenta y g
 se queda con todo lo que tenías.
 
 En Chrome o Edge puedes **instalarla como aplicación** (botón *Instalar* de la barra de direcciones):
-se abre en su propia ventana, con el icono del lince. Si se pierde la conexión con el servidor, sale una
+se abre en su propia ventana, con el icono del lince. El chat de un agente (`/chat?agent=…`) también se
+instala por separado, con el nombre del agente: útil para tenerlo en el móvil. Si se pierde la conexión con el servidor, sale una
 página que lo explica y un botón para volver a intentarlo.
 
 Para **pasarle un agente a alguien**: ábrelo, ve a **Compartir** (en el menú de la izquierda) y pulsa

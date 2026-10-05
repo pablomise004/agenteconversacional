@@ -35,8 +35,9 @@ body.docs-body::before { content: ""; position: fixed; inset: 0 0 auto 0; height
   border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent); }
 .docs-hero { animation: page-in .4s var(--ease) backwards; }
 .docs-hero h1 { font-size: 38px; letter-spacing: -.035em; font-weight: 750; margin: 14px 0 10px; line-height: 1.1; }
+/* texto con degradado: el color de verdad (el que leen los comprobadores de contraste) es el del acento */
 .docs-hero h1 .grad { background: linear-gradient(120deg, var(--brand-1), var(--brand-2)); -webkit-background-clip: text;
-  background-clip: text; color: transparent; }
+  background-clip: text; color: var(--accent-text); -webkit-text-fill-color: transparent; }
 .docs-hero .lead { font-size: 16px; color: var(--muted); margin: 0 0 24px; line-height: 1.6; }
 .hero-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .hero-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -45,6 +46,7 @@ body.docs-body::before { content: ""; position: fixed; inset: 0 0 auto 0; height
 .hero-card .k svg.icon { width: 15px; height: 15px; color: var(--primary); }
 .hero-card .v { font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .hero-card .v code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hero-card .v a { display: inline-flex; align-items: center; min-height: 26px; }  /* que se pueda pulsar con el dedo */
 
 /* secciones */
 .docs-section { margin-top: 48px; }
@@ -139,5 +141,9 @@ body.docs-body::before { content: ""; position: fixed; inset: 0 0 auto 0; height
   .ep-sum { display: none; }
   .docs-top .hide-sm { display: none; }
   .docs-search { width: auto; flex: 1; }
+  .docs-search kbd { display: none; }  /* en el móvil no hay atajos de teclado */
   .docs-top .brand-sub { display: none; }
+  /* en el móvil, ningún texto por debajo de 12 px */
+  .method, .eyebrow, .doc-h, .in-tag, .req, .docs-body .badge, .docs-body .code-head .lang, .docs-body .table th { font-size: 12px; }
+  .method.sm { font-size: 12px; height: 22px; min-width: 56px; }
 }

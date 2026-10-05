@@ -678,25 +678,89 @@ def test_portada_de_la_web_publica(accounts_url, browser):
     page.goto(accounts_url + "/")
     page.wait_for_selector("#landing .signin-submit:enabled")
     assert page.locator("[role=dialog], .modal").count() == 0
-    # el foco cambia el aspecto al instante (con transición, justo al llegar aún no se veía)
+    assert page.locator(".signin-tabs .tabs-ind").count() == 1  # las pestañas de la consola, con su indicador
+    # con el tabulador, cada control cambia al momento y con un contorno de verdad (no solo un halo suave)
     page.locator("#landing [role=tab]").first.focus()
-    for _ in range(2):
+    for expected in ("signin-user", "signin-pass", "signin-submit", "signin-guest"):
         page.keyboard.press("Tab")
-        look = page.evaluate("[document.activeElement.id, getComputedStyle(document.activeElement).boxShadow]")
-        assert look[0] in ("signin-user", "signin-pass") and look[1] != "none", look
-    # crear cuenta: aparece la repetición de la contraseña y el título cambia
-    page.keyboard.press("Shift+Tab")
-    page.keyboard.press("Shift+Tab")
+        look = page.evaluate("""() => { const el = document.activeElement, c = getComputedStyle(el);
+            return [el.id || [...el.classList].find((k) => k.startsWith('signin-')), c.outlineStyle, c.outlineWidth]; }""")
+        assert look[0] == expected and look[1] == "solid" and look[2] == "2px", look
+    # crear cuenta: se despliega la repetición de la contraseña y cambian el título, el texto y el botón
+    assert page.locator("#signin-pass2").is_hidden()
+    page.locator("#landing [role=tab]").first.focus()
     page.keyboard.press("ArrowRight")
-    assert page.locator("#signin-pass2").is_visible() and page.locator("#signin-title").inner_text() == "Crea tu cuenta"
+    playwright.expect(page.locator("#signin-pass2")).to_be_visible()
+    assert page.locator("#signin-title").inner_text() == "Crea tu cuenta"
+    assert page.locator(".signin-submit").inner_text() == "Crear cuenta"
+    assert "no hace falta correo" in page.locator("#signin-sub").inner_text()
     page.locator("#landing [role=tab]", has_text="Entrar").click()
+    playwright.expect(page.locator("#signin-pass2")).to_be_hidden()  # se recoge y no se llega con el tabulador
     page.fill("#signin-user", "nadie-e2e")
     page.fill("#signin-pass", "una-que-no-es")
     page.locator(".signin-submit").click()
     playwright.expect(page.locator("#signin-error")).to_be_visible()
-    assert page.locator("#signin-pass2").is_hidden()
+    # claro u oscuro desde la portada (y se guarda, como en la consola)
+    page.locator("#landing-corner .theme-btn").click()
+    page.wait_for_function("() => document.documentElement.dataset.theme === 'dark'")
+    assert page.evaluate("localStorage.getItem('agente.theme')") == "dark"
     assert errors == []
     ctx.close()
+
+    # con «menos movimiento», al cargar no queda ninguna animación pendiente (antes esperaban su retraso)
+    ctx = browser.new_context(viewport={"width": 1366, "height": 768}, locale="es-ES", reduced_motion="reduce")
+    page = ctx.new_page()
+    page.goto(accounts_url + "/")
+    page.wait_for_selector("#landing .signin-submit:enabled")
+    page.wait_for_timeout(150)
+    assert page.evaluate("document.getAnimations().filter((a) => a.playState === 'running').length") == 0
+    ctx.close()
+
+
+def test_chat_de_ejemplo_con_volver_y_tema(base_url, browser):
+    """La página de chat: «Volver» lleva a donde se estaba y el tema cambia también el del widget. Dentro
+    de un iframe de otra web no salen."""
+    ctx = browser.new_context(viewport={"width": 1366, "height": 768}, locale="es-ES", color_scheme="light")
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    page.goto(base_url + "/#/agents")
+    page.wait_for_selector(".agent-card")
+    page.goto(base_url + "/chat?agent=hotel")
+    page.wait_for_selector("[data-agente-widget]")
+    assert page.locator("h1").inner_text() == "Chat con Hotel (ejemplo)"
+    widget = page.locator("[data-agente-widget]")
+    assert widget.get_attribute("data-agente-theme") == "auto"
+    page.locator("#theme").click()
+    page.wait_for_function("() => document.documentElement.dataset.theme === 'dark'")
+    assert widget.get_attribute("data-agente-theme") == "dark"
+    bg = page.evaluate("getComputedStyle(document.querySelector('[data-agente-widget]').shadowRoot.querySelector('.panel')).backgroundColor")
+    assert bg == "rgb(28, 28, 28)"
+    page.locator("#back").click()
+    page.wait_for_url("**/#/agents")
+    assert errors == []
+    # dentro de un iframe (otra web), ni «Volver» ni el cambio de tema
+    page.set_content(f'<iframe src="{base_url}/chat?agent=pizzeria" style="width:600px;height:700px"></iframe>')
+    frame = page.frame_locator("iframe")
+    frame.locator("#chat [data-agente-widget]").wait_for(state="attached")
+    playwright.expect(frame.locator(".bar")).to_be_hidden()
+    ctx.close()
+
+
+def test_referencia_de_la_api_sin_cuenta(accounts_url, page):
+    """En la web pública sin haber entrado, /docs no pide la lista de agentes (respondía 401) y «Pruébalo»
+    propone los de ejemplo."""
+    failed = []
+    page.on("response", lambda r: failed.append(f"{r.status} {r.url}") if r.status >= 400 else None)
+    page.goto(accounts_url + "/docs")
+    page.wait_for_selector(".ep")
+    detect = page.locator("#post-api-agents-agent_id-detect")
+    detect.locator(".ep-head").click()
+    assert detect.locator("input[name=agent_id]").input_value() == "pizzeria"
+    detect.locator(".try .btn.primary").click()
+    playwright.expect(detect.locator(".resp")).to_contain_text("pedido.pizza")
+    assert failed == [] and page.errors == []
 
 
 def test_sin_conexion_sale_una_pagina_que_lo_explica(base_url, browser):

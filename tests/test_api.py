@@ -150,22 +150,32 @@ def test_novedades_de_la_version_actual(client):
 
 def test_vigia_solo_si_esta_configurado(tmp_path, monkeypatch):
     """El script de Vigía (vigilancia de la web pública) solo va en las páginas si el servidor tiene
-    AGENTE_VIGIA_CLAVE: una instalación local no manda nada a nadie."""
+    AGENTE_VIGIA_CLAVE: una instalación local no manda nada a nadie. Es la copia de web/js/vigia.js (las
+    páginas no cargan código de otra web) y manda sus datos a la de Vigía, que la CSP deja solo para eso."""
     monkeypatch.delenv("AGENTE_ADMIN_TOKEN", raising=False)
-    monkeypatch.delenv("AGENTE_VIGIA_CLAVE", raising=False)
+    for var in ("AGENTE_VIGIA_CLAVE", "AGENTE_VIGIA_SRC", "AGENTE_VIGIA_INGESTA"):
+        monkeypatch.delenv(var, raising=False)
     local = TestClient(create_app(tmp_path / "local"))
     for path in ("/", "/docs", "/chat"):
         assert "data-clave" not in local.get(path).text, path
     monkeypatch.setenv("AGENTE_VIGIA_CLAVE", "abc123")
     publica = TestClient(create_app(tmp_path / "publica"))
-    for path in ("/", "/index.html", "/docs", "/chat"):
+    for path in ("/", "/index.html", "/docs", "/chat?agent=hotel"):
         res = publica.get(path)
         assert res.status_code == 200 and res.headers["content-type"].startswith("text/html"), path
-        assert 'vigia.js" data-clave="abc123" defer></script>\n</body>' in res.text, path
+        tag = re.search(r'<script src="(/v/[0-9a-f]{10}/js/vigia\.js)" data-clave="abc123" data-ingesta='
+                        r'"https://nexopablooms\.duckdns\.org/herramientas/vigia/ingesta" defer></script>\n</body>', res.text)
+        assert tag, path
+        assert "sendBeacon" in publica.get(tag.group(1)).text
+        policy = dict(d.split(" ", 1) for d in res.headers["content-security-policy"].split("; "))
+        assert "nexopablooms" not in policy["script-src"] and policy["connect-src"] == "'self' https://nexopablooms.duckdns.org"
     assert "<title>" in publica.get("/").text  # la página sigue entera
-    # la CSP deja cargar el script de Vigía y mandar sus datos a su web
-    csp = publica.get("/").headers["content-security-policy"]
-    assert "script-src 'self'" in csp and csp.count("https://nexopablooms.duckdns.org") == 2
+    # con AGENTE_VIGIA_SRC se carga de esa dirección (y su web entra en la CSP de los scripts)
+    monkeypatch.setenv("AGENTE_VIGIA_SRC", "https://vigia.example/herramientas/vigia.js")
+    otra = TestClient(create_app(tmp_path / "otra")).get("/")
+    assert '<script src="https://vigia.example/herramientas/vigia.js" data-clave="abc123" defer></script>' in otra.text
+    policy = dict(d.split(" ", 1) for d in otra.headers["content-security-policy"].split("; "))
+    assert "https://vigia.example" in policy["script-src"] and "https://vigia.example" in policy["connect-src"]
 
 
 def test_cabeceras_de_seguridad(client):
@@ -495,3 +505,37 @@ def test_dependencias_fijadas_para_el_servidor():
         for op, ver in re.findall(r"(>=|<)([\d.]+)", req):
             limit = tuple(int(x) for x in ver.split("."))
             assert (version >= limit) if op == ">=" else (version < limit), (req, version)
+
+
+def test_paginas_responden_a_head(client):
+    """Los buscadores y los comprobadores de enlaces preguntan con HEAD: antes /docs y /chat daban 404."""
+    stamp = re.search(r'/v/([0-9a-f]{10})/js/app\.js', client.get("/").text).group(1)
+    for path in ("/", "/index.html", "/docs", "/docs/", "/chat?agent=pizzeria", "/robots.txt", "/sitemap.xml",
+                 "/widget.js", "/chat.webmanifest?agent=hotel", f"/v/{stamp}/js/app.js", "/favicon.svg", "/og.png"):
+        assert client.head(path).status_code == 200, path
+
+
+def test_chat_de_un_agente(client):
+    """/chat?agent=… lleva en el HTML el nombre y el idioma del agente y su manifiesto: el chat se puede
+    instalar como aplicación (con el nombre del agente y abriendo su chat)."""
+    page = client.get("/chat?agent=hotel").text
+    assert "<title>Hotel (ejemplo) · Lince</title>" in page
+    assert re.search(r'<h1 [^>]*id="chat-title"[^>]*>Chat con Hotel \(ejemplo\)</h1>', page)
+    assert '<meta property="og:title" content="Chat con Hotel (ejemplo)">' in page
+    assert '<meta property="og:url" content="http://testserver/chat?agent=hotel">' in page
+    assert '<link rel="manifest" href="/chat.webmanifest?agent=hotel">' in page
+    assert '<link rel="apple-touch-icon"' in page and "<main" in page
+    manifest = client.get("/chat.webmanifest?agent=hotel")
+    assert manifest.headers["content-type"].startswith("application/manifest+json")
+    data = manifest.json()
+    assert data["name"] == "Hotel (ejemplo)" and data["short_name"] == "Hotel"
+    assert data["start_url"] == "/chat?agent=hotel" and data["scope"] == "/chat" and data["display"] == "standalone"
+    assert {i["sizes"] for i in data["icons"]} >= {"192x192", "512x512"}
+    # un agente que no existe (o sin agente): la página genérica, sin manifiesto, y el manifiesto da 404
+    for path in ("/chat?agent=no-existe", "/chat", '/chat?agent="><script>alert(1)</script>'):
+        page = client.get(path).text
+        assert "<title>Chat · Lince</title>" in page and "chat.webmanifest" not in page and "<script>alert" not in page, path
+    assert client.get("/chat.webmanifest?agent=no-existe").status_code == 404
+    # las páginas se guardan hechas, pero cambian si cambia el agente
+    client.patch("/api/agents/hotel", json={"name": "Hotel Mirador"})
+    assert "<title>Hotel Mirador · Lince</title>" in client.get("/chat?agent=hotel").text

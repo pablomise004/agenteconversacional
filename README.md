@@ -84,7 +84,7 @@ Hay una versión de Lince en internet: **<https://linceflow.duckdns.org>**.
   la dirección está en **Integraciones**.
 - **¿Has olvidado la contraseña?** Pídele a Pablo que te ponga otra.
 - **Como aplicación:** en Chrome o Edge, el botón **Instalar** de la barra de direcciones la deja con su
-  icono, en su propia ventana.
+  icono, en su propia ventana. El chat de un agente también se instala por separado, con su nombre.
 
 ## Instalación en Windows, paso a paso
 
@@ -302,7 +302,8 @@ colores, la posición y el tema, con una vista previa):
 el sistema de cada visitante). Otras opciones: `data-color`, `data-position="left"`,
 `data-welcome="false"`, `data-open="true"`, `data-inline="#selector"` y `data-key` (detalles al
 principio de [`web/widget.js`](web/widget.js)). También hay una página de chat completa en
-`/chat?agent=pizzeria` (admite `&theme=dark`).
+`/chat?agent=pizzeria` (admite `&theme=dark`), con «Volver» y el cambio de tema arriba (dentro de un
+`<iframe>` no salen); se puede instalar como aplicación con el nombre del agente.
 
 ![Chat](docs/img/chat.png)
 
@@ -383,7 +384,7 @@ O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --
 | `AGENTE_ADMIN_TOKEN` | Protege la consola y la API de administración (se pide al entrar). Para un servidor solo tuyo |
 | `AGENTE_DATA_DIR` | Carpeta de datos (por defecto `./data`; en la imagen Docker, `/data`) |
 | `AGENTE_SPACES_PER_HOUR` / `AGENTE_SPACES_MAX` | Con cuentas: cuántas se pueden crear por hora (200) y en total (5.000) |
-| `AGENTE_VIGIA_CLAVE` | Opcional: clave de Vigía para vigilar la web pública (vitales y errores de cada página). Con ella, la consola, `/docs` y `/chat` llevan su script; sin ella, nada. `AGENTE_VIGIA_SRC` cambia la dirección del script |
+| `AGENTE_VIGIA_CLAVE` | Opcional: clave de Vigía para vigilar la web pública (vitales y errores de cada página). Con ella, la consola, `/docs` y `/chat` llevan su script (la copia de `web/js/vigia.js`, que pone al día `tools/actualizar_vigia.py`); sin ella, nada. `AGENTE_VIGIA_SRC` lo carga de otra dirección y `AGENTE_VIGIA_INGESTA` cambia adónde manda los datos |
 | `HOST` / `PORT` | Dirección y puerto |
 
 Cada agente puede tener además una **clave de API** (*Ajustes → Seguridad*) que exige la cabecera
@@ -401,7 +402,8 @@ Sin configurar nada más, el servidor ya:
 - Sirve el JavaScript, el CSS y la letra con una **huella** en la dirección (`/v/<huella>/…`): el
   navegador los guarda un año y, en cuanto cambia un fichero, la huella es otra.
 - Tiene `robots.txt`, `sitemap.xml` y la imagen de las vistas previas (`og.png`), con direcciones
-  absolutas sacadas de la dirección con la que se visita.
+  absolutas sacadas de la dirección con la que se visita. Las páginas y los ficheros responden también a
+  `HEAD`, que es como preguntan los buscadores y los comprobadores de enlaces.
 
 La imagen de Docker instala las versiones exactas de [`requirements.lock`](requirements.lock) (las de
 `requirements.txt` resueltas en Linux con Python 3.12): dos despliegues del mismo commit llevan lo
@@ -447,14 +449,15 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 159 pruebas: NLU, diálogo, webhook, API, cuentas, seguridad, modelo, hotel
+python -m pytest                            # 161 pruebas: NLU, diálogo, webhook, API, cuentas, seguridad, modelo, hotel
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 36 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 38 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"   # --agente hotel "…" para el grande
 python tools/build_hotel.py                 # regenera examples/hotel.json (y comprueba sus anotaciones)
 python tools/capturas_docs.py               # rehace las capturas de docs/img con la consola actual
 python tools/build_icons.py                 # rehace favicon.ico, los iconos PNG y og.png desde web/favicon.svg
+python tools/actualizar_vigia.py            # pone al día la copia de Vigía (web/js/vigia.js)
 ```
 
 ```

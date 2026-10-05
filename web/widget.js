@@ -52,7 +52,7 @@
   var DARK = "color-scheme:dark;--bg:#1c1c1c;--fg:#ececec;--soft:#141414;--card:#262626;--line:#303030;--line2:#424242;" +
     "--muted:#9b9b9b;--dot:#8a8a8a;--edge:rgba(255,255,255,.08);--ring:rgba(255,255,255,.1);--ink:color-mix(in srgb,var(--c) 50%,#fff)";
   var css = [
-    ":host{all:initial;--bg:#fff;--fg:#1b2232;--soft:#f6f7f9;--card:#fff;--line:#e7e8eb;--line2:#d6d8dd;--muted:#80858f;",
+    ":host{all:initial;--bg:#fff;--fg:#1b2232;--soft:#f6f7f9;--card:#fff;--line:#e7e8eb;--line2:#d6d8dd;--muted:#666b77;",
     "--dot:#a1a6b0;--edge:rgba(0,0,0,.04);--ring:rgba(0,0,0,.06);--ink:var(--c);--tint:var(--card);--tline:var(--line2);--glow:transparent}",
     "@supports (color:color-mix(in srgb,red,blue)){:host{--tint:color-mix(in srgb,var(--c) 9%,var(--card));",
     "--tline:color-mix(in srgb,var(--c) 30%,transparent);--glow:color-mix(in srgb,var(--c) 14%,transparent)}}",
@@ -92,6 +92,8 @@
     ".head button:hover{opacity:1;background:rgba(255,255,255,.16)}.head .reset:hover{transform:rotate(-90deg)}.head svg{width:18px;height:18px}",
     ".body{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:8px;background:var(--soft);scroll-behavior:smooth;",
     "background-image:radial-gradient(420px 180px at 50% -50px,var(--glow),transparent 70%)}",
+    // los navegadores dejan llegar con el tabulador a lo que tiene scroll (para moverlo con las flechas)
+    ".body:focus-visible{outline:2px solid var(--c);outline-offset:-2px}",
     ".msg{max-width:85%;padding:9px 13px;border-radius:14px;line-height:1.45;font-size:14.5px;white-space:pre-wrap;word-break:break-word;",
     "animation:msg .3s cubic-bezier(.34,1.45,.64,1) backwards}",
     "@keyframes msg{from{opacity:0;transform:translateY(8px) scale(.96)}}",
@@ -167,7 +169,7 @@
     '<button class="reset" type="button" title="Nueva conversación" aria-label="Nueva conversación">' + ICON_RESET + '</button>' +
     '<button class="close" type="button" aria-label="Cerrar">' + ICON_X + '</button></div>' +
     '<div class="body" aria-live="polite"></div>' +
-    '<form><div class="box"><input type="text" maxlength="1000" autocomplete="off" aria-label="Mensaje">' +
+    '<form><div class="box"><input type="text" name="mensaje" maxlength="1000" autocomplete="off" aria-label="Mensaje">' +
     '<button type="submit" aria-label="Enviar">' + ICON_SEND + '</button></div></form>' +
     '</div>';
   root.host.style.setProperty("--c", color);

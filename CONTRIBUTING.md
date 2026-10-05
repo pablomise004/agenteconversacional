@@ -121,7 +121,8 @@ flowchart TB
 | `web/js/markdown.js` | Intérprete mínimo de Markdown (para la guía y las descripciones de la API) |
 | `web/js/simulator.js` | Panel «Pruébalo» |
 | `web/js/pages/*.js` | Una página por sección de la consola (`inside.js` es «Por dentro»: el motor explicado con fórmulas) |
-| `web/widget.js`, `web/chat.html` | Widget incrustable (Shadow DOM, sin dependencias; tema claro, oscuro o automático con `data-theme`, colores en variables CSS) y página de chat de demostración (`?theme=`, `?title=`, `?color=`, `?key=`) |
+| `web/widget.js`, `web/chat.html`, `web/js/chat-page.js` | Widget incrustable (Shadow DOM, sin dependencias; tema claro, oscuro o automático con `data-theme`, que se puede cambiar en vivo con el atributo `data-agente-theme` de su contenedor; colores en variables CSS) y página de chat (`?theme=`, `?title=`, `?color=`, `?key=`), con «Volver» y el cambio de tema (fuera de un iframe) y su manifiesto para instalarla (`/chat.webmanifest?agent=…`) |
+| `web/js/vigia.js`, `tools/actualizar_vigia.py` | Copia de Vigía (vitales y errores de la web pública, solo con `AGENTE_VIGIA_CLAVE`) y lo que la pone al día |
 | `examples/pizzeria.json`, `examples/hotel.json` | Agentes de ejemplo: la pizzería (pequeña, para aprender) y el hotel (88 intenciones, para ver el potencial). `seed_examples()` (`server.py`) copia cada uno la primera vez que arranca el servidor con él y lo apunta en `data/seeded_examples.json`: un ejemplo borrado no vuelve. Las copias llevan `"example": true` y la consola las enseña aparte (grupo «Ejemplos», debajo de «Tus agentes», también en el menú de agentes) |
 | `tools/build_pizzeria.py`, `tools/build_hotel.py` | Generan los ejemplos a partir de frases con la notación `[texto](parámetro)`. El del hotel además comprueba que cada anotación coincide con lo que detecta el motor (y que no queda nada sin anotar), que no hay frases repetidas y que la normalización no inventa parámetros |
 | `tools/build_icons.py` | Genera `favicon.ico`, los PNG de `web/icons/` y `web/og.png` a partir de `web/favicon.svg` (Playwright con Edge, Chrome o Chromium) |
@@ -454,8 +455,9 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
   `Strict-Transport-Security` solo si se llegó por https (`X-Forwarded-Proto`, que pone Traefik).
 - **CSP**: cada página (`page()`) lleva su `Content-Security-Policy`: scripts solo de aquí, más los
   `<script>` en línea por su huella sha256 (se calcula del HTML que se manda, así que se puede editar
-  sin tocar nada más) y, si está configurado, el origen de Vigía (también en `connect-src`, para sus
-  envíos). `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` y `frame-ancestors 'none'`
+  sin tocar nada más). Vigía es la copia de `web/js/vigia.js` (las páginas no cargan código de otra
+  web: es lo que pide el informe de SRI) y solo su web de datos entra en `connect-src`; con
+  `AGENTE_VIGIA_SRC` se carga de fuera y ese origen entra también en `script-src`. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` y `frame-ancestors 'none'`
   (con `X-Frame-Options: DENY`), salvo `/chat`, que se puede incrustar en cualquier web. Los estilos
   en línea sí se permiten (los usa el widget en su `<style>` y no ejecutan código). Consecuencias: nada
   de `onclick="…"` en el HTML ni de `eval`/`new Function`, y en las pruebas las esperas de Playwright
@@ -475,6 +477,14 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
   botones vienen apagados hasta que `account.js:signInPage()` les da vida. Quien ya tiene la llave
   guardada no la ve: el script del `<head>` pone `data-boot="app"` y el CSS la esconde; si la llave
   ya no vale, `signInPage()` lo quita. Los campos llevan `id` y `name` (Chrome avisa si no).
+- **Páginas** (`page()` y `render()`): se guardan ya hechas (`functools.lru_cache`, 128) por fichero y
+  fecha, huella, dirección y agente; `assets_stamp()` se recalcula como mucho una vez por segundo. Así
+  la portada o un chat cuestan casi nada aunque se pidan mucho. Las rutas de páginas y ficheros se
+  declaran con `web_route()`, que acepta `GET` y `HEAD` (FastAPI no añade `HEAD` solo, y por `HEAD`
+  `/docs` y `/chat` daban 404: los buscadores los veían como enlaces rotos). `/chat?agent=…` sale con el
+  nombre del agente (título, h1 para los lectores de pantalla y `og:title`), su idioma y su manifiesto.
+  Para leer un dato del agente se usa `peek()` (sin copiarlo: el hotel tarda ~5 ms en copiarse, y la
+  clave de API se mira en cada mensaje).
 - **Service worker** (`web/sw.js`, lo registra `app.js`): solo responde a las navegaciones, y solo
   cuando falla la red, con `offline.html`. No guarda la consola: con conexión todo llega del servidor
   y nunca se ve algo viejo. Si cambias `offline.html`, sube el número de `CACHE`.
@@ -508,7 +518,11 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
   (revisión, 👍/👎) se recarga con `reloadAgent()`.
 - Tema: variables CSS en `:root` y en `[data-theme=dark]` / `prefers-color-scheme`. El modo oscuro
   usa grises neutros; el acento es índigo (`--primary`) y el logotipo usa `--brand-1`/`--brand-2`.
-  Contrastes comprobados (texto ≥ 15:1, secundario ≥ 5,5:1, botones primarios ≥ 4,8:1). El cambio
+  Contrastes comprobados (texto ≥ 15:1, secundario ≥ 5,5:1, tenue `--faint` ≥ 4,5:1 sobre todos los
+  fondos, botones primarios ≥ 4,8:1). Los botones y textos sobre un degradado llevan además su color
+  de fondo debajo (`background: linear-gradient(…) var(--brand-1)`): es el que leen los comprobadores
+  de contraste. Foco con el teclado: un contorno de 2 px (`outline`, sin transición) en botones y
+  campos; los campos que van dentro de una caja con foco propio (paleta, simulador, chips) lo quitan. El cambio
   de tema se anima con View Transitions (un círculo desde el botón) y se guarda en `agente.theme`.
 - Bloques de código: siguen el tema (claros en el claro, oscuros en el oscuro) con `--code-*` y los
   colores de sintaxis `--tok-*`, todos con contraste ≥ 4,5:1 sobre su fondo.
@@ -592,8 +606,8 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 159 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, cabeceras de seguridad y CSP (con las huellas de los scripts), CORS solo en las rutas públicas, JS/CSS con huella, vistas previas, `robots.txt` y `sitemap.xml`, portada solo con cuentas, service worker, dependencias fijadas, el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
-| `python -m pytest tests/e2e -m e2e` | 36 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar), la portada (sin JS y con JS, foco visible al instante con el tabulador, sin errores de la CSP) y la página sin conexión del service worker |
+| `python -m pytest` | 161 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, cabeceras de seguridad y CSP (con las huellas de los scripts), CORS solo en las rutas públicas, JS/CSS con huella, vistas previas, `robots.txt` y `sitemap.xml`, portada solo con cuentas, service worker, dependencias fijadas, páginas que responden a `HEAD`, el chat de un agente (nombre, idioma y manifiesto), el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
+| `python -m pytest tests/e2e -m e2e` | 38 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» (también sin cuenta, sin errores), un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar), la portada (sin JS y con JS, contorno de foco con el tabulador, «Crear cuenta» que se despliega y se recoge, cambio de tema, sin errores de la CSP y sin animaciones pendientes con «reducir movimiento»), el chat con «Volver» y tema (también el del widget; dentro de un iframe no salen) y la página sin conexión del service worker |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

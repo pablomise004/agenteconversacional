@@ -15,6 +15,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/app.css">
   <link rel="stylesheet" href="/css/api.css">
@@ -23,6 +24,12 @@
       const t = localStorage.getItem("agente.theme");
       if (t) document.documentElement.dataset.theme = t;
     } catch (e) {}
+  </script>
+  <script type="application/ld+json">
+    {"@context": "https://schema.org", "@type": "APIReference", "name": "Referencia de la API REST de Lince",
+     "description": "Agentes, intenciones, entidades, entrenamiento y conversación, compatible con detectIntent de Dialogflow ES.",
+     "inLanguage": "es", "isPartOf": {"@type": "WebApplication", "name": "Lince",
+     "codeRepository": "https://github.com/pablomise004/agenteconversacional"}}
   </script>
 </head>
 <body class="docs-body">

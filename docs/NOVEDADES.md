@@ -3,6 +3,26 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.12.0 · 2 de octubre de 2026
+
+**Más cómoda de leer y de usar, también con el teclado.**
+
+- **Claro u oscuro en la portada y en el chat**: arriba a la derecha está la luna (o el sol). Se recuerda
+  igual que en la consola.
+- **Chat de los ejemplos con «Volver»**: la flecha de arriba lleva a donde estabas. Y el chat de
+  cualquier agente **se puede instalar como aplicación** (Chrome y Edge ofrecen «Instalar»): con su
+  nombre y abriendo directamente su conversación.
+- **Formulario con animaciones**: al pasar de «Entrar» a «Crear cuenta», la pestaña se desliza, los
+  campos nuevos se despliegan poco a poco y los textos cambian con suavidad.
+- **Enlaces de la portada más vivos**: al pasar el ratón se levantan, el icono se llena de color y
+  aparece la flecha.
+- **Más contraste**: los textos grises más claros ahora se leen bien en claro y en oscuro.
+- **El foco del teclado se ve siempre**: con el tabulador, botones y campos llevan un borde marcado.
+- Con «reducir movimiento» activado en el sistema, ya no queda ninguna animación esperando.
+- Por dentro: los buscadores ya encuentran `/docs` y los chats (antes les parecían enlaces rotos), la
+  referencia de la API no da errores si no has entrado y la vigilancia de la web ya no carga código de
+  otro sitio.
+
 ## 0.11.0 · 2 de octubre de 2026
 
 **Una portada de verdad, más rápida y más segura.**

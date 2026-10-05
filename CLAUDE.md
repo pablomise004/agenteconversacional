@@ -42,14 +42,15 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 159 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 36 pruebas en navegador real
+python -m pytest                      # 161 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 38 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
 python tools/build_hotel.py           # regenera examples/hotel.json y comprueba sus anotaciones
 python tools/capturas_docs.py         # rehace las capturas de docs/img (Playwright)
 python tools/build_icons.py           # rehace favicon.ico, web/icons/*.png y web/og.png desde web/favicon.svg
+python tools/actualizar_vigia.py      # pone al día web/js/vigia.js (la copia de Vigía que sirve Lince)
 python -m app.users [password <usuario>]   # servidor con cuentas: usuarios / contraseña nueva
 ```
 
@@ -83,7 +84,10 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   huella (`/v/<huella>/…`, un año de caché), `robots.txt`, `sitemap.xml` y `og.png`. `web/sw.js` solo
   enseña `offline.html` si no hay red. Las páginas de la consola se cargan con `import()`. El
   `Dockerfile` instala `requirements.lock` (generado en Linux con Python 3.12: ver su cabecera).
-  Detalles en CONTRIBUTING, «Web pública».
+  0.12.0 (segunda auditoría): páginas con `GET` y `HEAD` (`web_route()`) y guardadas ya hechas
+  (`render()`), `/chat?agent=…` con nombre, idioma, manifiesto propio (instalable), «Volver» y tema
+  (`js/chat-page.js`), Vigía servido desde `web/js/vigia.js` (`tools/actualizar_vigia.py`), `--faint`
+  con contraste AA y foco con `outline`. Detalles en CONTRIBUTING, «Web pública».
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
   `busy`, `countUp`, `stagger`, `tocNav` (índice de Guía y «Por dentro»), `selectMenu` (en lugar de
@@ -117,6 +121,9 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   gráficos están validados para daltonismo; si se cambian, revalidar.
 - Antes de crear un componente nuevo, mira si ya hay uno en `ui.js`. Las páginas empiezan con
   `pageHead({icon, title, sub, actions})`; las tablas de datos usan `dataTable()` (ordenables).
+- Accesibilidad: el gris tenue (`--faint`) cumple 4,5:1 en todos los fondos; si se cambia, revalidar.
+  Foco con el teclado: `outline` de 2 px (sin transición), no solo un halo. Bajo un degradado con texto
+  blanco, poner también su color de fondo (`linear-gradient(…) var(--brand-1)`).
 - Por la CSP: nada de `onclick="…"` en el HTML ni `eval`; en las pruebas, `wait_for_function("() => …")`
   (con texto suelto Playwright usa `eval` y la CSP lo bloquea). Los módulos se importan con rutas
   relativas (si no, se saltan la huella de la caché).

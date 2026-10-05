@@ -54,8 +54,14 @@ async function getJSON(url) {
   return res.json();
 }
 
+// Sin cuenta (o sin el token, si el servidor lo pide) la API de administración responde 401: la lista de
+// agentes no se pide y en «Pruébalo» salen los de ejemplo, con los que se puede conversar sin entrar
+function locked() {
+  return !!serverInfo && ((serverInfo.accounts && !getSpaceKey()) || (serverInfo.adminTokenRequired && !getToken()));
+}
+
 async function agentDetail(id) {
-  if (!id) return null;
+  if (!id || locked()) return null;
   if (!agentDetails.has(id)) agentDetails.set(id, getJSON("/api/agents/" + encodeURIComponent(id)).catch(() => null));
   return agentDetails.get(id);
 }
@@ -245,9 +251,9 @@ function tryPanel(o, mediaType, media) {
     const s = resolve(p.schema);
     let input;
     if (s.type === "boolean") {
-      input = h("input", { type: "checkbox", checked: s.default === true, "aria-label": p.name });
+      input = h("input", { type: "checkbox", name: p.name, checked: s.default === true, "aria-label": p.name });
     } else {
-      input = h("input", { type: "text", "aria-label": p.name, autocomplete: "off", spellcheck: "false",
+      input = h("input", { type: "text", name: p.name, "aria-label": p.name, autocomplete: "off", spellcheck: "false",
         placeholder: s.default != null && s.default !== "" ? String(s.default) : p.required ? "obligatorio" : "opcional" });
       if (p.name === "agent_id" && agents[0]) input.value = agents[0].id;
       if (p.name === "session_id") input.value = "prueba-docs";
@@ -263,12 +269,12 @@ function tryPanel(o, mediaType, media) {
   }
   let bodyArea = null, fileInput = null;
   if (mediaType === "application/json") {
-    bodyArea = h("textarea", { "aria-label": "Cuerpo de la petición (JSON)", spellcheck: "false" });
+    bodyArea = h("textarea", { name: "cuerpo", "aria-label": "Cuerpo de la petición (JSON)", spellcheck: "false" });
     const ex = exampleOf(media);
     bodyArea.value = ex === undefined ? "" : JSON.stringify(ex, null, 2);
     form.append(h("label", { class: "field" }, "Cuerpo (JSON)", bodyArea));
   } else if (mediaType === "application/octet-stream") {
-    fileInput = h("input", { type: "file", accept: ".json,.zip", "aria-label": "Fichero" });
+    fileInput = h("input", { type: "file", name: "fichero", accept: ".json,.zip", "aria-label": "Fichero" });
     form.append(h("label", { class: "field" }, "Fichero (JSON o ZIP de Dialogflow)", fileInput));
   }
   const out = h("div");
@@ -442,8 +448,8 @@ function hero(total, groups) {
 }
 
 function authSection(onTokenChange) {
-  const tokenIn = h("input", { type: "password", value: getToken(), placeholder: "Token de administración", "aria-label": "Token de administración", autocomplete: "off" });
-  const keyIn = h("input", { type: "password", value: getKey(), placeholder: "ak_…", "aria-label": "Clave de API del agente", autocomplete: "off" });
+  const tokenIn = h("input", { type: "password", name: "token", value: getToken(), placeholder: "Token de administración", "aria-label": "Token de administración", autocomplete: "off" });
+  const keyIn = h("input", { type: "password", name: "clave-api", value: getKey(), placeholder: "ak_…", "aria-label": "Clave de API del agente", autocomplete: "off" });
   const reveal = (inp) => h("button", { class: "btn icon-only", type: "button", title: "Mostrar u ocultar", "aria-label": "Mostrar u ocultar",
     onclick: () => { inp.type = inp.type === "password" ? "text" : "password"; } }, icon("eye"));
   tokenIn.addEventListener("change", () => {
@@ -510,7 +516,10 @@ async function start() {
   }
   try { serverInfo = await getJSON("/api/info"); } catch (e) { serverInfo = null; }
   const loadAgents = async () => {
-    try { agents = await getJSON("/api/agents"); } catch (e) { agents = []; }
+    if (locked()) agents = ((serverInfo && serverInfo.examples) || []).map((e) => ({ id: e.id, name: e.name, language: e.language }));
+    else {
+      try { agents = await getJSON("/api/agents"); } catch (e) { agents = []; }
+    }
     // los ejemplos de esta página están escritos para la pizzería: si existe, va la primera
     agents.sort((a, b) => (b.id === "pizzeria") - (a.id === "pizzeria"));
     agentDetails.clear();
@@ -519,7 +528,7 @@ async function start() {
 
   const groups = operations();
   const total = groups.reduce((n, g) => n + g.ops.length, 0);
-  const search = h("input", { type: "search", placeholder: "Buscar en la API…", "aria-label": "Buscar en la API", autocomplete: "off" });
+  const search = h("input", { type: "search", name: "buscar", placeholder: "Buscar en la API…", "aria-label": "Buscar en la API", autocomplete: "off" });
   const links = [];
   const cards = [];
   const navLink = (href, ic, label) => {

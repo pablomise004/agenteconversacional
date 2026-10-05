@@ -2,15 +2,29 @@
 // usuario de la barra lateral y cambiar la contraseña. La llave del espacio la guarda api.js y va en
 // cada petición. Sin cuenta, la llave solo está en este navegador (getUser() vacío).
 import { api, getUser, setSpace } from "./api.js";
-import { h, icon, logo, avatar, modal, toast, errorToast, busy, popover, closePopover, confirmDialog } from "./ui.js";
+import { h, icon, logo, avatar, modal, toast, errorToast, busy, popover, closePopover, confirmDialog, segmented,
+  themeButton } from "./ui.js";
 
 const field = (label, input, hint) => h("label", { class: "field" }, label, input, hint ? h("span", { class: "hint" }, hint) : null);
 const GUEST_NOTE = "Tus agentes solo se verán en este navegador. Para usarlos en otro ordenador, expórtalos e impórtalos allí; o crea una cuenta más tarde y se pasarán a ella.";
 
+/** Cambia un texto con una animación corta (se repite aunque la anterior no hubiera acabado). */
+function swapText(el, text) {
+  if (el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove("swap-in");
+  void el.offsetWidth;  // para que la animación vuelva a empezar
+  el.classList.add("swap-in");
+}
+
+const SUB_LOGIN = "Cada uno tiene su cuenta: solo tú ves tus agentes, y los compartes con un enlace cuando quieras.";
+const SUB_REGISTER = "Elige un usuario y una contraseña: no hace falta correo. Empiezas con los dos agentes de ejemplo.";
+
 /**
  * La portada de la web pública (#landing en index.html): qué es Lince y el formulario para entrar, crear
  * la cuenta o entrar sin cuenta. Viene ya en el HTML (se pinta sin esperar al JS y la leen los buscadores);
- * aquí solo se le da vida. Se cumple cuando se ha entrado.
+ * aquí solo se le da vida: las pestañas con su indicador, lo que se despliega al crear la cuenta, los
+ * textos que cambian y el botón del tema. Se cumple cuando se ha entrado.
  */
 export function signInPage() {
   delete document.documentElement.dataset.boot;  // la llave guardada ya no valía: se enseña la portada
@@ -18,36 +32,47 @@ export function signInPage() {
   const form = landing.querySelector("#signin");
   const [user, pass, pass2] = ["#signin-user", "#signin-pass", "#signin-pass2"].map((s) => form.querySelector(s));
   const submitBtn = form.querySelector(".signin-submit");
+  const submitLabel = submitBtn.querySelector(".swap-label");
   const guestBtn = landing.querySelector("#signin-guest");
   const error = form.querySelector("#signin-error");
   const title = landing.querySelector("#signin-title");
-  const tabs = [...form.querySelectorAll("[role=tab]")];
+  const sub = landing.querySelector("#signin-sub");
+  const reveals = [...form.querySelectorAll(".reveal")];
   let mode = "login";
   const show = (msg) => { error.lastChild.textContent = msg; error.hidden = false; };
+
+  // las pestañas del HTML pasan a ser las de la consola (segmented), con el indicador que se desliza
+  const tabs = segmented({ items: [{ key: "login", label: "Entrar" }, { key: "register", label: "Crear cuenta" }],
+    active: mode, label: "Entrar o crear una cuenta", onChange: (key) => { mode = key; paint(); user.focus(); } });
+  tabs.classList.add("signin-tabs");
+  form.querySelector(".signin-tabs").replaceWith(tabs);
+  tabs.addEventListener("keydown", (e) => {  // con las flechas se pasa a la otra pestaña
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    mode = mode === "login" ? "register" : "login";
+    tabs.select(mode);
+    paint();
+    tabs.querySelector('[aria-selected="true"]').focus();
+  });
+
   const paint = () => {
     const reg = mode === "register";
-    for (const t of tabs) {
-      const on = t.dataset.mode === mode;
-      t.classList.toggle("active", on);
-      t.setAttribute("aria-selected", String(on));
-      t.tabIndex = on ? 0 : -1;
+    for (const t of tabs.querySelectorAll("[role=tab]")) t.tabIndex = t.getAttribute("aria-selected") === "true" ? 0 : -1;
+    for (const r of reveals) {  // se despliega (o se recoge) y, recogido, no se llega con el tabulador
+      r.classList.toggle("open", reg);
+      r.inert = !reg;
     }
-    for (const el of form.querySelectorAll("[data-register]")) el.hidden = !reg;
+    if (reg) user.setAttribute("aria-describedby", "signin-user-hint");
+    else user.removeAttribute("aria-describedby");
     error.hidden = true;
     pass.autocomplete = reg ? "new-password" : "current-password";
-    submitBtn.textContent = reg ? "Crear cuenta" : "Entrar";
-    title.textContent = reg ? "Crea tu cuenta" : "Entra en Lince";
+    swapText(title, reg ? "Crea tu cuenta" : "Entra en Lince");
+    swapText(sub, reg ? SUB_REGISTER : SUB_LOGIN);
+    swapText(submitLabel, reg ? "Crear cuenta" : "Entrar");
   };
-  tabs.forEach((t, i) => {
-    t.addEventListener("click", () => { mode = t.dataset.mode; paint(); user.focus(); });
-    t.addEventListener("keydown", (e) => {  // pestañas: con las flechas se pasa a la otra
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      const next = tabs[(i + 1) % tabs.length];
-      mode = next.dataset.mode;
-      paint();
-      next.focus();
-    });
-  });
+
+  // claro u oscuro, arriba a la derecha (el mismo botón que en la consola)
+  landing.querySelector("#landing-corner").append(themeButton("btn ghost icon-only theme-btn"));
   // quien abre un enlace compartido sin haber entrado: primero entra y luego ve el agente
   landing.querySelector("#signin-shared").hidden = !location.hash.startsWith("#/shared/");
   paint();

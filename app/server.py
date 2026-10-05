@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import functools
 import hashlib
 import html
 import json
@@ -18,7 +19,7 @@ import secrets
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,18 +77,30 @@ INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.S)
 # la portada (qué es Lince y el formulario de entrar) solo tiene sentido en la web pública, con cuentas
 LANDING = re.compile(r"[ \t]*<!-- portada -->.*?<!-- /portada -->\n?", re.S)
 CANONICAL = {"index.html": "/", "api.html": "/docs"}
+# lo que el servidor rellena en /chat con el agente de ?agent= (título, encabezado e idioma)
+CHAT_TITLE = re.compile(r"<title>[^<]*</title>")
+CHAT_H1 = re.compile(r'(<h1 [^>]*id="chat-title"[^>]*>)[^<]*(</h1>)')
+CHAT_OG_TITLE = re.compile(r'(<meta property="og:title" content=")[^"]*(">)')
+HTML_LANG = re.compile(r'<html lang="[^"]*">')
+# Vigía va copiado en web/js/vigia.js (tools/actualizar_vigia.py lo pone al día) y manda sus datos aquí
+VIGIA_INGESTA = "https://nexopablooms.duckdns.org/herramientas/vigia/ingesta"
+_stamp = {"at": float("-inf"), "value": ""}
 
 
 def assets_stamp() -> str:
     """Huella de los ficheros de web/js, web/css y web/fonts (nombre, tamaño y fecha): cambia en cuanto
-    se toca cualquiera, también con el servidor en marcha."""
-    sha = hashlib.sha1()
-    for folder in VERSIONED:
-        for p in sorted((WEB_DIR / folder).rglob("*")):
-            if p.is_file():
-                st = p.stat()
-                sha.update(f"{p.relative_to(WEB_DIR).as_posix()}:{st.st_size}:{st.st_mtime_ns};".encode())
-    return sha.hexdigest()[:10]
+    se toca cualquiera, también con el servidor en marcha. Se recalcula como mucho una vez por segundo:
+    la piden todas las páginas y son unos cincuenta ficheros."""
+    now = time.monotonic()
+    if now - _stamp["at"] > 1:
+        sha = hashlib.sha1()
+        for folder in VERSIONED:
+            for p in sorted((WEB_DIR / folder).rglob("*")):
+                if p.is_file():
+                    st = p.stat()
+                    sha.update(f"{p.relative_to(WEB_DIR).as_posix()}:{st.st_size}:{st.st_mtime_ns};".encode())
+        _stamp.update(at=now, value=sha.hexdigest()[:10])
+    return _stamp["value"]
 
 
 def script_hashes(page: str) -> list[str]:
@@ -96,16 +109,17 @@ def script_hashes(page: str) -> list[str]:
             for s in INLINE_SCRIPT.findall(page)]
 
 
-def content_policy(scripts: list[str] | tuple = (), others: list[str] | tuple = (), frame: str = "'none'") -> str:
-    """Content-Security-Policy de las páginas: scripts solo de aquí (y los en línea por su huella),
-    nada de plugins ni de <base>, y quién puede meter la página en un iframe (`frame`). Los estilos en
-    línea se permiten: los usan el widget (su <style>) y algunos atributos, y no ejecutan código."""
+def content_policy(scripts: list[str] | tuple = (), connect: list[str] | tuple = (), frame: str = "'none'") -> str:
+    """Content-Security-Policy de las páginas: scripts solo de aquí (más `scripts`: las huellas de los
+    que van en línea), conexiones solo con aquí (más `connect`), nada de plugins ni de <base>, y quién
+    puede meter la página en un iframe (`frame`). Los estilos en línea se permiten: los usan el widget
+    (su <style>) y algunos atributos, y no ejecutan código."""
     return "; ".join([
         "default-src 'self'",
-        "script-src " + " ".join(["'self'", *scripts, *others]),
+        "script-src " + " ".join(["'self'", *scripts]),
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob:",
-        "connect-src " + " ".join(["'self'", *others]),
+        "connect-src " + " ".join(["'self'", *connect]),
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
@@ -364,10 +378,15 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
     app.add_middleware(PublicCORS)
 
     # Vigía (vitales y errores de las páginas, en una web del dueño): solo si el servidor lo tiene
-    # configurado (AGENTE_VIGIA_CLAVE en Coolify), así las instalaciones locales no mandan nada
+    # configurado (AGENTE_VIGIA_CLAVE en Coolify), así las instalaciones locales no mandan nada. El script
+    # es la copia de web/js/vigia.js, sin código de otra web en las páginas; AGENTE_VIGIA_SRC lo carga de
+    # otra dirección y AGENTE_VIGIA_INGESTA cambia adónde manda sus datos.
     vigia_key = os.environ.get("AGENTE_VIGIA_CLAVE", "").strip()
-    vigia_src = os.environ.get("AGENTE_VIGIA_SRC", "").strip() or "https://nexopablooms.duckdns.org/herramientas/vigia/vigia.js"
-    vigia_origin = "{0.scheme}://{0.netloc}".format(urlsplit(vigia_src)) if vigia_key else ""
+    vigia_src = os.environ.get("AGENTE_VIGIA_SRC", "").strip()
+    vigia_ingesta = os.environ.get("AGENTE_VIGIA_INGESTA", "").strip() or ("" if vigia_src else VIGIA_INGESTA)
+    origin_of = lambda url: "{0.scheme}://{0.netloc}".format(urlsplit(url))  # noqa: E731
+    vigia_scripts = [origin_of(vigia_src)] if vigia_key and vigia_src else []
+    vigia_connect = [origin_of(vigia_ingesta or vigia_src)] if vigia_key else []
 
     def is_https(request: Request) -> bool:
         # detrás de Traefik (Coolify) la conexión con el servidor es http: el proxy dice cómo llegó
@@ -456,6 +475,14 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         except NotFound:
             raise HTTPException(404, "No existe ese agente") from None
 
+    def peek(sp: Space, agent_id: str) -> dict:
+        """El agente sin copiarlo, para leer un dato (nombre, idioma, clave): copiar el hotel entero cuesta
+        unos 5 ms y esto se hace en cada mensaje. No se debe modificar."""
+        try:
+            return sp.storage.agent_ref(agent_id)
+        except NotFound:
+            raise HTTPException(404, "No existe ese agente") from None
+
     def public(sp: Space, data: dict) -> dict:
         """Un agente (o su resumen) con su dirección pública, la del widget y el chat."""
         return dict(data, publicId=sp.ref(data["id"]))
@@ -465,7 +492,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
             raise HTTPException(409, f"Tu cuenta ya tiene {MAX_AGENTS_PER_ACCOUNT} agentes: borra alguno para crear otro")
 
     def check_key(sp: Space, agent_id: str, request: Request) -> None:
-        agent = get_agent(sp, agent_id)
+        agent = peek(sp, agent_id)
         key = (agent.get("settings") or {}).get("apiKey")
         if not key or is_admin(request) and admin_token:
             return
@@ -915,7 +942,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
     def public_info(agent_id: str, request: Request):
         """Datos mínimos para el widget de chat: nombre, idioma y si hace falta clave."""
         sp, aid = locate(agent_id, request)
-        agent = get_agent(sp, aid)
+        agent = peek(sp, aid)
         return {"id": sp.ref(aid), "name": agent["name"], "language": agent["language"],
                 "needsKey": bool(agent["settings"].get("apiKey"))}
 
@@ -1107,7 +1134,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
                            "displayName": intent.get("name", ""),
                            "isFallback": intent.get("isFallback", False)},
                 "intentDetectionConfidence": r["confidence"],
-                "languageCode": get_agent(sp, aid)["language"],
+                "languageCode": peek(sp, aid)["language"],
             },
         }
         if r.get("webhook"):
@@ -1120,48 +1147,104 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         """La dirección de la web tal como la ve quien la visita (para los enlaces absolutos)."""
         return ("https" if is_https(request) else request.url.scheme) + "://" + request.headers.get("host", request.url.netloc)
 
-    def page(name: str, request: Request) -> HTMLResponse:
-        """Una página de web/ con lo que pone el servidor: el JS, el CSS y la fuente con su huella, las
-        direcciones absolutas de las vistas previas (Open Graph), Vigía si está configurado, la portada
-        solo con cuentas y la CSP con las huellas de sus scripts en línea."""
+    def chat_agent(agent_ref: str, request: Request) -> tuple[str, str, str] | None:
+        """Dirección pública, nombre e idioma del agente de /chat?agent=…, o None si no existe."""
+        if not agent_ref or len(agent_ref) > 200:
+            return None
+        try:
+            sp, aid = locate(agent_ref, request)
+            agent = peek(sp, aid)
+        except HTTPException:
+            return None
+        return sp.ref(aid), agent["name"], agent.get("language") or "es"
+
+    @functools.lru_cache(maxsize=128)
+    def render(name: str, _mtime: int, stamp: str, base: str, chat: tuple[str, str, str] | None) -> tuple[str, str]:
+        """El HTML de una página y su CSP. Se guardan hechos (la portada, /docs y los chats se piden
+        mucho): cambian con el fichero (_mtime), la huella, la dirección y el agente del chat."""
         text = (WEB_DIR / name).read_text(encoding="utf-8")
         if not accounts:
             text = LANDING.sub("", text)
-        stamp = assets_stamp()
+        if vigia_key:  # antes de poner las huellas: así la copia de Vigía también lleva la suya
+            src = html.escape(vigia_src or "js/vigia.js")
+            extra = f' data-ingesta="{html.escape(vigia_ingesta)}"' if vigia_ingesta else ""
+            text = text.replace("</body>", f'<script src="{src}" data-clave="{html.escape(vigia_key)}"{extra} defer></script>\n</body>', 1)
         text = ASSET_URL.sub(lambda m: f'{m[1]}="/v/{stamp}/{m[2]}"', text)
-        base = html.escape(origin(request))
         head = [f'<meta property="og:image" content="{base}/og.png">\n']
         if name in CANONICAL:
             url = base + CANONICAL[name]
             head = [f'<link rel="canonical" href="{url}">\n', f'<meta property="og:url" content="{url}">\n', *head]
+        if chat:  # el chat de un agente: su nombre, su idioma y su manifiesto (se instala como aplicación)
+            ref, agent_name, lang = chat
+            q = quote(ref, safe=".")
+            title = html.escape(agent_name)
+            text = CHAT_TITLE.sub(lambda m: f"<title>{title} · Lince</title>", text, count=1)
+            text = CHAT_H1.sub(lambda m: f"{m[1]}Chat con {title}{m[2]}", text, count=1)
+            text = CHAT_OG_TITLE.sub(lambda m: f"{m[1]}Chat con {title}{m[2]}", text, count=1)
+            text = HTML_LANG.sub(lambda m: f'<html lang="{html.escape(lang)}">', text, count=1)
+            head += [f'<meta property="og:url" content="{base}/chat?agent={q}">\n',
+                     f'<link rel="manifest" href="/chat.webmanifest?agent={q}">\n']
         text = text.replace("</head>", "  ".join(["", *head]) + "</head>", 1)
-        if vigia_key:
-            tag = f'<script src="{html.escape(vigia_src)}" data-clave="{html.escape(vigia_key)}" defer></script>\n'
-            text = text.replace("</body>", tag + "</body>", 1)
-        others = [vigia_origin] if vigia_origin else []
-        if name == "chat.html":  # el chat se puede meter en un iframe de cualquier web
-            headers = {"Content-Security-Policy": content_policy(script_hashes(text), others, "*"),
-                       "Cross-Origin-Resource-Policy": "cross-origin"}
+        frame = "*" if name == "chat.html" else "'none'"  # el chat se puede meter en un iframe de cualquier web
+        return text, content_policy(script_hashes(text) + vigia_scripts, vigia_connect, frame)
+
+    def page(name: str, request: Request) -> HTMLResponse:
+        """Una página de web/ con lo que pone el servidor (ver render()): el JS, el CSS y la fuente con su
+        huella, las direcciones absolutas de las vistas previas (Open Graph), Vigía si está configurado,
+        la portada solo con cuentas, el agente en /chat y la CSP con las huellas de sus scripts en línea."""
+        chat = chat_agent(request.query_params.get("agent", ""), request) if name == "chat.html" else None
+        text, csp = render(name, (WEB_DIR / name).stat().st_mtime_ns, assets_stamp(), html.escape(origin(request)), chat)
+        headers = {"Content-Security-Policy": csp}
+        if name == "chat.html":
+            headers["Cross-Origin-Resource-Policy"] = "cross-origin"
         else:
-            headers = {"Content-Security-Policy": content_policy(script_hashes(text), others), "X-Frame-Options": "DENY"}
+            headers["X-Frame-Options"] = "DENY"
         return HTMLResponse(text, headers=headers)
 
-    @app.get("/", include_in_schema=False)
-    @app.get("/index.html", include_in_schema=False)
+    def web_route(*paths: str):
+        """Páginas y ficheros: responden a GET y también a HEAD, que es como preguntan los buscadores y los
+        comprobadores de enlaces (FastAPI no lo añade solo: sin él, /docs o /chat daban 404 por HEAD)."""
+        def register(fn):
+            for path in paths:
+                app.api_route(path, methods=["GET", "HEAD"], include_in_schema=False)(fn)
+            return fn
+        return register
+
+    @web_route("/", "/index.html")
     def console_page(request: Request):
         return page("index.html", request)
 
-    @app.get("/docs", include_in_schema=False)
-    @app.get("/docs/", include_in_schema=False)
+    @web_route("/docs", "/docs/")
     def api_docs(request: Request):
         """Referencia de la API con el estilo de la consola (lee /openapi.json)."""
         return page("api.html", request)
 
-    @app.get("/chat", include_in_schema=False)
+    @web_route("/chat")
     def chat_page(request: Request):
         return page("chat.html", request)
 
-    @app.get("/v/{stamp}/{path:path}", include_in_schema=False)
+    @web_route("/chat.webmanifest")
+    def chat_manifest(request: Request, agent: str = Query("")):
+        """Para instalar el chat de un agente como aplicación: con su nombre y abriendo su chat."""
+        found = chat_agent(agent, request)
+        if not found:
+            raise HTTPException(404, "No existe ese agente")
+        ref, agent_name, lang = found
+        start = "/chat?agent=" + quote(ref, safe=".")
+        short = re.sub(r"\s*\(.*\)\s*$", "", agent_name).strip() or agent_name
+        return JSONResponse({
+            "name": agent_name, "short_name": short[:24], "description": f"Chat con {agent_name}, hecho con Lince.",
+            "lang": lang, "id": start, "start_url": start, "scope": "/chat", "display": "standalone",
+            "background_color": "#f3f4f8", "theme_color": "#5b5cf6",
+            "icons": [
+                {"src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml"},
+                {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+                {"src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            ],
+        }, media_type="application/manifest+json")
+
+    @web_route("/v/{stamp}/{path:path}")
     def versioned(stamp: str, path: str):
         """JS, CSS y fuente con huella (ver ASSET_URL): siempre el fichero actual, guardado un año."""
         folder = path.split("/", 1)[0]
@@ -1170,11 +1253,11 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
             raise HTTPException(404, "No encontrado")
         return FileResponse(file, media_type=ASSET_TYPES.get(file.suffix), headers={"Cache-Control": LONG_CACHE})
 
-    @app.get("/robots.txt", include_in_schema=False)
+    @web_route("/robots.txt")
     def robots(request: Request):
         return PlainTextResponse(f"User-agent: *\nDisallow: /api/\nDisallow: /v2/\n\nSitemap: {origin(request)}/sitemap.xml\n")
 
-    @app.get("/sitemap.xml", include_in_schema=False)
+    @web_route("/sitemap.xml")
     def sitemap(request: Request):
         """Las páginas que se pueden indexar: la portada y la referencia de la API."""
         base = html.escape(origin(request))
@@ -1183,7 +1266,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         return Response('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
                         f"{urls}</urlset>\n", media_type="application/xml")
 
-    @app.get("/widget.js", include_in_schema=False)
+    @web_route("/widget.js")
     def widget_js():
         return FileResponse(WEB_DIR / "widget.js", media_type="application/javascript")
 
