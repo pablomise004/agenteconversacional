@@ -165,7 +165,7 @@ export async function render(el) {
         h("span", { class: "plus" }, icon("plus")), "Nuevo agente"));
   }
   const privacy = !state.info.accounts ? null : getUser()
-    ? "Solo los ves tú. Para pasarle uno a alguien, ábrelo y ve a Ajustes → Compartir: le llegará una copia."
+    ? "Solo los ves tú. Para pasarle uno a alguien, ábrelo y ve a Compartir: le llegará una copia."
     : "Estás sin cuenta: solo se ven en este navegador. Para llevarte uno a otro ordenador, expórtalo e impórtalo allí (Ajustes).";
   page.append(group({ key: "mine", icon: "bot", title: "Tus agentes", count: mine.length, help: privacy }, grid ||
     h("div", { class: "card agents-empty" }, emptyState({

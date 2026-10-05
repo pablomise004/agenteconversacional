@@ -17,6 +17,7 @@ import * as trainingPage from "./pages/training.js";
 import * as historyPage from "./pages/history.js";
 import * as integrationsPage from "./pages/integrations.js";
 import * as settingsPage from "./pages/settings.js";
+import * as sharePage from "./pages/share.js";
 import * as learnPage from "./pages/learn.js";
 import * as guidePage from "./pages/guide.js";
 import * as insidePage from "./pages/inside.js";
@@ -24,7 +25,7 @@ import * as sharedPage from "./pages/shared.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.10.1";
+export const APP_VERSION = "0.10.2";
 
 export const state = {
   info: null,
@@ -46,6 +47,7 @@ export const NAV = [
   { key: "history", label: "Historial", icon: "history" },
   { group: "Publicar" },
   { key: "integrations", label: "Integraciones", icon: "plug" },
+  { key: "share", label: "Compartir", icon: "share", accounts: true },  // solo en servidores con cuentas
   { key: "settings", label: "Ajustes", icon: "settings" },
   { group: "Ayuda" },
   { key: "guide", label: "Guía", icon: "book" },
@@ -74,6 +76,7 @@ const ROUTES = [
   [/^a\/([^/]+)\/history\/(.+)$/, () => historyPage],
   [/^a\/([^/]+)\/integrations$/, () => integrationsPage],
   [/^a\/([^/]+)\/settings$/, () => settingsPage],
+  [/^a\/([^/]+)\/share$/, () => sharePage],
 ];
 
 let root, sidebar, mainEl, pageEl, simulator, navEl, topTitle, agentBtn;
@@ -280,6 +283,7 @@ function renderNav(active) {
   ];
   for (const item of items) {
     if (item.group) { navEl.append(h("div", { class: "nav-label" }, item.group)); continue; }
+    if (item.accounts && !state.info.accounts) continue;
     const on = !!item.key && active === item.key;
     const badge = item.badge && state.pending
       ? h("span", { class: "badge count" + (state.pending > lastPending ? " pop" : ""), title: "Mensajes pendientes de revisar" }, String(state.pending))

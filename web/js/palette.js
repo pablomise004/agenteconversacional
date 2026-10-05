@@ -9,7 +9,8 @@ import { createAgentDialog, splitAgents } from "./pages/agents.js";
 const PAGES = [
   ["intents", "Intenciones", "chat"], ["entities", "Entidades", "tag"], ["analyzer", "Analizador", "text"],
   ["learn", "Entrenar", "pulse"], ["training", "Revisión", "training"], ["history", "Historial", "history"],
-  ["integrations", "Integraciones", "plug"], ["settings", "Ajustes", "settings"], ["guide", "Guía", "book"],
+  ["integrations", "Integraciones", "plug"], ["share", "Compartir", "share", true], ["settings", "Ajustes", "settings"],
+  ["guide", "Guía", "book"],
 ];
 
 let isOpen = false;
@@ -38,7 +39,8 @@ function groups(raw) {
   const a = state.agent;
   const q = fold(raw.trim());
   const out = [];
-  const nav = a ? PAGES.map(([key, label, ic]) => ({ label, icon: ic, hint: "Ir a", run: () => navigate(agentPath(key)) })) : [
+  const nav = a ? PAGES.filter(([, , , accounts]) => !accounts || state.info.accounts)
+    .map(([key, label, ic]) => ({ label, icon: ic, hint: "Ir a", run: () => navigate(agentPath(key)) })) : [
     { label: "Guía de uso", icon: "book", hint: "Ir a", run: () => navigate("#/guide") }];
   nav.push({ label: "Todos los agentes", icon: "layers", hint: "Ir a", run: () => navigate("#/agents") });
   nav.push({ label: "Referencia de la API", icon: "code", hint: "/docs", run: () => window.open("/docs", "_blank", "noopener") });

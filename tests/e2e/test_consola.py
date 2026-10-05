@@ -394,6 +394,7 @@ def test_desplegables_y_color_propios(base_url, page):
         page.wait_for_selector(".page-head")
         page.wait_for_timeout(400)
         assert page.locator("select, input[type=color]").count() == 0, route
+    assert page.locator(".nav a", has_text="Compartir").count() == 0  # en local no se comparte con enlace
     page.goto(f"{base_url}/#/a/pizzeria/integrations")
     page.wait_for_selector(".widget-preview")
     page.locator(".cp-btn").click()
@@ -546,7 +547,7 @@ def test_cuentas_compartir_y_guardar_una_copia(accounts_url, browser):
     ana.locator(".modal input").first.fill("Pastelería e2e")
     ana.locator(".modal button.primary").click()
     ana.wait_for_url("**/intents")
-    ana.goto(ana.url.replace("/intents", "/settings"))
+    ana.locator(".nav a", has_text="Compartir").click()  # a la vista, en el menú
     ana.locator("button", has_text="Crear un enlace para compartirlo").click()
     link = ana.locator(".share-link").input_value()
     assert "/#/shared/" in link

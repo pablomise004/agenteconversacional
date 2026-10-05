@@ -646,6 +646,18 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; font-si
 /* compartir: el enlace en Ajustes y la página del agente compartido */
 .share-row { gap: 8px; }
 .share-link { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; }
+/* la página Compartir: cómo funciona, en tres pasos */
+.share-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.share-step { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: var(--radius);
+  background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow-xs); }
+.share-step b { font-size: 14.5px; }
+.share-step p { margin: 0; font-size: 13px; color: var(--muted); }
+.share-num { position: absolute; top: 14px; right: 16px; font-size: 26px; font-weight: 750; line-height: 1;
+  color: color-mix(in srgb, var(--primary) 18%, var(--panel)); font-variant-numeric: tabular-nums; }
+.share-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 4px; color: #fff;
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); box-shadow: 0 6px 14px -8px var(--brand-2); }
+.share-ic svg.icon { width: 19px; height: 19px; }
+@container (max-width: 640px) { .share-steps { grid-template-columns: minmax(0, 1fr); } }
 .shared-name { font-size: 18px; font-weight: 650; letter-spacing: -.015em; }
 .shared-stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .shared-stats span { display: inline-flex; align-items: center; gap: 5px; }

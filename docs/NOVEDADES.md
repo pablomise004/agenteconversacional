@@ -3,6 +3,14 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.10.2 · 2 de octubre de 2026
+
+**Compartir, a la vista.**
+
+- En la web pública, **Compartir** tiene su propia página en el menú de la izquierda (en *Publicar*):
+  cómo funciona en tres pasos, tu enlace para copiarlo y, para Lince instalado en un ordenador, el
+  botón de exportar. Antes estaba escondido al final de *Ajustes*.
+
 ## 0.10.1 · 2 de octubre de 2026
 
 **Anotar entidades sin sorpresas.**

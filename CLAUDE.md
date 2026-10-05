@@ -72,7 +72,8 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   aceptan la dirección pública «<espacio>.<agente>» (`publicId`); sin llave ni punto, los ejemplos de
   `data/demo/`. **Sin cuenta** (`POST /api/guest`): un espacio sin usuario cuya llave solo está en ese
   navegador; si luego crea la cuenta con esa llave, la cuenta se queda con el espacio. En la consola:
-  `js/account.js` (entrar, crear la cuenta, entrar sin cuenta, contraseña) y `pages/shared.js`.
+  `js/account.js` (entrar, crear la cuenta, entrar sin cuenta, contraseña), `pages/share.js` (Compartir,
+  con su entrada en el menú) y `pages/shared.js` (abrir un enlace compartido).
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
   `busy`, `countUp`, `stagger`, `tocNav` (índice de Guía y «Por dentro»), `selectMenu` (en lugar de

@@ -52,8 +52,8 @@ agente, expórtalo (*Ajustes → Exportar*) e impórtalo en el otro sitio (*Agen
 luego te decides, abajo a la izquierda, en **Sin cuenta → Crear una cuenta y guardarlos**, la cuenta
 se queda con todo lo que tenías.
 
-Para **pasarle un agente a alguien**: ábrelo, ve a **Ajustes → Compartir** y pulsa **Crear un
-enlace**. Quien lo abra puede guardar **una copia suya** en su cuenta (lo que cambie no toca el tuyo)
+Para **pasarle un agente a alguien**: ábrelo, ve a **Compartir** (en el menú de la izquierda) y pulsa
+**Crear un enlace**. Quien lo abra puede guardar **una copia suya** en su cuenta (lo que cambie no toca el tuyo)
 o descargarla para Lince instalado en su ordenador (*Agentes → Importar*). Si cambias el agente,
 pulsa **Actualizar con los cambios** para que el enlace los lleve; **Dejar de compartir** lo quita.
 

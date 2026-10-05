@@ -76,7 +76,7 @@ Hay una versión de Lince en internet: **<https://linceflow.duckdns.org>**.
 - **Sin cuenta:** si solo quieres probarlo, pulsa **Entrar sin cuenta**. Tus agentes se quedan solo en
   ese navegador: para usarlos en otro ordenador, expórtalos e impórtalos allí. Si luego creas una
   cuenta (abajo a la izquierda, **Sin cuenta → Crear una cuenta**), se pasan a ella.
-- **Compartir un agente:** ábrelo y ve a **Ajustes → Compartir → Crear un enlace**. Quien abra el
+- **Compartir un agente:** ábrelo y ve a **Compartir** (en el menú de la izquierda) → **Crear un enlace**. Quien abra el
   enlace puede pulsar **Guardar en mis agentes** (se queda con una copia suya: lo que cambie no toca
   el tuyo) o **Descargar JSON** para usarlo en Lince instalado en su ordenador.
 - **Hablar con los bots de ejemplo sin cuenta:** [hotel](https://linceflow.duckdns.org/chat?agent=hotel)
