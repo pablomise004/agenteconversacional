@@ -2,7 +2,7 @@
 // cuenta qué hace, la fórmula (MathML, ver math.js), qué significa cada símbolo, lo que le pasa a
 // una frase de ejemplo del agente con sus números reales y dónde está en el código.
 import { api } from "../api.js";
-import { h, icon, clear, errorToast, pageHead, busy, tocNav } from "../ui.js";
+import { h, icon, clear, errorToast, pageHead, busy, tocNav, rangeFill } from "../ui.js";
 import { barList, format } from "../charts.js";
 import { fitFormulas, tex } from "../math.js";
 import { state } from "../app.js";
@@ -758,6 +758,8 @@ export async function render(el) {
   const sIn = h("input", { type: "range", min: "0", max: "1", step: "0.01", value: "0.5", "aria-label": "Parecido" });
   const mapBox = h("div", { class: "conf-wrap" }), youBox = h("div", { class: "formula live-formula conf-calc" });
   const drawConf = () => {
+    rangeFill(pIn);  // la parte rellena sigue al tirador (también cuando el valor lo pone la frase)
+    rangeFill(sIn);
     const you = { prob: +pIn.value, sim: +sIn.value };
     const pts = an ? an.ranking.filter((r) => !r.isFallback).slice(0, 5) : [];
     clear(mapBox).append(confidenceMap(thr, pts, you));

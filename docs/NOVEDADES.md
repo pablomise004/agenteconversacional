@@ -3,6 +3,11 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.10.3 · 2 de octubre de 2026
+
+- **Deslizadores**: la parte rellena llega justo hasta el tirador. En «Por dentro» (paso 9) se quedaba
+  siempre a la mitad aunque el valor fuera otro.
+
 ## 0.10.2 · 2 de octubre de 2026
 
 **Compartir, a la vista.**

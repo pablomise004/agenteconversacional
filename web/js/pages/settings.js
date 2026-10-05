@@ -1,7 +1,7 @@
 // Ajustes del agente.
 import { api } from "../api.js";
 import { h, icon, clear, toast, errorToast, confirmDialog, switchInput, copyButton, downloadFile, timeAgo, pageHead, busy,
-  selectMenu } from "../ui.js";
+  selectMenu, rangeFill } from "../ui.js";
 import { navigate, refreshAgents, state } from "../app.js";
 
 const ZONES = ["Europe/Madrid", "Atlantic/Canary", "Europe/London", "Europe/Lisbon", "America/Mexico_City",
@@ -51,13 +51,14 @@ export async function render(el) {
   // ---- umbral
   const thrValue = h("span", { class: "range-value" }, s.threshold.toFixed(2));
   const thr = h("input", { type: "range", min: "0", max: "1", step: "0.05", value: String(s.threshold), "aria-label": "Umbral de confianza",
-    style: { width: "320px", maxWidth: "100%", "--fill": s.threshold * 100 + "%" },
+    style: { width: "320px", maxWidth: "100%" },
     oninput: () => {
       s.threshold = parseFloat(thr.value);
       thrValue.textContent = s.threshold.toFixed(2);
-      thr.style.setProperty("--fill", s.threshold * 100 + "%");
+      rangeFill(thr);
       touch();
     } });
+  rangeFill(thr);
 
   // ---- normalización
   const normBox = h("div");

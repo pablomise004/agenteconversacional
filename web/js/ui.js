@@ -959,6 +959,15 @@ export function tokenGloss(tokens, { entities = [], entColor = () => 0 } = {}) {
   return h("div", { class: "table-scroll gloss-wrap" }, grid);
 }
 
+// La parte rellena de un deslizador (--fill en app.css) llega justo hasta el centro del tirador, que
+// recorre la barra menos su propio ancho (20 px). Hay que llamarla también al cambiar el valor por código.
+export function rangeFill(input) {
+  const min = +input.min || 0, max = +input.max || 100;
+  const t = max > min ? (+input.value - min) / (max - min) : 0;
+  input.style.setProperty("--fill", `calc(10px + (100% - 20px) * ${Math.max(0, Math.min(1, t))})`);
+  return input;
+}
+
 export function confBar(value, threshold) {
   const bar = h("div", { class: "conf-bar" + (threshold != null && value < threshold ? " low" : "") },
     h("span", { style: { width: Math.round(Math.max(0, Math.min(1, value)) * 100) + "%" } }));

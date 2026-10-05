@@ -144,6 +144,10 @@ def test_por_dentro_calcula_con_la_frase(base_url, page):
                            "document.querySelectorAll('.inside .live-body:empty').length === 0", timeout=30000)
     assert page.locator(".pl-val").first.inner_text().endswith("tokens")
     assert page.locator(".wf-row.total").count() == 1
+    # la parte rellena de los deslizadores del paso 9 llega hasta su valor (antes se quedaba en el 50 %)
+    for label in ("Probabilidad", "Parecido"):
+        value, fill = page.locator(f"input[aria-label='{label}']").evaluate("(e) => [e.value, e.style.getPropertyValue('--fill')]")
+        assert f"* {float(value):g})" in fill, (label, value, fill)
     page.fill(".in-input input", "hola buenas")
     page.locator(".in-input button").click()
     playwright.expect(page.locator(".pl-val").first).to_have_text("2 tokens")
