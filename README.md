@@ -381,6 +381,7 @@ O en cualquier máquina con Python: `python -m app --host 0.0.0.0 --port 8000 --
 | `AGENTE_ADMIN_TOKEN` | Protege la consola y la API de administración (se pide al entrar). Para un servidor solo tuyo |
 | `AGENTE_DATA_DIR` | Carpeta de datos (por defecto `./data`; en la imagen Docker, `/data`) |
 | `AGENTE_SPACES_PER_HOUR` / `AGENTE_SPACES_MAX` | Con cuentas: cuántas se pueden crear por hora (200) y en total (5.000) |
+| `AGENTE_VIGIA_CLAVE` | Opcional: clave de Vigía para vigilar la web pública (vitales y errores de cada página). Con ella, la consola, `/docs` y `/chat` llevan su script; sin ella, nada. `AGENTE_VIGIA_SRC` cambia la dirección del script |
 | `HOST` / `PORT` | Dirección y puerto |
 
 Cada agente puede tener además una **clave de API** (*Ajustes → Seguridad*) que exige la cabecera

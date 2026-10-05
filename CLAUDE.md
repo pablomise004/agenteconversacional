@@ -33,7 +33,8 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
   sus agentes y los comparte con un enlace que da una copia), pero la red del instituto (Educacyl)
   bloquea `duckdns.org`, así que en clase usan la instalación local (README, muy paso a paso).
 - Despliegue: <https://linceflow.duckdns.org>, Coolify en un servidor Oracle ARM de 24 GB, con el
-  `Dockerfile` del repositorio, `AGENTE_ACCOUNTS=1` y un volumen en `/data`. Coolify construye desde
+  `Dockerfile` del repositorio, `AGENTE_ACCOUNTS=1`, `AGENTE_VIGIA_CLAVE` (su Vigía, en
+  nexopablooms.duckdns.org: el servidor añade el script a las páginas solo si está) y un volumen en `/data`. Coolify construye desde
   GitHub: tras subir cambios hay que pulsar *Redeploy*.
 
 ## Arranque y comandos
@@ -41,7 +42,7 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 150 pruebas (deben pasar siempre)
+python -m pytest                      # 151 pruebas (deben pasar siempre)
 pip install playwright && python -m pytest tests/e2e -m e2e   # 34 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)

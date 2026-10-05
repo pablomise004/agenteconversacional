@@ -7,6 +7,7 @@ el esquema OpenAPI, en /openapi.json.
 from __future__ import annotations
 
 import copy
+import html
 import json
 import mimetypes
 import os
@@ -17,7 +18,7 @@ from typing import Any
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.security import APIKeyHeader, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -1014,15 +1015,31 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         return out
 
     # ------------------------------------------------------- web estática
+    # Vigía (vitales y errores de las páginas, en una web del dueño): solo si el servidor lo tiene
+    # configurado (AGENTE_VIGIA_CLAVE en Coolify), así las instalaciones locales no mandan nada
+    vigia_key = os.environ.get("AGENTE_VIGIA_CLAVE", "").strip()
+    vigia_src = os.environ.get("AGENTE_VIGIA_SRC", "").strip() or "https://nexopablooms.duckdns.org/herramientas/vigia/vigia.js"
+
+    def page(name: str):
+        if not vigia_key:
+            return FileResponse(WEB_DIR / name)
+        tag = f'<script src="{html.escape(vigia_src)}" data-clave="{html.escape(vigia_key)}" defer></script>\n'
+        return HTMLResponse((WEB_DIR / name).read_text(encoding="utf-8").replace("</body>", tag + "</body>", 1))
+
+    @app.get("/", include_in_schema=False)
+    @app.get("/index.html", include_in_schema=False)
+    def console_page():
+        return page("index.html")
+
     @app.get("/docs", include_in_schema=False)
     @app.get("/docs/", include_in_schema=False)
     def api_docs():
         """Referencia de la API con el estilo de la consola (lee /openapi.json)."""
-        return FileResponse(WEB_DIR / "api.html")
+        return page("api.html")
 
     @app.get("/chat", include_in_schema=False)
     def chat_page():
-        return FileResponse(WEB_DIR / "chat.html")
+        return page("chat.html")
 
     @app.get("/widget.js", include_in_schema=False)
     def widget_js():

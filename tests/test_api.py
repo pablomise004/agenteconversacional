@@ -143,6 +143,23 @@ def test_novedades_de_la_version_actual(client):
         assert client.get(path).headers["cache-control"] == "no-cache", path
 
 
+def test_vigia_solo_si_esta_configurado(tmp_path, monkeypatch):
+    """El script de Vigía (vigilancia de la web pública) solo va en las páginas si el servidor tiene
+    AGENTE_VIGIA_CLAVE: una instalación local no manda nada a nadie."""
+    monkeypatch.delenv("AGENTE_ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("AGENTE_VIGIA_CLAVE", raising=False)
+    local = TestClient(create_app(tmp_path / "local"))
+    for path in ("/", "/docs", "/chat"):
+        assert "data-clave" not in local.get(path).text, path
+    monkeypatch.setenv("AGENTE_VIGIA_CLAVE", "abc123")
+    publica = TestClient(create_app(tmp_path / "publica"))
+    for path in ("/", "/index.html", "/docs", "/chat"):
+        res = publica.get(path)
+        assert res.status_code == 200 and res.headers["content-type"].startswith("text/html"), path
+        assert 'vigia.js" data-clave="abc123" defer></script>\n</body>' in res.text, path
+    assert "<title>" in publica.get("/").text  # la página sigue entera
+
+
 def test_logotipo_igual_en_la_consola():
     """El lince de web/favicon.svg y el de ui.js:logo() son el mismo dibujo."""
     import re
