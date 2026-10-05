@@ -217,10 +217,10 @@ export async function render(el) {
             toast("Copia creada", "success");
             navigate(`#/a/${encodeURIComponent(copy.id)}/intents`);
           } catch (e) { errorToast(e); }
-        } }, icon("copy"), "Duplicar agente"))),
-
-    state.info.accounts ? h("div", { class: "notice info" }, icon("share"), h("div", null, "Para pasarle una copia a alguien con un enlace, ve a ",
-      h("a", { href: `#/a/${encodeURIComponent(agent.id)}/share` }, "Compartir"), ".")) : null,
+        } }, icon("copy"), "Duplicar agente")),
+      // compartir con un enlace va junto a exportar y duplicar (dentro de la tarjeta: antes quedaba suelto)
+      state.info.accounts ? h("div", { class: "notice info" }, icon("share"), h("div", null, "Para pasarle una copia a alguien con un enlace, ve a ",
+        h("a", { href: `#/a/${encodeURIComponent(agent.id)}/share` }, "Compartir"), ".")) : null),
 
     h("div", { class: "card danger-zone" },
       h("div", { class: "card-head" }, icon("alert"), h("h2", null, "Zona peligrosa")),

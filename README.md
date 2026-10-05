@@ -449,7 +449,7 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 161 pruebas: NLU, diálogo, webhook, API, cuentas, seguridad, modelo, hotel
+python -m pytest                            # 162 pruebas: NLU, diálogo, webhook, API, cuentas, seguridad, modelo, hotel
 pip install playwright
 python -m pytest tests/e2e -m e2e           # 38 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)

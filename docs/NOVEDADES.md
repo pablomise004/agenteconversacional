@@ -3,6 +3,16 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.12.1 · 2 de octubre de 2026
+
+- **Ajustes**: el aviso de Compartir va dentro de la tarjeta «Modelo y datos», junto a Exportar y
+  Duplicar. Antes quedaba suelto y pegado a las tarjetas de arriba y de abajo.
+- **Portada**: se desplaza como cualquier página (en el móvil, la barra del navegador se esconde al
+  bajar) y aparece sin fundidos: todo se ve con sus colores desde el primer momento.
+- **Referencia de la API**: se puede leer aunque el navegador no tenga JavaScript (y la encuentran los
+  buscadores).
+- «Hecho con Lince», debajo del chat, se lee mejor.
+
 ## 0.12.0 · 2 de octubre de 2026
 
 **Más cómoda de leer y de usar, también con el teclado.**

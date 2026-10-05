@@ -539,3 +539,12 @@ def test_chat_de_un_agente(client):
     # las páginas se guardan hechas, pero cambian si cambia el agente
     client.patch("/api/agents/hotel", json={"name": "Hotel Mirador"})
     assert "<title>Hotel Mirador · Lince</title>" in client.get("/chat?agent=hotel").text
+
+
+def test_referencia_de_la_api_en_el_html(client):
+    """/docs trae en el HTML la referencia en sencillo (título, grupos y rutas): la leen los buscadores y
+    quien no tiene JavaScript; la consola la quita al cargar y pinta la completa."""
+    page = client.get("/docs").text
+    assert "<h1>La API de Lince</h1>" in page and page.count("<h1") == 1
+    assert "<h2>Conversación</h2>" in page and "<code>POST /api/agents/{agent_id}/detect</code>" in page
+    assert 'href="/openapi.json"' in page and 'dataset.js = ""' in page

@@ -94,6 +94,7 @@
     "background-image:radial-gradient(420px 180px at 50% -50px,var(--glow),transparent 70%)}",
     // los navegadores dejan llegar con el tabulador a lo que tiene scroll (para moverlo con las flechas)
     ".body:focus-visible{outline:2px solid var(--c);outline-offset:-2px}",
+    "button:focus-visible{outline:2px solid var(--c);outline-offset:2px}.head button:focus-visible{outline-color:#fff;outline-offset:0}",
     ".msg{max-width:85%;padding:9px 13px;border-radius:14px;line-height:1.45;font-size:14.5px;white-space:pre-wrap;word-break:break-word;",
     "animation:msg .3s cubic-bezier(.34,1.45,.64,1) backwards}",
     "@keyframes msg{from{opacity:0;transform:translateY(8px) scale(.96)}}",

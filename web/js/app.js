@@ -11,7 +11,7 @@ import * as agentsPage from "./pages/agents.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.12.0";
+export const APP_VERSION = "0.12.1";
 
 export const state = {
   info: null,
@@ -175,7 +175,14 @@ function versionNotice() {
 }
 
 // ----------------------------------------------------------------- layout
+// La portada de la web pública (index.html) va fuera de #app: al montar la consola se quita
+function removeLanding() {
+  const landing = document.getElementById("landing");
+  if (landing) landing.remove();
+}
+
 function buildLayout() {
+  removeLanding();
   root = document.getElementById("app");
   clear(root);
   navEl = h("nav", { class: "nav", "aria-label": "Secciones" });
@@ -449,6 +456,7 @@ async function start() {
   try {
     state.info = await api.info();
   } catch (e) {
+    removeLanding();
     document.getElementById("app").append(h("div", { class: "page" }, h("div", { class: "notice danger" }, icon("alert"), e.message)));
     return;
   }

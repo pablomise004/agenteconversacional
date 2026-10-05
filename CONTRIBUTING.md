@@ -473,7 +473,12 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
   las páginas, la guía y la API van con `no-cache` (preguntan antes de usar su copia). Sin paso de
   compilación.
 - **Portada** (solo con cuentas; sin ellas `page()` quita el bloque `<!-- portada -->`): está en el
-  HTML, así que se pinta sin esperar al JS (es lo que mide el LCP) y la leen los buscadores; sus
+  HTML, así que se pinta sin esperar al JS (es lo que mide el LCP) y la leen los buscadores. Va fuera de
+  `#app` y se desplaza con la página (no con un scroll propio dentro de un contenedor fijo: en el móvil
+  la barra del navegador no se escondía y los auditores medían los colores en otro sitio); mientras se
+  ve, `#app` no ocupa sitio (`.landing ~ .app`) y `app.js:removeLanding()` la quita al montar la
+  consola. Sus animaciones de entrada solo mueven (sin fundidos), así los colores son los de verdad
+  desde el primer momento (los auditores de contraste miran los píxeles). Sus
   botones vienen apagados hasta que `account.js:signInPage()` les da vida. Quien ya tiene la llave
   guardada no la ve: el script del `<head>` pone `data-boot="app"` y el CSS la esconde; si la llave
   ya no vale, `signInPage()` lo quita. Los campos llevan `id` y `name` (Chrome avisa si no).
@@ -488,6 +493,9 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
 - **Service worker** (`web/sw.js`, lo registra `app.js`): solo responde a las navegaciones, y solo
   cuando falla la red, con `offline.html`. No guarda la consola: con conexión todo llega del servidor
   y nunca se ve algo viejo. Si cambias `offline.html`, sube el número de `CACHE`.
+- **`/docs` sin JavaScript**: el servidor mete en `api.html` (`<!-- referencia -->`) la referencia en
+  HTML sencillo, hecha con el esquema (`static_reference()`: título, grupos y rutas). Con JavaScript no
+  llega a verse (`[data-js]`, que pone el script del `<head>`) y `apidocs.js` la quita al cargar.
 - **Buscadores y vistas previas**: título y descripción en cada página; `page()` añade `canonical`,
   `og:url` y `og:image` con la dirección con la que se visita (`CANONICAL`: portada y `/docs`);
   `/chat` lleva `noindex`. `robots.txt` y `sitemap.xml` son rutas de `server.py`.
@@ -606,7 +614,7 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 161 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, cabeceras de seguridad y CSP (con las huellas de los scripts), CORS solo en las rutas públicas, JS/CSS con huella, vistas previas, `robots.txt` y `sitemap.xml`, portada solo con cuentas, service worker, dependencias fijadas, páginas que responden a `HEAD`, el chat de un agente (nombre, idioma y manifiesto), el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
+| `python -m pytest` | 162 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, cabeceras de seguridad y CSP (con las huellas de los scripts), CORS solo en las rutas públicas, JS/CSS con huella, vistas previas, `robots.txt` y `sitemap.xml`, portada solo con cuentas, service worker, dependencias fijadas, páginas que responden a `HEAD`, la referencia de la API en el HTML, el chat de un agente (nombre, idioma y manifiesto), el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
 | `python -m pytest tests/e2e -m e2e` | 38 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» (también sin cuenta, sin errores), un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar), la portada (sin JS y con JS, contorno de foco con el tabulador, «Crear cuenta» que se despliega y se recoge, cambio de tema, sin errores de la CSP y sin animaciones pendientes con «reducir movimiento»), el chat con «Volver» y tema (también el del widget; dentro de un iframe no salen) y la página sin conexión del service worker |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |

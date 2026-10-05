@@ -29,15 +29,24 @@ body.docs-body::before { content: ""; position: fixed; inset: 0 0 auto 0; height
 .dn-op.hidden-by-search, .ep.hidden-by-search, .docs-section.hidden-by-search, .dn-group.hidden-by-search { display: none; }
 .docs-main { min-width: 0; padding: 34px 44px 140px; max-width: 1360px; }
 
+/* la referencia en HTML sencillo (la pone el servidor): solo sin JavaScript, para leerla y para los buscadores */
+[data-js] .docs-static { display: none; }
+.docs-static { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; line-height: 1.6; }
+.docs-static h1 { font-size: 34px; letter-spacing: -.03em; margin: 0 0 10px; }
+.docs-static h2 { font-size: 20px; margin: 30px 0 4px; }
+.docs-static p { color: var(--muted); margin: 0 0 8px; }
+.docs-static ul { margin: 8px 0 0; padding-left: 20px; }
+.docs-static li { margin: 4px 0; }
+
 /* portada */
 .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; letter-spacing: .08em;
   text-transform: uppercase; color: var(--accent-text); background: var(--primary-soft); padding: 4px 9px; border-radius: 7px;
   border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent); }
 .docs-hero { animation: page-in .4s var(--ease) backwards; }
 .docs-hero h1 { font-size: 38px; letter-spacing: -.035em; font-weight: 750; margin: 14px 0 10px; line-height: 1.1; }
-/* texto con degradado: el color de verdad (el que leen los comprobadores de contraste) es el del acento */
-.docs-hero h1 .grad { background: linear-gradient(120deg, var(--brand-1), var(--brand-2)); -webkit-background-clip: text;
-  background-clip: text; color: var(--accent-text); -webkit-text-fill-color: transparent; }
+/* el acento con el subrayado de la marca, como en la portada (un texto en degradado no se puede medir) */
+.docs-hero h1 .grad { color: var(--accent-text); background: linear-gradient(90deg, var(--brand-1), var(--brand-2))
+  0 92% / 100% .09em no-repeat; }
 .docs-hero .lead { font-size: 16px; color: var(--muted); margin: 0 0 24px; line-height: 1.6; }
 .hero-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .hero-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }

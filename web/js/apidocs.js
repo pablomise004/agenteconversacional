@@ -508,6 +508,8 @@ async function start() {
   initTooltips();
   syncThemeColor();
   const root = document.getElementById("docs");
+  const plain = root.querySelector(".docs-static");  // la referencia sencilla del servidor (para quien no tiene JS)
+  if (plain) plain.remove();
   try {
     spec = await getJSON("/openapi.json");
   } catch (e) {

@@ -509,6 +509,7 @@ def test_referencia_de_la_api(base_url, page):
     page.goto(f"{base_url}/docs")
     page.wait_for_selector(".ep")
     assert page.locator(".ep").count() >= 30
+    assert page.locator("h1").count() == 1 and page.locator(".docs-static").count() == 0  # la sencilla, quitada
     # el buscador filtra las operaciones
     page.fill(".docs-search input", "detect")
     visibles = page.locator(".ep:visible")
@@ -553,6 +554,8 @@ def test_cuentas_compartir_y_guardar_una_copia(accounts_url, browser):
     ana.locator(".modal input").first.fill("Pastelería e2e")
     ana.locator(".modal button.primary").click()
     ana.wait_for_url("**/intents")
+    ana.locator(".nav a", has_text="Ajustes").click()  # y en Ajustes, dentro de la tarjeta de exportar y duplicar
+    ana.locator(".card", has_text="Modelo y datos").locator(".notice a", has_text="Compartir").wait_for()
     ana.locator(".nav a", has_text="Compartir").click()  # a la vista, en el menú
     ana.locator("button", has_text="Crear un enlace para compartirlo").click()
     link = ana.locator(".share-link").input_value()
@@ -666,6 +669,9 @@ def test_portada_de_la_web_publica(accounts_url, browser):
     page = ctx.new_page()
     page.goto(accounts_url + "/")
     assert page.locator("main#landing h1").is_visible()
+    # se desplaza con la página, no con un scroll propio (y la consola, aún vacía, no ocupa sitio)
+    assert page.evaluate("getComputedStyle(document.getElementById('landing')).position") != "fixed"
+    assert page.locator("#app").is_hidden()
     assert page.locator("#signin-user").is_visible() and page.locator(".signin-submit").is_disabled()
     assert page.locator("#landing a[href^='/chat?agent=']").count() == 2
     ctx.close()

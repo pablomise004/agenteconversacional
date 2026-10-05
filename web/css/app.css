@@ -1613,17 +1613,21 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
 
 /* ------------------------------------------------------------ portada */
 /* La web pública antes de entrar (#landing en index.html): qué es Lince y el formulario. Viene en el
-   HTML, así que se pinta sin esperar al JS; quien ya ha entrado no llega a verla (data-boot, en el <head>). */
+   HTML, así que se pinta sin esperar al JS; quien ya ha entrado no llega a verla (data-boot, en el <head>).
+   Se desplaza con la página (no con un scroll propio): en el móvil la barra del navegador se esconde al
+   bajar y los lectores de accesibilidad miden cada cosa donde de verdad está. */
 [data-boot="app"] .landing { display: none; }
-.landing { position: fixed; inset: 0; z-index: 1; overflow-y: auto; background:
+html:not([data-boot="app"]) .landing ~ .app { display: none; }  /* la consola, vacía, no ocupa sitio */
+.landing { position: relative; display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; background:
   radial-gradient(900px 560px at 6% -12%, color-mix(in srgb, var(--brand-1) 15%, transparent), transparent 62%),
   radial-gradient(820px 600px at 104% 112%, color-mix(in srgb, var(--brand-2) 13%, transparent), transparent 60%), var(--bg); }
-.landing-grid { max-width: 1180px; min-height: 100%; margin: 0 auto; padding: 56px 40px; display: grid;
+.landing-grid { flex: 1 0 auto; width: 100%; max-width: 1180px; margin: 0 auto; padding: 56px 40px; display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 400px); grid-template-areas: "intro card" "more card";
   column-gap: clamp(40px, 6vw, 88px); row-gap: 36px; align-content: center; }
-.landing-intro { grid-area: intro; align-self: end; animation: rise .5s var(--ease) backwards; }
-.landing-card { grid-area: card; align-self: center; animation: rise .5s .08s var(--ease) backwards; }
-.landing-more { grid-area: more; align-self: start; animation: rise .5s .16s var(--ease) backwards; }
+.landing-intro { grid-area: intro; align-self: end; animation: land-in .55s var(--ease) backwards; }
+.landing-card { grid-area: card; align-self: center; animation: land-in .55s .06s var(--ease) backwards; }
+.landing-more { grid-area: more; align-self: start; animation: land-in .55s .12s var(--ease) backwards; }
+@keyframes land-in { from { transform: translateY(12px); } }
 .landing-brand { display: inline-flex; align-items: center; gap: 11px; color: var(--text); font-size: 19px; font-weight: 700;
   letter-spacing: -.015em; text-decoration: none !important; }
 .landing-brand img { width: 40px; height: 40px; filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--brand-1) 38%, transparent)); }
@@ -1640,11 +1644,12 @@ math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; 
   color: #fff; font-size: 14.5px; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)) var(--brand-1);
   box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--brand-2) 85%, transparent), inset 0 1px 0 rgba(255, 255, 255, .18); }
 .ld-c1 { --c: var(--a1); } .ld-c2 { --c: var(--a0); } .ld-c3 { --c: var(--a2); }
-.ld-msg mark { padding: 0 4px; border-radius: 5px; color: var(--a-ink); background: var(--c); animation: ld-mark .5s var(--ease) backwards; }
+.ld-msg mark { display: inline-block; padding: 0 4px; border-radius: 5px; color: var(--a-ink); background: var(--c);
+  animation: ld-mark .45s var(--spring) backwards; }
 .ld-msg mark:nth-of-type(1) { animation-delay: .55s; }
 .ld-msg mark:nth-of-type(2) { animation-delay: .7s; }
 .ld-msg mark:nth-of-type(3) { animation-delay: .85s; }
-@keyframes ld-mark { from { color: inherit; background: transparent; } }
+@keyframes ld-mark { from { transform: scale(.6); } }  /* cada dato «salta» al reconocerlo */
 .ld-result { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .ld-result > * { animation: rise .4s var(--ease) backwards; }
 .ld-result > :nth-child(1) { animation-delay: 1.05s; }

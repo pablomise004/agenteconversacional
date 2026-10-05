@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="/css/app.css">
   <link rel="stylesheet" href="/css/api.css">
   <script>
+    document.documentElement.dataset.js = "";  // con JavaScript, la referencia sencilla no llega a verse
     try {
       const t = localStorage.getItem("agente.theme");
       if (t) document.documentElement.dataset.theme = t;
@@ -34,6 +35,7 @@
 </head>
 <body class="docs-body">
   <div id="docs">
+    <!-- referencia -->
     <noscript><p style="padding:20px">La referencia de la API necesita JavaScript. El esquema está en <a href="/openapi.json">/openapi.json</a>.</p></noscript>
   </div>
   <script type="module" src="/js/apidocs.js"></script>

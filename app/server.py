@@ -109,6 +109,28 @@ def script_hashes(page: str) -> list[str]:
             for s in INLINE_SCRIPT.findall(page)]
 
 
+def static_reference(spec: dict) -> str:
+    """La referencia de la API en HTML sencillo, hecha con el esquema OpenAPI: la leen quien no ejecuta
+    JavaScript y los buscadores (antes /docs no traía en el HTML ni su título). La consola la quita al
+    cargar y pinta la de verdad, con «Pruébalo»."""
+    esc = html.escape
+    out = ['<div class="docs-static">', "<h1>La API de Lince</h1>",
+           "<p>Todo lo que hace la consola se puede hacer por HTTP: crear agentes, entrenarlos y, sobre todo, conversar "
+           "con ellos desde tu web o tu aplicación. Todas las rutas reciben y devuelven JSON.</p>"]
+    for tag in spec.get("tags", []):
+        ops = [(method.upper(), path, op.get("summary", "")) for path, item in spec.get("paths", {}).items()
+               for method, op in item.items() if isinstance(op, dict) and tag["name"] in op.get("tags", [])]
+        if not ops:
+            continue
+        out.append(f"<h2>{esc(tag['name'][:1].upper() + tag['name'][1:])}</h2>")
+        if tag.get("description"):
+            out.append(f"<p>{esc(tag['description'].replace('`', ''))}</p>")
+        out.append("<ul>" + "".join(f"<li><code>{m} {esc(p)}</code> · {esc(s)}</li>" for m, p, s in ops) + "</ul>")
+    out.append('<p>El esquema completo, para Postman, Insomnia o tu código, está en <a href="/openapi.json">/openapi.json</a>.</p>')
+    out.append("</div>")
+    return "\n".join(out)
+
+
 def content_policy(scripts: list[str] | tuple = (), connect: list[str] | tuple = (), frame: str = "'none'") -> str:
     """Content-Security-Policy de las páginas: scripts solo de aquí (más `scripts`: las huellas de los
     que van en línea), conexiones solo con aquí (más `connect`), nada de plugins ni de <base>, y quién
@@ -1165,6 +1187,8 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         text = (WEB_DIR / name).read_text(encoding="utf-8")
         if not accounts:
             text = LANDING.sub("", text)
+        if name == "api.html":
+            text = text.replace("<!-- referencia -->", static_reference(app.openapi()), 1)
         if vigia_key:  # antes de poner las huellas: así la copia de Vigía también lleva la suya
             src = html.escape(vigia_src or "js/vigia.js")
             extra = f' data-ingesta="{html.escape(vigia_ingesta)}"' if vigia_ingesta else ""

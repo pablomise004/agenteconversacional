@@ -42,7 +42,7 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 161 pruebas (deben pasar siempre)
+python -m pytest                      # 162 pruebas (deben pasar siempre)
 pip install playwright && python -m pytest tests/e2e -m e2e   # 38 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
@@ -87,7 +87,10 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   0.12.0 (segunda auditoría): páginas con `GET` y `HEAD` (`web_route()`) y guardadas ya hechas
   (`render()`), `/chat?agent=…` con nombre, idioma, manifiesto propio (instalable), «Volver» y tema
   (`js/chat-page.js`), Vigía servido desde `web/js/vigia.js` (`tools/actualizar_vigia.py`), `--faint`
-  con contraste AA y foco con `outline`. Detalles en CONTRIBUTING, «Web pública».
+  con contraste AA y foco con `outline`. 0.12.1: la portada va fuera de `#app` y se desplaza con la
+  página (sin fundidos al entrar) y `/docs` trae la referencia en HTML sencillo (`static_reference()`).
+  Los auditores de Pablo miran los píxeles: nada de texto en degradado ni de fundidos en lo que se ve
+  al cargar. Detalles en CONTRIBUTING, «Web pública».
 - `web/`: consola en JavaScript sin compilación (módulos ES). `js/ui.js` tiene `h()` y los
   componentes comunes (`pageHead`, `dataTable`, `segmented`, `codeBlock`/`codeTabs`, `emptyState`,
   `busy`, `countUp`, `stagger`, `tocNav` (índice de Guía y «Por dentro»), `selectMenu` (en lugar de
