@@ -11,7 +11,7 @@ import * as agentsPage from "./pages/agents.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.13.0";
+export const APP_VERSION = "0.13.1";
 
 export const state = {
   info: null,
@@ -108,7 +108,7 @@ function openPalette() {
   else loadPalette().then((m) => m.openPalette(), errorToast);
 }
 
-let root, sidebar, mainEl, pageEl, simulator, navEl, topTitle, agentBtn, modeEl;
+let root, sidebar, mainEl, pageEl, simulator, navEl, topTitle, agentBtn, modeEl, homeLink;
 let current = null; // página activa {canLeave, destroy, save}
 let currentHash = "";
 let ignoreHash = false;
@@ -253,7 +253,7 @@ function buildLayout() {
     h("div", { class: "sidebar-foot" },
       themeButton(),
       state.info && state.info.accounts ? userButton()
-        : h("a", { class: "btn ghost sm", href: "#/agents", title: "Todos los agentes" }, icon("layers"), "Agentes"),
+        : (homeLink = h("a", { class: "btn ghost sm", href: "#/agents", title: "Todos los agentes" }, icon("layers"), h("span", null, "Agentes"))),
       h("span", { class: "spacer" }),
       state.info ? versionButton(state.info.version) : null));
   topTitle = h("span", { class: "title grow ellipsis" }, "");
@@ -302,6 +302,12 @@ function renderMode() {
     else a.removeAttribute("aria-current");
   });
   root.classList.toggle("ml-mode", state.mode === "ml");
+  if (homeLink) {  // sin cuentas, abajo: la lista de lo que toca (agentes o proyectos)
+    const ml = state.mode === "ml";
+    homeLink.href = ml ? "#/ml" : "#/agents";
+    homeLink.title = ml ? "Todos los proyectos" : "Todos los agentes";
+    homeLink.lastChild.textContent = ml ? "Proyectos" : "Agentes";
+  }
 }
 
 const KIND_META = (p) => (p.kind === "images"

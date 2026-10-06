@@ -9,6 +9,7 @@ idénticos: cada librería tiene sus detalles, como el orden aleatorio o cómo p
 from __future__ import annotations
 
 import json
+import textwrap
 
 
 def _py(v) -> str:
@@ -19,6 +20,25 @@ def _list(items: list[str]) -> str:
     if not items:
         return "[]"
     return "[" + ", ".join(_py(i) for i in items) + "]"
+
+
+def _assign(name: str, call: str, width: int = 100) -> list[str]:
+    """`name = call` en una línea o, si no cabe, con los argumentos en la siguiente (en la consola no hay que
+    desplazarse a un lado para leerla)."""
+    line = f"{name} = {call}"
+    if len(line) <= width or "(" not in call or not call.endswith(")"):
+        return [line]
+    head, _, args = call.partition("(")
+    return [f"{name} = {head}(", f"    {args[:-1]})"]
+
+
+def _steps(name: str, call: str, items: list[str]) -> list[str]:
+    """`name = call([a, b, c])` con un elemento por línea (y su comentario, si lo trae: «código  # …»)."""
+    lines = []
+    for item in items:
+        code, sep, note = item.partition("  # ")
+        lines.append(f"    {code}," + (f"  # {note}" if sep else ""))
+    return [f"{name} = {call}(["] + lines + ["])"]
 
 
 def table_script(report: dict, config: dict, filename: str) -> str:
@@ -33,6 +53,8 @@ def table_script(report: dict, config: dict, filename: str) -> str:
     folds = config.get("folds", 5)
     rows = (report.get("rows") or {}).get("train", 100)
     cls = task == "classification"
+    if key == "kmeans" and not params.get("k"):  # en automático se guardaba k = 0 («que lo elija»): la que eligió
+        params = dict(params, k=(report.get("metrics") or {}).get("k") or 3)
     imports, estimator, note = algorithm_code(key, params, task, rows)
     L = [
         f"# Script equivalente al modelo «{report['name']}» de Lince.",
@@ -41,7 +63,7 @@ def table_script(report: dict, config: dict, filename: str) -> str:
         "# Necesita: pip install pandas scikit-learn",
     ]
     if note:
-        L.append(f"# Nota: {note}")
+        L += ["# " + line for line in textwrap.wrap("Nota: " + note, 98)]
     L += ["", "import pandas as pd",
           "from sklearn.compose import ColumnTransformer",
           "from sklearn.impute import SimpleImputer",
@@ -75,7 +97,8 @@ def table_script(report: dict, config: dict, filename: str) -> str:
           "    (\"categorias\", Pipeline([(\"rellenar\", SimpleImputer(strategy=\"constant\", fill_value=\"(vacío)\")),",
           "                              (\"one_hot\", OneHotEncoder(handle_unknown=\"ignore\", max_categories=31))]), categoricas),",
           "])",
-          f"modelo = Pipeline([(\"preparar\", preparar), (\"algoritmo\", {estimator})])",
+          *_assign("algoritmo", estimator),
+          "modelo = Pipeline([(\"preparar\", preparar), (\"algoritmo\", algoritmo)])",
           "X = datos[numericas + categoricas]"]
     if task == "clustering":
         L += ["", "grupos = modelo.fit_predict(X)",
@@ -189,11 +212,11 @@ def images_script(report: dict, config: dict) -> str:
     flip = params.get("augment", "si")
     aug = []
     if flip != "no":
-        aug.append("transforms.RandomAffine(degrees=0, translate=(0.1, 0.1))")
+        aug.append("transforms.RandomAffine(degrees=0, translate=(0.1, 0.1))  # mover un poco")
         if flip == "si":
-            aug.append("transforms.RandomHorizontalFlip()")
-        aug.append("transforms.ColorJitter(brightness=0.15)")
-    gray_line = ["transforms.Grayscale()"] if gray else []
+            aug.append("transforms.RandomHorizontalFlip()  # voltear")
+        aug.append("transforms.ColorJitter(brightness=0.15)  # cambiar el brillo")
+    gray_line = ["transforms.Grayscale()  # solo la forma: en gris"] if gray else []
     base = [f"transforms.Resize(({size}, {size}))", *gray_line, "transforms.ToTensor()", "Normalizar()"]
     return "\n".join(head + [
         "# Necesita: pip install torch torchvision", "",
@@ -204,8 +227,8 @@ def images_script(report: dict, config: dict) -> str:
         "    \"\"\"Cada imagen con media 0 y desviación 1, como en Lince.\"\"\"",
         "    def __call__(self, x):",
         "        return (x - x.mean()) / (x.std() + 1e-6)", "",
-        "entrenar_tf = transforms.Compose([" + ", ".join(aug + base) + "])",
-        "examen_tf = transforms.Compose([" + ", ".join(base) + "])",
+        *_steps("entrenar_tf", "transforms.Compose", aug + base),
+        *_steps("examen_tf", "transforms.Compose", base),
         "todas = datasets.ImageFolder(\"imagenes\")",
         f"n_exa = int(len(todas) * {test})",
         "ent, exa = random_split(todas, [len(todas) - n_exa, n_exa])",

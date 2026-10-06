@@ -1,11 +1,11 @@
 // Probar un modelo: una fila escrita a mano (o sacada de los datos) o una imagen (fichero o cámara), con la
 // predicción al momento y el porqué. Al cambiar un valor se vuelve a predecir: así se ve qué le influye.
 import { ml } from "../api.js";
-import { h, icon, clear, errorToast, selectMenu, pageHead, emptyState, debounce, busy } from "../ui.js";
-import { nf } from "../charts.js";
+import { h, icon, clear, toast, errorToast, selectMenu, pageHead, emptyState, debounce, busy, downloadFile } from "../ui.js";
+import { nf, barList } from "../charts.js";
 import { pixelImage } from "../ml-charts.js";
 import { navigate, projectPath, state } from "../app.js";
-import { kindIcon, fmtMetric, fmtNum, metricName, defaultModel, dropZone, sampleFromFile, webcam, TASKS } from "../ml-common.js";
+import { kindIcon, fmtMetric, fmtNum, metricName, defaultModel, dropZone, sampleFrom, sampleFromFile, webcam, TASKS } from "../ml-common.js";
 import { explanationView, preparedView, probabilityBars, cnnInsideView } from "../ml-views.js";
 
 export async function render(el, params, query) {
@@ -56,7 +56,7 @@ function tablePredict(page, p, m) {
     } else {
       control = h("input", { type: "text", inputmode: col.kind === "number" ? "decimal" : null, "aria-label": col.name,
         placeholder: col.kind === "date" ? "AAAA-MM-DD" : col.example != null ? fmtNum(col.example) : "",
-        value: col.kind === "number" && col.example != null ? String(+col.example.toFixed(4)).replace(".", ",") : "",
+        value: col.example == null ? "" : col.kind === "number" ? String(+col.example.toFixed(4)).replace(".", ",") : String(col.example),
         oninput: changed });
     }
     fields.set(col.name, { col, control });
@@ -73,6 +73,7 @@ function tablePredict(page, p, m) {
         h("p", { class: "muted small", style: { margin: 0 } }, r.task === "clustering" ? "Las columnas con las que se agrupó." : `Las columnas con las que aprendió a predecir «${r.target}».`),
         form, h("div", { class: "row wrap" }, fillBtn, h("span", { class: "spacer" }), predictBtn))),
     result));
+  page.append(batchCard(p, m));
 
   function record() {
     const rec = {};
@@ -103,9 +104,10 @@ function tablePredict(page, p, m) {
       const res = await ml.rows(p.id, Math.floor(Math.random() * total), 1);
       const row = res.rows[0] || [];
       const byName = Object.fromEntries(res.columns.map((c, i) => [c, row[i]]));
-      for (const [name, { control }] of fields) {
+      for (const [name, { col, control }] of fields) {
         const v = byName[name] ?? "";
-        control.value = v;
+        // la tabla se guarda con punto decimal; en el formulario, con coma (como lo que sale relleno al abrir)
+        control.value = col.kind === "number" ? String(v).replace(".", ",") : v;
       }
       const truth = r.target ? byName[r.target] : null;
       real = truth != null && truth !== "" ? { value: truth, row: res.offset + 1 } : null;
@@ -140,10 +142,76 @@ function tablePredict(page, p, m) {
   return null;
 }
 
+// ---------------------------------------------------------- por lotes (CSV)
+// Muchas filas a la vez: sube un CSV y descarga el mismo con la predicción de cada fila (en Azure, un punto de
+// conexión por lotes). Si el fichero trae la columna que se predice, dice cuánto acierta.
+function batchCard(p, m) {
+  const r = m.report;
+  const what = r.task === "clustering" ? "el grupo de cada fila" : r.task === "classification" ? `«${r.target}» y su seguridad` : `«${r.target}»`;
+  const out = h("div", { class: "col batch-out", style: { gap: "14px" } });
+  const zone = dropZone({ title: "Arrastra un CSV o haz clic", text: `El mismo fichero vuelve con ${what} al final de cada fila.`,
+    accept: ".csv,.tsv,.txt,text/csv,text/plain", compact: true, iconName: "upload", onFiles: (files) => run(files[0]) });
+  async function run(file) {
+    clear(out).append(h("div", { class: "muted small row", style: { gap: "8px" } }, h("span", { class: "spinner" }), `Prediciendo «${file.name}»…`));
+    try {
+      paint(await ml.batch(p.id, m.id, file), file.name);
+    } catch (e) { clear(out); errorToast(e); }
+  }
+  function paint(res, name) {
+    const s = res.summary;
+    const file = name.replace(/\.[^.]+$/, "") + "-predicciones.csv";
+    const download = h("button", { class: "btn primary", type: "button", onclick: () => downloadFile(file, res.csv, "text/csv;charset=utf-8") },
+      icon("download"), `Descargar ${file}`);
+    const facts = h("div", { class: "data-facts" }, h("span", null, h("b", null, nf(0).format(res.rows)), " filas"),
+      h("span", null, "columnas nuevas: ", h("b", null, res.newColumns.join(", "))));
+    let check = null;
+    if (s.check && r.task === "classification") {
+      const share = s.check.right / s.check.rows;
+      check = h("span", { class: "pred-real" }, h("span", { class: "status-icon " + (share >= 0.85 ? "good" : share >= 0.6 ? "warn" : "critical") }, share >= 0.85 ? "✓" : share >= 0.6 ? "~" : "✗"),
+        `El fichero trae «${r.target}»: acierta en ${nf(0).format(s.check.right)} de ${nf(0).format(s.check.rows)} filas (${nf(1).format(share * 100)} %).`);
+    } else if (s.check && r.task === "regression") {
+      check = h("span", { class: "pred-real" }, icon("info"), `El fichero trae «${r.target}»: se equivoca de media en ${fmtNum(s.check.mae)}`
+        + (s.check.r2 != null ? ` (R² ${nf(3).format(s.check.r2)}).` : "."));
+    }
+    const summary = s.counts
+      ? barList({ items: s.counts.map((c) => ({ label: r.task === "clustering" ? `Grupo ${c.label}` : c.label, sub: nf(0).format(c.count), value: c.count, tip: `${c.count} filas` })),
+        format: (v) => nf(0).format(v), labelWidth: 140 })
+      : h("div", { class: "kv-table small" },
+        h("div", null, "Media"), h("div", null, h("b", null, fmtNum(s.mean))),
+        h("div", null, "La más baja"), h("div", null, h("b", null, fmtNum(s.min))),
+        h("div", null, "La más alta"), h("div", null, h("b", null, fmtNum(s.max))));
+    // en el fichero, lo nuevo va al final; aquí, delante (con muchas columnas, al final quedaba fuera de la vista)
+    const firstNew = res.columns.length - res.newColumns.length;
+    const order = [...res.columns.keys()].slice(firstNew).concat([...res.columns.keys()].slice(0, firstNew));
+    const table = h("div", { class: "table-wrap" }, h("table", { class: "table batch-preview" },
+      h("thead", null, h("tr", null, order.map((j) => h("th", { scope: "col", class: j >= firstNew ? "new" : null }, res.columns[j])))),
+      h("tbody", null, res.preview.map((row) => h("tr", null, order.map((j) => h("td", { class: j >= firstNew ? "new" : null }, row[j])))))));
+    clear(out).append(...[  // (append(null) escribiría «null»)
+      res.missingColumns.length ? h("div", { class: "notice warning" }, icon("alert"),
+        `Le faltaban columnas con las que aprendió el modelo (${res.missingColumns.join(", ")}): se han rellenado como los vacíos.`) : null,
+      facts, check, summary,
+      h("div", { class: "chart-title" }, `Las primeras ${res.preview.length} filas`), table,
+      h("div", { class: "row wrap" }, download)].filter(Boolean));
+  }
+  return h("div", { class: "card batch-card" }, h("div", { class: "card-head" }, icon("layers"), h("h2", null, "Muchas filas a la vez"),
+    h("span", { class: "help" }, "un CSV entero")),
+  h("div", { class: "card-body col", style: { gap: "14px" } },
+    h("p", { class: "muted small", style: { margin: 0 } }, "Sube un CSV con las columnas del modelo y descarga la predicción de todas sus filas (en Azure, un punto de conexión por lotes). Si el fichero trae la respuesta, te dice cuánto acierta."),
+    zone, out));
+}
+
 // ---------------------------------------------------------------- imágenes
 function imagesPredict(page, p, m) {
   const r = m.report;
-  let thumbs = null;  // id → miniatura, para enseñar los vecinos (se piden la primera vez)
+  let thumbs = null, all = [];  // las imágenes del proyecto (id → miniatura): para los vecinos y «Una imagen de los datos»
+  async function loadThumbs() {
+    if (thumbs) return;
+    try {
+      const data = await ml.images(p.id);
+      all = data.classes.flatMap((c) => c.images.map((i) => ({ id: i.id, thumb: i.thumb, label: c.name })));
+      thumbs = new Map(all.map((i) => [i.id, i.thumb]));
+    } catch (e) { thumbs = new Map(); }
+  }
   const preview = h("div", { class: "img-preview" });
   const result = h("div", { class: "predict-col" }, h("div", { class: "card" }, emptyState({ icon: "image", title: "Aquí saldrá lo que ve",
     text: "Elige una imagen o usa la cámara." })));
@@ -160,11 +228,11 @@ function imagesPredict(page, p, m) {
     liveBox.hidden = true;
     clear(camBtn).append(icon("camera"), "Usar la cámara");
   };
-  async function predict(sample, explain = true) {
+  async function predict(sample, explain = true, real = null) {
     clear(preview).append(h("img", { src: sample.thumb, alt: "La imagen que se prueba" }),
       h("div", { class: "muted small" }, `Reducida a 64 × 64 píxeles${r.learned && r.learned.layers ? ` (la red la ve a ${r.params && r.params.size || 32} × ${r.params && r.params.size || 32})` : ""}.`));
     const res = await ml.predict(p.id, m.id, { images: [sample.b64], explain });
-    paintResult(res.predictions[0], sample.thumb, explain);
+    paintResult(res.predictions[0], sample.thumb, explain, real);
   }
   const zone = dropZone({ title: "Arrastra una imagen o haz clic", text: "JPG, PNG, WebP…", accept: "image/*", compact: true, iconName: "image",
     onFiles: async (files) => {
@@ -172,6 +240,24 @@ function imagesPredict(page, p, m) {
       try { await predict(await sampleFromFile(files[0])); } catch (e) { errorToast(e); }
     } });
   const camBtn = h("button", { class: "btn", type: "button" }, icon("camera"), "Usar la cámara");
+  // como «Una fila de los datos» en las tablas: una al azar del proyecto, y te dice qué es de verdad
+  const pickBtn = h("button", { class: "btn", type: "button", title: "Una imagen al azar del proyecto (puede ser de las que usó para aprender)" },
+    icon("refresh"), "Una imagen de los datos");
+  pickBtn.addEventListener("click", () => busy(pickBtn, async () => {
+    stopCam();
+    try {
+      await loadThumbs();
+      if (!all.length) { toast("Este proyecto todavía no tiene imágenes", "info"); return; }
+      const pick = all[Math.floor(Math.random() * all.length)];
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error("No se ha podido abrir la imagen"));
+        im.src = pick.thumb;
+      });
+      await predict(sampleFrom(img, img.naturalWidth, img.naturalHeight), true, pick.label);
+    } catch (e) { errorToast(e); }
+  }));
   const liveInput = h("input", { type: "checkbox" });
   liveInput.addEventListener("change", () => {
     clearInterval(liveTimer);
@@ -194,27 +280,25 @@ function imagesPredict(page, p, m) {
   });
   page.append(h("div", { class: "predict-layout" },
     h("div", { class: "card" }, h("div", { class: "card-head" }, icon("image"), h("h2", null, "Tu imagen")),
-      h("div", { class: "card-body img-pick" }, zone, h("div", { class: "row wrap" }, camBtn), camBox, liveBox, preview,
+      h("div", { class: "card-body img-pick" }, zone, h("div", { class: "row wrap" }, pickBtn, camBtn), camBox, liveBox, preview,
         h("p", { class: "muted small", style: { margin: 0 } }, `Clases que conoce: ${r.classes.join(", ")}. Si le das algo que no es ninguna, dirá la que más se le parezca: no sabe decir «ninguna».`))),
     result));
 
-  async function paintResult(item, image, explain) {
+  async function paintResult(item, image, explain, real) {
     clear(result);
+    const truth = real == null ? null : h("span", { class: "pred-real" }, real === item.prediction
+      ? [h("span", { class: "status-icon good" }, "✓"), `Acierta: de verdad es «${real}»`]
+      : [h("span", { class: "status-icon critical" }, "✗"), `Falla: de verdad es «${real}»`]);
     result.append(h("div", { class: "card" }, h("div", { class: "card-body pred-result", style: { paddingTop: "18px" } },
       h("div", { class: "pred-big" }, h("span", { class: "label" }, "Dice que es"), h("span", { class: "value" }, item.prediction),
         h("span", { class: "conf" }, `${nf(0).format(item.confidence * 100)} % de seguridad`)),
-      probabilityBars(item.probabilities))));
+      truth, probabilityBars(item.probabilities))));
     if (!explain) return;
     if (item.inside) {
       result.append(h("div", { class: "card" }, h("div", { class: "card-head" }, icon("network"), h("h2", null, "Por dentro de la red")),
         h("div", { class: "card-body" }, cnnInsideView(item.inside, r.classes, image))));
     } else if (item.neighbors) {
-      if (!thumbs) {
-        try {
-          const data = await ml.images(p.id);
-          thumbs = new Map(data.classes.flatMap((c) => c.images.map((i) => [i.id, i.thumb])));
-        } catch (e) { thumbs = new Map(); }
-      }
+      await loadThumbs();
       result.append(h("div", { class: "card" }, h("div", { class: "card-head" }, icon("dots"), h("h2", null, "Las imágenes más parecidas")),
         h("div", { class: "card-body col", style: { gap: "12px" } },
           h("p", { class: "muted small", style: { margin: 0 } }, "Compara píxel a píxel con las de entrenamiento y mira qué son las más parecidas. No entiende de formas: dos fotos con el mismo fondo se le parecen mucho."),

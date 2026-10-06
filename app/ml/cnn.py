@@ -23,7 +23,7 @@ from numpy.lib.stride_tricks import sliding_window_view
 from . import algorithms as alg
 from .metrics import classification_metrics
 from .png import data_url, normalized
-from .runner import JobError, Progress, split_holdout
+from .runner import JobError, Progress, duration, split_holdout
 
 SIZE = 64  # tamaño al que se guardan las imágenes
 
@@ -219,7 +219,7 @@ class ConvNet:
             test_acc = float(np.mean(self.predict_proba(X_test).argmax(axis=1) == y_test)) if len(X_test) else None
             self.history.append({"epoch": ep, "loss": loss, "accuracy": acc, "testAccuracy": test_acc})
             if progress:
-                progress(ep / epochs, f"vuelta {ep}: error {loss:.3f}, acierta el {acc * 100:.0f} % de las de entrenamiento"
+                progress(ep / epochs, f"vuelta {ep}: error {loss:.3f}".replace(".", ",") + f", acierta el {acc * 100:.0f} % de las de entrenamiento"
                          + (f" y el {test_acc * 100:.0f} % del examen" if test_acc is not None else ""))
         return self
 
@@ -373,8 +373,8 @@ def run_images(images: np.ndarray, labels: list[str], config: dict, progress: Pr
         mt = classification_metrics(y[te], pred_te, len(classes))
         mtr = classification_metrics(y[tr], pred_tr, len(classes))
         ms = int((time.time() - t0) * 1000)
-        progress.write(f"{name}: acierta el {mt['accuracy'] * 100:.1f} % del examen "
-                       f"({mtr['accuracy'] * 100:.0f} % de las de entrenamiento) · {ms} ms")
+        progress.write(f"{name}: acierta el {mt['accuracy'] * 100:.1f}".replace(".", ",") + " % del examen "
+                       f"({mtr['accuracy'] * 100:.0f} % de las de entrenamiento) · {duration(ms)}")
         results.append({"key": key, "name": name, "params": params, "model": model, "test": mt, "train": mtr, "ms": ms,
                         "probaTest": proba_te})
 

@@ -51,13 +51,19 @@ export const METRIC_HELP = {
   silhouette: "Si cada fila está más cerca de los de su grupo que de los del grupo vecino: de −1 a 1, mejor cuanto más alto.",
 };
 export const metricName = (key) => METRIC_NAMES[key] || key;
+// «k vecinos más cercanos (k = 5)» sin partir «k = 5» al final de una línea (en las tablas, la columna es estrecha)
+export const keepTogether = (name) => String(name).replace(/ = /g, " = ").replace(/\((\d+) /g, "($1 ")
+  .replace(/ (\d+)\)/g, " $1)");
 export const higherIsBetter = (key) => key !== "rmse" && key !== "mae";
 export const isPct = (key) => PCT.has(key);
 
+// R² y silueta siempre con tres decimales: en una columna, «0,8» junto a «0,897» parecía menos preciso
+const three = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
 export function fmtMetric(key, v) {
   if (v == null || !isFinite(v)) return "—";
-  if (PCT.has(key)) return nf(1).format(v * 100) + " %";
-  if (key === "r2" || key === "silhouette") return nf(3).format(v);
+  if (PCT.has(key)) return nf(1).format(v * 100) + "\u00a0%";  // sin partir la línea entre el número y el %
+  if (key === "r2" || key === "silhouette") return three.format(v);
   return fmtNum(v);
 }
 

@@ -8,7 +8,7 @@ const SVG = "http://www.w3.org/2000/svg";
 
 export function s(tag, attrs = {}, ...children) {
   const el = document.createElementNS(SVG, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, String(v));
+  for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, String(v));  // null: sin atributos, como en h()
   for (const c of children.flat()) if (c != null) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
   return el;
 }

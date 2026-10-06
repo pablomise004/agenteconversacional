@@ -127,6 +127,9 @@ flowchart TB
 | `tools/build_pizzeria.py`, `tools/build_hotel.py` | Generan los ejemplos a partir de frases con la notación `[texto](parámetro)`. El del hotel además comprueba que cada anotación coincide con lo que detecta el motor (y que no queda nada sin anotar), que no hay frases repetidas y que la normalización no inventa parámetros |
 | `tools/build_icons.py` | Genera `favicon.ico`, los PNG de `web/icons/` y `web/og.png` a partir de `web/favicon.svg` (Playwright con Edge, Chrome o Chromium) |
 | `tools/capturas_docs.py` | Rehace las capturas de `docs/img/` con la consola actual (Playwright) |
+| `app/ml/` | Machine learning, todo con numpy (ver [Machine learning](#machine-learning-appml)): `table.py` (leer el CSV y adivinar tipos), `prep.py` (preparar las filas), `algorithms.py`, `metrics.py`, `runner.py` (un entrenamiento paso a paso), `cnn.py` (red convolucional e imágenes), `codegen.py` (el script equivalente), `store.py` (proyectos en disco), `api.py` (rutas `/api/ml/…`), `examples.py` y `png.py` |
+| `web/js/pages/ml-*.js`, `web/js/ml-common.js`, `web/js/ml-charts.js`, `web/js/ml-views.js` | Consola de machine learning: una página por sección (inicio, datos, entrenar, entrenamiento, modelos, modelo, probar, API, guía y «Por dentro»), formatos y piezas comunes, gráficos y el porqué de una predicción |
+| `examples/ml/`, `tools/build_ml_examples.py` | Los CSV de los ejemplos (pingüinos y bicis, con sus licencias); las formas se dibujan al vuelo (`examples.py`) |
 
 ## Formato de un agente
 
@@ -502,6 +505,46 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
 - **Dependencias**: el `Dockerfile` instala `requirements.lock`; `requirements.txt` (con topes) es
   para las instalaciones locales y para generar el lock (el comando está en su cabecera).
 
+## Machine learning (`app/ml/`)
+
+Un **proyecto** (`store.py`, en `<espacio>/ml/<proyecto>/`) tiene unos datos (una tabla CSV o imágenes de
+64 × 64 en `.rgb` con su `index.json`), sus **entrenamientos** (`jobs/`) y sus **modelos** (`models/`: el
+informe en JSON y los arrays en `.npz`). Todo con numpy: sin scikit-learn.
+
+- **Tabla** (`table.py`): separador, coma o punto decimal y codificación (UTF-8 o Windows-1252) se
+  adivinan; cada columna es número, categoría, fecha o texto libre, y las que identifican la fila no se
+  usan para aprender. La persona puede cambiar el tipo (`types` del proyecto).
+- **Preparar** (`prep.py: Preparer`): medianas, categorías (one-hot, como mucho 30 y «(otras)»),
+  fechas (año, mes, día de la semana) y escala (media y desviación) se aprenden **solo con las filas de
+  entrenamiento** y se guardan con el modelo; las filas nuevas (Probar, API, por lotes) se preparan igual.
+  Los árboles usan los números sin escalar (se leen mejor). Cada fecha guarda una de verdad (`example`)
+  para rellenar Probar y el `schema` de la API.
+- **Entrenar** (`runner.py`): `check_config` completa y valida (la columna que se predice, y al agrupar
+  la de comparar, nunca son columnas para aprender); separa el examen (por estratos al clasificar),
+  validación cruzada, cada candidato (`AUTO`: siempre con la línea base) y elige por la media de la
+  validación cruzada. Cada candidato deja su modelo con `learned()` (lo que ha aprendido, para la
+  pestaña) y `explain()` (el porqué de una predicción). Los decimales del registro van con coma.
+- **Imágenes** (`cnn.py`): `ConvNet` (3 bloques de convolución 3×3 + ReLU + max-pooling, global max
+  pooling y densa con softmax, Adam y aumento de datos) y dos líneas base con los píxeles a 16 × 16.
+- **En segundo plano** (`api.py: JobRunner`): dos entrenamientos a la vez en todo el servidor y uno por
+  proyecto; la consola pregunta cada medio segundo (pasos, registro y avance). En Windows no se puede
+  reemplazar un fichero mientras otro hilo lo lee: `store._write_json` y `_read_json` reintentan un
+  momento después, y el `finally` de `_run` saca el entrenamiento de los «en marcha» aunque falle al
+  guardar (si no, se quedaba «Entrenando» para siempre).
+- **Predecir** (`Bundle`, `ImageBundle`): `…/models/<id>/predict` con filas o imágenes (y `explain`),
+  `…/models/<id>/batch` con un CSV entero (`predict_csv`: devuelve el mismo CSV, con su separador y su
+  decimal, y la predicción al final; con la respuesta en el fichero, cuánto acierta). Lo que sale de un
+  modelo pasa por `plain()`: los números de numpy no se pueden enviar como JSON.
+- **Publicar**: el modelo publicado responde en `POST /api/ml/<dirección>/predict` y `…/batch` (y
+  `GET …/schema`), con CORS y la clave de API del proyecto (`X-Api-Key`) si la tiene.
+- **Código** (`codegen.py`): el script equivalente con scikit-learn (tablas) o PyTorch (imágenes), con
+  los mismos ajustes; las pruebas comprueban que compila.
+
+En la consola, el botón «Chatbots / Machine learning» cambia `state.mode`. La pestaña elegida de un
+modelo se recuerda en la sesión (para comparar modelos en la misma), `?tab=` la fuerza. Los gráficos
+que van solos en una tarjeta ancha llevan `max-width` (el SVG se estira con su caja). Ojo: `h()` se
+salta los `null`, pero `Element.append(null)` escribe «null»: se filtran antes.
+
 ## Consola web
 
 - `h(tag, props, ...children)` construye el DOM; el texto siempre como nodos de texto (nunca
@@ -614,8 +657,8 @@ Lo que sigue lo hace el servidor siempre (también en local), pero está pensado
 
 | Comando | Qué cubre |
 |---|---|
-| `python -m pytest` | 162 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, cabeceras de seguridad y CSP (con las huellas de los scripts), CORS solo en las rutas públicas, JS/CSS con huella, vistas previas, `robots.txt` y `sitemap.xml`, portada solo con cuentas, service worker, dependencias fijadas, páginas que responden a `HEAD`, la referencia de la API en el HTML, el chat de un agente (nombre, idioma y manifiesto), el agente del hotel (`tests/test_hotel.py`) y el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) |
-| `python -m pytest tests/e2e -m e2e` | 38 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» (también sin cuenta, sin errores), un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar), la portada (sin JS y con JS, contorno de foco con el tabulador, «Crear cuenta» que se despliega y se recoge, cambio de tema, sin errores de la CSP y sin animaciones pendientes con «reducir movimiento»), el chat con «Volver» y tema (también el del widget; dentro de un iframe no salen) y la página sin conexión del service worker |
+| `python -m pytest` | 184 pruebas: tokenizador, stemmer, corrector, entidades (rangos de días, horas de mañana y de noche), clasificación (umbral y fuera de tema), parámetros del mismo tipo, contextos, diálogo completo, webhook real, API (incluido el esquema OpenAPI, los recursos de la web, la copia de los ejemplos al arrancar y su marca `example`), importación ZIP, información del modelo, versión de consola y servidor (y sus notas en `docs/NOVEDADES.md`), crear un agente como copia (`copyOf`), logotipo igual en `favicon.svg` y `ui.js`, aviso de reinicio, arranque con el puerto ocupado, cabeceras de seguridad y CSP (con las huellas de los scripts), CORS solo en las rutas públicas, JS/CSS con huella, vistas previas, `robots.txt` y `sitemap.xml`, portada solo con cuentas, service worker, dependencias fijadas, páginas que responden a `HEAD`, la referencia de la API en el HTML, el chat de un agente (nombre, idioma y manifiesto), el agente del hotel (`tests/test_hotel.py`) el servidor con cuentas (`tests/test_accounts.py`: cada uno ve solo lo suyo, dirección pública, compartir sin secretos, modelos compartidos, contraseñas, bloqueo y límites) y el machine learning (`tests/test_ml.py`: CSV de Excel en español, preparar solo con el entrenamiento, cada algoritmo con su explicación en JSON y su script que compila, automático, agrupar, regresión con fechas, imágenes y red convolucional, por lotes, publicar con clave, cancelar, cuentas y el reintento de Windows) |
+| `python -m pytest tests/e2e -m e2e` | 44 pruebas con Playwright en un navegador real (Edge, Chrome o Chromium): todas las páginas sin errores, «Por dentro» en el móvil (320 y 390 px: nada fuera ni cortado), fórmulas como en TeX, la raíz abre la lista de agentes con los ejemplos aparte (también en el menú de agentes), editar y anotar, simulador, analizador, página Entrenar (también con el hotel: las 12 primeras, buscador y «Ver todas»), crear agente (vacío y como copia, con su buscador), notas de la versión, índice desplegable con poco sitio, desplegables y selector de color propios (también con el teclado), tema oscuro, menú de agentes y cabeceras a 1280 px, widget oscuro, aviso de servidor desactualizado, buscador Ctrl+K, referencia de la API con «Pruébalo» (también sin cuenta, sin errores), un servidor con cuentas (crear cuenta, compartir un agente, que otro guarde la copia, salir y volver a entrar), la portada (sin JS y con JS, contorno de foco con el tabulador, «Crear cuenta» que se despliega y se recoge, cambio de tema, sin errores de la CSP y sin animaciones pendientes con «reducir movimiento»), el chat con «Volver» y tema (también el del widget; dentro de un iframe no salen), la página sin conexión del service worker y el machine learning (del ejemplo al modelo con sus pestañas, agrupar, probar una fila, un CSV entero y una imagen, el móvil a 390 px, la guía con sus capturas y «Por dentro») |
 | `python tools/capturas_docs.py` | No es una prueba, pero sirve para revisar la consola a ojo: rehace las capturas de `docs/img/` |
 | `python tools/benchmark_massive.py` | Acierto con MASSIVE (60 intenciones): 59 % con 10 frases por intención, 65-66 % con 20 |
 

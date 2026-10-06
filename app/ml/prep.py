@@ -83,7 +83,10 @@ class Preparer:
             elif kind == DATE:
                 parts = np.array([_date_parts(d) for d in values], dtype=float).reshape(-1, 3)
                 fills = [float(np.nanmedian(parts[:, k])) if np.any(~np.isnan(parts[:, k])) else 0.0 for k in range(3)]
-                spec = {"name": name, "kind": kind, "missing": int(sum(1 for d in values if d is None)), "fill": fills}
+                present = sorted(d for d in values if d is not None)
+                spec = {"name": name, "kind": kind, "missing": int(sum(1 for d in values if d is None)), "fill": fills,
+                        # una fecha de verdad, la del medio: para rellenar la fila de «Probar» (la API la da en el schema)
+                        "example": present[len(present) // 2].isoformat() if present else None}
                 names += [f"{name} · {p}" for p in DATE_PARTS]
                 scale += [True, True, True]
             elif kind == CATEGORY:
@@ -183,9 +186,13 @@ class Preparer:
         cats = [{"column": s["name"], "categories": s["categories"], "counts": s.get("counts", {})}
                 for s in self.specs if s["kind"] == CATEGORY]
         if cats:
+            # el ejemplo, con dos valores de las propias columnas («Dream» y «Biscoe» no pintan nada con las bicis)
+            pair = next((vals[:2] for s in self.specs if s["kind"] == CATEGORY
+                         for vals in [[c for c in s["categories"] if c not in (EMPTY, OTHER)]] if len(vals) >= 2), None)
             steps.append({"key": "onehot", "title": "Categorías → columnas de 0 y 1 (one-hot)",
                           "text": "Cada valor de una categoría pasa a ser una columna que vale 1 si la fila lo tiene y 0 si "
-                                  "no. Así «Dream» no vale «más» que «Biscoe».",
+                                  "no. Así " + (f"«{pair[1]}» no vale «más» que «{pair[0]}»." if pair
+                                                else "ningún valor vale «más» que otro."),
                           "items": cats})
         nums = [{"column": s["name"], "mean": s["mean"], "std": s["std"]} for s in self.specs if s["kind"] == NUMBER]
         if nums or dates:

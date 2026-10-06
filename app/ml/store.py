@@ -44,14 +44,27 @@ class Limit(Exception):
     pass
 
 
+def _retry(fn, tries: int = 40):
+    """En Windows no se puede reemplazar un fichero mientras otro hilo lo lee (ni abrirlo justo mientras se
+    reemplaza), y la consola pregunta cada medio segundo cómo va un entrenamiento: se reintenta un momento
+    después. Sin esto, el entrenamiento fallaba al guardarse y se quedaba «Entrenando» para siempre."""
+    for attempt in range(tries):
+        try:
+            return fn()
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(0.025)
+
+
 def _write_json(path: Path, data) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    os.replace(tmp, path)
+    _retry(lambda: os.replace(tmp, path))
 
 
 def _read_json(path: Path):
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(_retry(lambda: path.read_text(encoding="utf-8")))
 
 
 def split_arrays(obj, arrays: dict, prefix: str = "a"):

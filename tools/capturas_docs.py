@@ -7,7 +7,8 @@ Uso:
 
 Arranca un servidor temporal con el agente de ejemplo (sin tocar data/), simula
 unas conversaciones y fotografía cada pantalla a 1440×860. Usa Edge o Chrome si
-están instalados; si no, el Chromium de Playwright.
+están instalados; si no, el Chromium de Playwright. Las de machine learning
+(ml-*) entrenan antes los ejemplos de pingüinos y formas.
 """
 
 import json
@@ -84,6 +85,25 @@ def scroll_to_card(page, title, offset=16):
         if (main && card) main.scrollTop = card.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - off;
     }""", [title, offset])
     page.wait_for_timeout(400)
+
+
+def api(base, method, path, body=None):
+    req = urllib.request.Request(base + path, method=method, data=None if body is None else json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"})
+    return json.loads(urllib.request.urlopen(req).read())
+
+
+def ml_train(base, pid, **config):
+    """Entrena por la API y espera a que acabe; devuelve el id del mejor modelo."""
+    jid = api(base, "POST", f"/api/ml/projects/{pid}/jobs", config)["id"]
+    for _ in range(1200):
+        job = api(base, "GET", f"/api/ml/projects/{pid}/jobs/{jid}")
+        if job["status"] not in ("queued", "running"):
+            break
+        time.sleep(0.1)
+    if job["status"] != "done":
+        sys.exit(f"No se ha podido entrenar {config}: {job.get('error')}")
+    return jid, job["best"]["modelId"]
 
 
 def chat_in_simulator(page):
@@ -228,6 +248,9 @@ def scenes(browser, base, only):
         shot(page, "api")
         ctx.close()
 
+    if any(want(n) for n in ("ml-entrenamiento", "ml-arbol", "ml-probar", "ml-red")):
+        ml_scenes(browser, base, want)
+
     if want("chat"):
         ctx = browser.new_context(viewport={"width": 900, "height": 760}, locale="es-ES")
         page = ctx.new_page()
@@ -240,6 +263,45 @@ def scenes(browser, base, only):
             page.wait_for_timeout(1000)
         shot(page, "chat")
         ctx.close()
+
+
+def ml_scenes(browser, base, want):
+    """Machine learning: un entrenamiento automático, un árbol, probar una fila y lo que ve la red."""
+    ctx = browser.new_context(viewport=SIZE, locale="es-ES")
+    page = ctx.new_page()
+    pid = api(base, "POST", "/api/ml/projects", {"name": "Pingüinos", "example": "pinguinos"})["id"]
+    jid, best = ml_train(base, pid, task="classification", target="especie", mode="auto")
+    if want("ml-entrenamiento"):
+        page.goto(f"{base}/#/p/{pid}/jobs/{jid}")
+        page.wait_for_selector(".lb-fill")
+        page.wait_for_timeout(1500)
+        shot(page, "ml-entrenamiento")
+    _, tree = ml_train(base, pid, task="classification", target="especie", mode="custom", algorithm="tree")
+    if want("ml-arbol"):
+        page.goto(f"{base}/#/p/{pid}/models/{tree}?tab=learned")
+        page.wait_for_selector(".tree-svg")
+        page.locator("button[aria-label='Menos niveles']").click()  # con dos niveles cabe entero
+        page.wait_for_timeout(1200)
+        scroll_to_card(page, "El árbol", offset=16)
+        shot(page, "ml-arbol")
+    if want("ml-probar"):
+        page.goto(f"{base}/#/p/{pid}/predict?model={best}")
+        page.wait_for_selector(".predict-form")
+        page.locator("button", has_text="Una fila de los datos").click()
+        page.wait_for_selector(".pred-big")
+        page.wait_for_timeout(1200)
+        shot(page, "ml-probar")
+    if want("ml-red"):
+        fid = api(base, "POST", "/api/ml/projects", {"name": "Formas", "example": "formas"})["id"]
+        _, net = ml_train(base, fid, mode="custom", algorithm="cnn", params={"epochs": 20, "color": "gris"})
+        page.goto(f"{base}/#/p/{fid}/predict?model={net}")
+        page.wait_for_selector(".img-pick")
+        page.locator("button", has_text="Una imagen de los datos").click()
+        page.wait_for_selector(".see-inside")
+        page.wait_for_timeout(1200)
+        scroll_to(page, ".predict-layout", offset=16)
+        shot(page, "ml-red")
+    ctx.close()
 
 
 def main() -> None:

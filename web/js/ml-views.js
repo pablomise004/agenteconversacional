@@ -77,8 +77,10 @@ export function explanationView(ex, ctx) {
     const bins = 10, lo = ex.min, hi = ex.max, w = (hi - lo) / bins || 1;
     const counts = new Array(bins).fill(0);
     ex.values.forEach((v) => { counts[Math.min(bins - 1, Math.floor((v - lo) / w))]++; });
-    out.append(columnChart({ data: counts.map((c, i) => ({ x: fmtNum(lo + i * w), value: c, title: `${c} árboles`, tip: `de ${fmtNum(lo + i * w)} a ${fmtNum(lo + (i + 1) * w)}` })),
-      label: "Lo que dijo cada árbol", every: 3, width: 420, height: 150 }));
+    const chart = columnChart({ data: counts.map((c, i) => ({ x: fmtNum(lo + i * w), value: c, title: `${c} árboles`, tip: `de ${fmtNum(lo + i * w)} a ${fmtNum(lo + (i + 1) * w)}` })),
+      label: "Lo que dijo cada árbol", every: 3, width: 420, height: 150 });
+    chart.style.maxWidth = "460px";  // a todo el ancho, el SVG se estiraba y las letras salían enormes
+    out.append(chart);
   } else if (ex.kind === "neighbors") {
     const n = ex.neighbors.length;
     if (ctx.task === "classification") {
@@ -125,7 +127,7 @@ export function cnnInsideView(inside, classes, image) {
   const cls = classes[inside.class];
   const maps = inside.maps.map((m) => h("div", { class: "maps-row" },
     h("div", { class: "chart-title" }, `Capa ${m.layer}: ${m.images.length} mapas de ${m.size} × ${m.size}`),
-    h("div", { class: "maps-grid" }, m.images.slice(0, 16).map((src, i) => h("img", { src, alt: `mapa ${i + 1} de la capa ${m.layer}`, title: `filtro ${i + 1}` })))));
+    h("div", { class: "maps-grid" }, m.images.map((src, i) => h("img", { src, alt: `mapa ${i + 1} de la capa ${m.layer}`, title: `filtro ${i + 1}` })))));
   const det = inside.detectors.map((d) => ({ label: `detector ${d.index}`, value: d.contribution,
     tip: `se ha encendido ${fmt(d.value, 2)} × su peso para ${q(cls)}` }));
   return h("div", { class: "col", style: { gap: "16px" } },

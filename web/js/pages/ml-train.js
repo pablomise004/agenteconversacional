@@ -239,9 +239,10 @@ export async function render(el) {
     })));
     if (cfg.mode === "auto") {
       const cands = cfg.task === "clustering" ? [] : (info.auto[cfg.task] || []);
-      body.append(h("p", { class: "lead-help" }, AUTO_TEXT[cfg.task]),
-        cands.length ? h("div", { class: "auto-list" }, cands.map((c, i) => h("span", { class: "auto-chip", style: { "--i": i } },
-          icon(ALGO_ICONS[c.algorithm] || "sparkle"), candidateName(c, algos())))) : null);
+      body.append(h("p", { class: "lead-help" }, AUTO_TEXT[cfg.task]));
+      // (append(null) escribía «null» en la página al agrupar, que no tiene lista)
+      if (cands.length) body.append(h("div", { class: "auto-list" }, cands.map((c, i) => h("span", { class: "auto-chip", style: { "--i": i } },
+        icon(ALGO_ICONS[c.algorithm] || "sparkle"), candidateName(c, algos())))));
       return;
     }
     // personalizado: el algoritmo y sus ajustes

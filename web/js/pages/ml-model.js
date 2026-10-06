@@ -89,7 +89,7 @@ function results(p, m) {
   const bigEl = h("span", { class: "big" });
   countUp(bigEl, main, (v) => fmtMetric(metric, v));
   const stats = [];
-  if (r.cv) stats.push(statBox(fmtMetric(metric, r.cv.mean), `en la validación cruzada (± ${fmtMetric(metric, r.cv.std).replace(" %", "")}, ${r.cv.scores.length} rondas)`));
+  if (r.cv) stats.push(statBox(fmtMetric(metric, r.cv.mean), `en la validación cruzada (± ${fmtMetric(metric, r.cv.std).replace(/\s%$/, "")}, ${r.cv.scores.length} rondas)`));
   if (r.trainMetrics && r.trainMetrics[metric] != null) stats.push(statBox(fmtMetric(metric, r.trainMetrics[metric]), "con las filas con las que aprendió"));
   if (r.rows) stats.push(statBox(nf(0).format(r.rows.train), r.task === "clustering" ? "filas agrupadas" : "filas para aprender"));
   if (r.rows && r.rows.test) stats.push(statBox(nf(0).format(r.rows.test), "filas de examen"));
@@ -155,14 +155,24 @@ function results(p, m) {
   return out;
 }
 
+// un gráfico solo en una tarjeta ancha: sin tope, el SVG se estira y las letras salen enormes
+function narrow(chart, max = "560px") {
+  chart.style.maxWidth = max;
+  return chart;
+}
+
 function statBox(value, label) {
   return h("div", { class: "card stat", style: { margin: 0, padding: "12px 14px" } }, h("div", { class: "v", style: { fontSize: "20px" } }, value), h("div", { class: "l", style: { paddingRight: 0 } }, label));
 }
 
 function residualsChart(res) {
-  const data = res.counts.map((c, i) => ({ x: fmtNum((res.edges[i] + res.edges[i + 1]) / 2), value: c, title: `${c} filas`,
+  // cada barra está centrada en un número redondo (una en el 0): se rotulan unas pocas, siempre con el 0
+  const mids = res.counts.map((c, i) => (res.edges[i] + res.edges[i + 1]) / 2);
+  const zero = mids.reduce((best, v, i) => (Math.abs(v) < Math.abs(mids[best]) ? i : best), 0);
+  const every = Math.max(1, Math.ceil(mids.length / 6));
+  const data = res.counts.map((c, i) => ({ x: (i - zero) % every === 0 ? fmtNum(mids[i]) : "", value: c, title: `${c} filas`,
     tip: `error de ${fmtNum(res.edges[i])} a ${fmtNum(res.edges[i + 1])}` }));
-  return columnChart({ data, label: "Errores del examen", every: 3, width: 440, height: 170 });
+  return columnChart({ data, label: "Errores del examen", every: 1, width: 440, height: 170 });
 }
 
 function clusteringResults(r) {
@@ -247,7 +257,8 @@ function learned(p, m) {
     const facts = L.kind === "tree"
       ? [`${L.nodes} nodos`, `${L.leaves} hojas (respuestas)`, `${L.depth} preguntas como mucho`]
       : [`${L.trees} árboles`, `${nf(0).format(L.avgNodes)} nodos de media cada uno`];
-    let depth = 3, asList = false;
+    // en el móvil empieza en la lista: el dibujo no cabe y casi todo queda fuera, a los lados
+    let depth = 3, asList = window.matchMedia("(max-width: 560px)").matches;
     const view = h("div");
     const depthVal = h("span", { class: "range-value" });
     const paint = () => {
@@ -255,12 +266,13 @@ function learned(p, m) {
       clear(view).append(asList ? treeOutline({ tree, task: r.task }) : treeDiagram({ tree, task: r.task, depth, n: tree.n }));
     };
     const controls = h("div", { class: "row wrap", style: { gap: "10px" } },
-      segmented({ items: [{ key: "tree", label: "Dibujo" }, { key: "list", label: "Lista" }], active: "tree", label: "Cómo verlo",
+      segmented({ items: [{ key: "tree", label: "Dibujo" }, { key: "list", label: "Lista" }], active: asList ? "list" : "tree", label: "Cómo verlo",
         onChange: (k) => { asList = k === "list"; depthRow.hidden = asList; paint(); } }));
     const depthRow = h("div", { class: "row", style: { gap: "6px" } },
       h("button", { class: "btn sm icon-only", type: "button", "aria-label": "Menos niveles", onclick: () => { depth = Math.max(1, depth - 1); paint(); } }, "−"),
       depthVal,
       h("button", { class: "btn sm icon-only", type: "button", "aria-label": "Más niveles", onclick: () => { depth = Math.min(6, depth + 1); paint(); } }, icon("plus")));
+    depthRow.hidden = asList;
     controls.append(depthRow);
     paint();
     out.append(card(L.kind === "tree" ? "El árbol" : "Uno de sus árboles", "tree",
@@ -297,8 +309,8 @@ function learned(p, m) {
       h("div", { class: "data-facts" }, h("span", null, h("b", null, String(L.k)), " grupos"), h("span", null, "silueta ", h("b", null, fmt(L.silhouette, 3))),
         h("span", null, "inercia ", h("b", null, fmtNum(L.inertia)))),
       help("En cada vuelta, cada fila se va con su centro más cercano y cada centro se mueve a la media de su grupo. La inercia (la suma de las distancias al centro) baja hasta que ya no cambia."),
-      L.history && L.history.length > 1 ? multiLine({ series: [{ name: "inercia", data: L.history.map((v, i) => ({ x: i + 1, y: v })) }],
-        yFormat: (v) => fmtNum(v), xLabel: "vuelta", label: "Inercia en cada vuelta" }) : null));
+      L.history && L.history.length > 1 ? narrow(multiLine({ series: [{ name: "inercia", data: L.history.map((v, i) => ({ x: i + 1, y: v })) }],
+        yFormat: (v) => fmtNum(v), xLabel: "vuelta", label: "Inercia en cada vuelta" })) : null));
   } else if (L.kind === "cnn") {
     if (L.history && L.history.length > 1) out.append(learningCurves(L.history, "vuelta"));
     out.append(card("Las capas de la red", "network",

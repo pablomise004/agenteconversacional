@@ -11,6 +11,7 @@ van como funciones (`wait_for_function("() => …")`); con una expresión suelta
 """
 
 import json
+import re
 import socket
 import threading
 import time
@@ -796,3 +797,155 @@ def test_sin_conexion_sale_una_pagina_que_lo_explica(base_url, browser):
     page.locator("a", has_text="Volver a intentarlo").click()
     page.wait_for_selector(".agent-card")
     ctx.close()
+
+
+# ------------------------------------------------------------------- machine learning
+NO_RAW_TEXT = """() => {
+  const out = [];
+  const w = document.createTreeWalker(document.querySelector('#app') || document.body, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) {
+    const t = w.currentNode.textContent;
+    if (/(^|[^\\w])(null|undefined|NaN)([^\\w]|$)/.test(t) && !w.currentNode.parentElement.closest('pre, code')) out.push(t.trim());
+  }
+  return out;
+}"""
+OVERFLOW = "() => { const m = document.querySelector('.main'); return m.scrollWidth - m.clientWidth; }"
+
+
+def ml_train(base, pid, **config):
+    """Entrena por la API y espera a que acabe; devuelve el entrenamiento terminado."""
+    jid = api(base, f"/api/ml/projects/{pid}/jobs", config)["id"]
+    for _ in range(600):
+        job = api(base, f"/api/ml/projects/{pid}/jobs/{jid}")
+        if job["status"] not in ("queued", "running"):
+            assert job["status"] == "done", job.get("error")
+            return job
+        time.sleep(0.1)
+    raise AssertionError("El entrenamiento no termina")
+
+
+def test_ml_del_ejemplo_al_modelo(base_url, page):
+    """Machine learning desde la consola: crear el ejemplo de los pingüinos, entrenar en automático, ver la tabla
+    de algoritmos y cada pestaña del mejor modelo, sin errores ni textos sueltos como «null»."""
+    page.goto(base_url + "/#/ml")
+    page.locator("[data-example=pinguinos] button").click()
+    page.wait_for_url("**/#/p/*/data")
+    page.wait_for_selector(".page-head")
+    page.locator(".page-head a.btn.primary", has_text="Entrenar").click()
+    page.wait_for_selector(".train-btn")
+    assert page.evaluate(NO_RAW_TEXT) == []
+    page.locator(".train-btn").click()
+    page.wait_for_url("**/jobs/*")
+    page.wait_for_selector("a:has-text('Ver el mejor modelo')", timeout=60000)
+    assert page.locator(".page table tbody tr").count() == 9 and page.locator(".badge.chosen").count() == 1
+    assert page.locator("tr.baseline", has_text="Línea base").count() == 1
+    page.locator("a", has_text="Ver el mejor modelo").click()
+    page.wait_for_selector(".model-tabs")
+    for tab, content in (("Resultados", "Matriz de confusión"), ("Lo que ha aprendido", "Cómo funciona por dentro"),
+                         ("Preparar los datos", "Los pasos"), ("Código", "import pandas as pd")):
+        page.locator(".model-tabs [role=tab]", has_text=tab).click()
+        playwright.expect(page.locator(".page")).to_contain_text(content)
+        assert page.evaluate(NO_RAW_TEXT) == [], tab
+    assert page.errors == []
+
+
+def test_ml_agrupar_desde_la_consola(base_url, page):
+    """Agrupar: el formulario no escribe «null» (lo hacía en el modo automático) y los grupos se comparan con la
+    columna elegida, que no se usa para aprender."""
+    pid = api(base_url, "/api/ml/projects", {"name": "Pingüinos para agrupar", "example": "pinguinos"})["id"]
+    page.goto(f"{base_url}/#/p/{pid}/train")
+    page.wait_for_selector(".train-btn")
+    page.locator("[data-task=clustering]").click()
+    playwright.expect(page.locator(".page")).to_contain_text("Prueba de 2 a 8 grupos")
+    assert page.evaluate(NO_RAW_TEXT) == []
+    page.locator(".train-btn").click()
+    page.wait_for_selector("a:has-text('Ver el mejor modelo')", timeout=60000)
+    page.locator("a", has_text="Ver el mejor modelo").click()
+    page.wait_for_selector(".model-tabs")
+    page.locator(".model-tabs [role=tab]", has_text="Resultados").click()
+    playwright.expect(page.locator(".page")).to_contain_text("Los grupos frente a «especie»")
+    page.locator(".model-tabs [role=tab]", has_text="Lo que ha aprendido").click()
+    playwright.expect(page.locator(".page")).to_contain_text("Cómo se han colocado los centros")
+    assert page.locator(".page .chart-svg").count() >= 1  # la inercia vuelta a vuelta (antes paraba en la primera)
+    assert page.errors == []
+
+
+def test_ml_probar_una_fila_y_un_csv_entero(base_url, page, tmp_path):
+    """Probar: «Una fila de los datos» dice si acierta; «Muchas filas a la vez» devuelve el CSV con la predicción
+    (con el separador y la coma decimal del fichero, como lo guarda Excel en español)."""
+    pid = api(base_url, "/api/ml/projects", {"name": "Pingüinos para probar", "example": "pinguinos"})["id"]
+    mid = ml_train(base_url, pid, task="classification", target="especie", mode="custom", algorithm="tree")["best"]["modelId"]
+    page.goto(f"{base_url}/#/p/{pid}/predict?model={mid}")
+    page.wait_for_selector(".predict-form")
+    page.locator("button", has_text="Una fila de los datos").click()
+    playwright.expect(page.locator(".pred-real")).to_contain_text("de verdad es")
+    playwright.expect(page.locator(".page")).to_contain_text("El camino en el árbol")
+    csv_file = tmp_path / "pinguinos.csv"
+    csv_file.write_bytes("isla;pico_largo_mm;aleta_mm;especie\nBiscoe;47,5;217;Papúa\nDream;39,1;181;Adelia\n".encode("cp1252"))
+    with page.expect_file_chooser() as chooser:
+        page.locator(".batch-card .drop-zone").click()
+    chooser.value.set_files(str(csv_file))
+    page.wait_for_selector(".batch-preview")
+    card = page.locator(".batch-card")
+    playwright.expect(card).to_contain_text("acierta en 2 de 2 filas")
+    playwright.expect(card).to_contain_text("Le faltaban columnas")
+    assert card.locator("th.new").first.inner_text().lower() == "especie (predicción)"  # lo nuevo, delante
+    with page.expect_download() as download:
+        card.locator("button", has_text="Descargar").click()
+    assert download.value.suggested_filename == "pinguinos-predicciones.csv"
+    with open(download.value.path(), encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    assert lines[0] == "isla;pico_largo_mm;aleta_mm;especie;especie (predicción);seguridad"
+    assert lines[1].startswith("Biscoe;47,5;217;Papúa;Papúa;")
+    assert page.evaluate(NO_RAW_TEXT) == [] and page.errors == []
+
+
+def test_ml_probar_una_imagen(base_url, page):
+    """Con imágenes, «Una imagen de los datos» la prueba y enseña las más parecidas (k vecinos)."""
+    pid = api(base_url, "/api/ml/projects", {"name": "Formas", "example": "formas"})["id"]
+    mid = ml_train(base_url, pid, mode="custom", algorithm="pixels_knn")["best"]["modelId"]
+    page.goto(f"{base_url}/#/p/{pid}/predict?model={mid}")
+    page.wait_for_selector(".img-pick")
+    page.locator("button", has_text="Una imagen de los datos").click()
+    playwright.expect(page.locator(".pred-big .value")).to_have_text(re.compile("círculo|cuadrado|triángulo"))
+    playwright.expect(page.locator(".pred-real")).to_contain_text("de verdad es")
+    playwright.expect(page.locator(".page")).to_contain_text("Las imágenes más parecidas")
+    assert page.locator(".mistakes img").count() == 3 and page.errors == []
+
+
+def test_ml_en_el_movil(base_url, browser):
+    """A 390 px: nada se sale de la página, las cuatro pestañas del modelo se ven (en dos filas) y el árbol
+    empieza en la lista."""
+    pid = api(base_url, "/api/ml/projects", {"name": "Pingüinos en el móvil", "example": "pinguinos"})["id"]
+    mid = ml_train(base_url, pid, task="classification", target="especie", mode="custom", algorithm="tree")["best"]["modelId"]
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="es-ES", is_mobile=True, has_touch=True)
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    for path in (f"/#/p/{pid}/data", f"/#/p/{pid}/train", f"/#/p/{pid}/models", f"/#/p/{pid}/predict?model={mid}",
+                 f"/#/p/{pid}/api", "/#/ml/guide", "/#/ml/inside"):
+        page.goto(base_url + path)
+        page.wait_for_selector(".page-head, .md h2")
+        page.wait_for_timeout(500)
+        assert page.evaluate(OVERFLOW) <= 1, path
+    page.goto(f"{base_url}/#/p/{pid}/models/{mid}?tab=learned")
+    page.wait_for_selector(".model-tabs")
+    for tab in page.locator(".model-tabs [role=tab]").all():
+        box = tab.bounding_box()
+        assert box and box["x"] >= 0 and box["x"] + box["width"] <= 390, tab.inner_text()
+    playwright.expect(page.locator(".tree-outline")).to_be_visible()
+    assert page.evaluate(OVERFLOW) <= 1 and errors == []
+    ctx.close()
+
+
+def test_ml_guia_con_capturas_y_por_dentro(base_url, page):
+    page.goto(base_url + "/#/ml/guide")
+    page.wait_for_selector(".md h2")
+    srcs = page.evaluate("() => [...document.querySelectorAll('.md img')].map((i) => i.src)")  # van con carga diferida
+    assert len(srcs) >= 4
+    for src in srcs:
+        res = page.request.get(src)
+        assert res.status == 200 and res.headers["content-type"] == "image/png", src
+    page.goto(base_url + "/#/ml/inside")
+    page.wait_for_selector(".page-head")
+    assert page.locator("math").count() > 20 and page.errors == []

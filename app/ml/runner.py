@@ -152,6 +152,22 @@ def describe_params(key: str, params: dict) -> str:
     return ", ".join(parts)
 
 
+def centered_bins(values: np.ndarray, target: int = 12) -> np.ndarray:
+    """Bordes para el histograma de los errores: barras de un ancho redondo (1, 2, 2,5 o 5 × 10ⁿ) centradas en
+    números redondos, con una en el 0. Así el eje dice «−1000, 0, 1000» y no «−999,7, 18,18…»."""
+    lo, hi = float(np.min(values)), float(np.max(values))
+    raw = (hi - lo) / target if hi > lo else max(abs(hi), 1.0) / target
+    mag = 10 ** np.floor(np.log10(raw))
+    step = next(m * mag for m in (1, 2, 2.5, 5, 10) if m * mag >= raw)
+    k0, k1 = int(np.floor(lo / step + 0.5)), int(np.floor(hi / step + 0.5))
+    return (np.arange(k0, k1 + 2) - 0.5) * step
+
+
+def duration(ms: int) -> str:
+    """«96 ms» o, desde un segundo, «6,8 s»."""
+    return f"{ms} ms" if ms < 1000 else f"{ms / 1000:.1f} s".replace(".", ",")
+
+
 def candidate_name(key: str, params: dict) -> str:
     cls = alg.ALGORITHMS[key]
     short = {"tree": f"profundidad {params.get('max_depth')}" if "max_depth" in params else "",
@@ -178,9 +194,11 @@ def check_config(table: Table, config: dict) -> dict:
             raise JobError(f"«{target}» es texto libre (casi todos sus valores son distintos): no se puede usar como clase.")
     else:
         target = None
-    features = [f for f in (config.get("features") or []) if f in names and f != target]
+    # al agrupar, la columna con la que se comparan los grupos tampoco se usa para aprender (sería chivarle la respuesta)
+    compare = config.get("compare") if task == "clustering" and config.get("compare") in names else None
+    features = [f for f in (config.get("features") or []) if f in names and f not in (target, compare)]
     if not features:
-        features = [c.name for c in table.columns if c.name != target and c.kind != TEXT and not c.is_id]
+        features = [c.name for c in table.columns if c.name not in (target, compare) and c.kind != TEXT and not c.is_id]
     features = [f for f in features if table.column(f).kind in (NUMBER, CATEGORY, DATE)]
     if not features:
         raise JobError("No queda ninguna columna con la que aprender (las de texto libre no se pueden usar).")
@@ -217,7 +235,6 @@ def check_config(table: Table, config: dict) -> dict:
     test_size = min(0.5, max(0.1, test_size))
     folds = int(config.get("folds", 5) or 0)
     folds = 0 if folds < 2 else min(10, folds)
-    compare = config.get("compare") if task == "clustering" and config.get("compare") in names else None
     return {"task": task, "target": target, "features": features, "mode": mode, "algorithm": algorithm,
             "params": params, "metric": metric, "testSize": test_size, "folds": folds,
             "seed": int(config.get("seed", 42) or 42), "compare": compare}
@@ -333,8 +350,8 @@ def run_supervised(table: Table, cfg: dict, progress: Progress) -> dict:
               "std": float(np.std(cv_scores))} if cv_scores else None
         shown = cv["mean"] if cv else m_test[metric]
         progress.write(f"{name}: {metric_name(metric).lower()} {fmt_metric(metric, shown)}"
-                       + (f" (± {fmt_metric(metric, cv['std'], plain=True)} entre rondas)" if cv else "")
-                       + f" · examen {fmt_metric(metric, m_test[metric])} · {ms} ms")
+                       + (f" (±\u00a0{fmt_metric(metric, cv['std'], plain=True)} entre rondas)" if cv else "")
+                       + f" · examen {fmt_metric(metric, m_test[metric])} · {duration(ms)}")
         results.append({"key": key, "name": name, "params": dict(model.params), "model": model, "cv": cv,
                         "test": m_test, "train": m_train, "ms": ms, "predTest": pred_test, "Xte": Xte})
         progress.advance(0.1 + 0.8 * (ci + 1) / len(candidates))
@@ -372,7 +389,7 @@ def run_supervised(table: Table, cfg: dict, progress: Progress) -> dict:
                                  for i in sample]
             resid = r["predTest"] - y_test
             if len(resid):
-                counts, edges = np.histogram(resid, bins=15)
+                counts, edges = np.histogram(resid, bins=centered_bins(resid))
                 charts["residuals"] = {"edges": edges.tolist(), "counts": counts.tolist()}
         if r["key"] != "baseline":
             n_imp = min(len(y_test), 2000)
@@ -405,7 +422,7 @@ def strip_confusion(m: dict) -> dict:
 
 def fmt_metric(metric: str, v: float, plain: bool = False) -> str:
     if metric in ("accuracy", "balanced_accuracy", "f1_macro") and not plain:
-        return f"{v * 100:.1f} %".replace(".", ",")
+        return f"{v * 100:.1f}\u00a0%".replace(".", ",")  # sin partir la línea entre el número y el %
     if metric in ("accuracy", "balanced_accuracy", "f1_macro"):
         return f"{v * 100:.1f}".replace(".", ",")
     return f"{v:.3f}".replace(".", ",") if abs(v) < 100 else f"{v:,.0f}".replace(",", ".")
@@ -475,9 +492,10 @@ def run_clustering(table: Table, cfg: dict, progress: Progress) -> dict:
         charts["compare"] = {"column": cfg["compare"], "classes": classes, "counts": table_counts, "purity": purity}
         progress.write(f"Comparado con «{cfg['compare']}»: cada grupo coincide con una clase en el "
                        f"{purity * 100:.0f} % de las filas.")
-    progress.write(f"{model.k} grupos, silueta {model.sil:.3f}, en {ms} ms.")
+    progress.write(f"{model.k} grupos, silueta {model.sil:.3f}".replace(".", ",") + f", en {duration(ms)}.")
     ctx = model_context(prep, None)
-    report = {"algorithm": "kmeans", "name": f"k-medias (k = {model.k})", "params": model.params, "task": "clustering",
+    report = {"algorithm": "kmeans", "name": f"k-medias (k = {model.k})", "params": dict(model.params, k=model.k),  # la k elegida
+              "task": "clustering",
               "summary": alg.KMeans.summary, "paramsText": f"{model.k} grupos", "target": None, "classes": [],
               "metric": "silhouette", "metrics": {"silhouette": model.sil, "inertia": model.inertia, "k": model.k},
               "trainMetrics": None, "cv": None, "rows": {"train": int(len(rows)), "test": 0}, "ms": ms,

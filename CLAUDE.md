@@ -44,8 +44,8 @@ Repositorio: https://github.com/pablomise004/agenteconversacional
 ```bash
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements-dev.txt
 python -m app                         # http://localhost:8000  (--port --host --data --no-browser --accounts)
-python -m pytest                      # 162 pruebas (deben pasar siempre)
-pip install playwright && python -m pytest tests/e2e -m e2e   # 38 pruebas en navegador real
+python -m pytest                      # 184 pruebas (deben pasar siempre)
+pip install playwright && python -m pytest tests/e2e -m e2e   # 44 pruebas en navegador real
 python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=10, 65,6 % k=20)
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
@@ -110,7 +110,7 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   con `learned()` y `explain()`; `metrics.py`; `runner.py` un entrenamiento paso a paso (`AUTO`, el
   modo automático); `cnn.py` la red convolucional y las líneas base de píxeles; `codegen.py` el script
   equivalente; `store.py` los proyectos en `<espacio>/ml/<proyecto>/`; `api.py` las rutas `/api/ml/…`
-  (entrenamientos en segundo plano, dos a la vez como mucho). Los ejemplos: `examples.py` y
+  (entrenamientos en segundo plano, dos a la vez como mucho; predecir un CSV entero: `…/batch`). Los ejemplos: `examples.py` y
   `examples/ml/` (formas dibujadas al vuelo).
 - Consola de machine learning: el botón «Chatbots / Machine learning» de la barra lateral cambia
   `state.mode`; rutas `#/ml`, `#/ml/guide`, `#/ml/inside` y `#/p/<proyecto>/data|train|jobs/<id>|
@@ -135,6 +135,7 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - Todo agente que entra (API, importación, consola) pasa por `app/agents.py:normalize_agent()`.
 - La consola construye el DOM con `h()` de `web/js/ui.js`; **nunca `innerHTML` con datos de
   usuario** (solo iconos SVG constantes y el logotipo).
+  `h()` se salta los `null`, pero `Element.append(null)` escribe «null» en la página: filtrar antes.
 - Colores: variables CSS en `web/css/app.css` (`--panel`, `--text`, `--accent-text`, `--primary`,
   `--series-1`…), con valores para claro y oscuro (el oscuro, grises neutros). Los colores de
   gráficos están validados para daltonismo; si se cambian, revalidar.
@@ -201,8 +202,14 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
 - El modo automático elige por la media de la validación cruzada y siempre incluye la línea base.
 - Con más de tres grupos, los gráficos no usan más colores: todo en gris y el grupo elegido resaltado
   (solo `--series-1/2/3` están validados para daltonismo de tres en tres).
-- Pendiente: pruebas `tests/test_ml.py` y e2e de las páginas de machine learning, capturas para la
-  guía y una página de predicción por lotes (subir un CSV y descargar las predicciones).
+- Al agrupar, la columna con la que se comparan los grupos tampoco es para aprender (`check_config`).
+- En Windows no se puede reemplazar un fichero mientras otro hilo lo lee, y la consola lee el
+  entrenamiento cada medio segundo: `store._write_json`/`_read_json` reintentan. No quitarlo (sin eso,
+  un entrenamiento se quedaba «Entrenando» para siempre).
+- Lo que devuelve un modelo pasa por `api.plain()` (los números de numpy no van en JSON) y los
+  scripts de `codegen.py` tienen que compilar (lo prueba `tests/test_ml.py`).
+- Decimales con coma también en el registro del entrenamiento (la consola lo lee: `ml-job.js:EPOCH_RE`
+  acepta las dos), R² y silueta siempre con tres decimales y número y «%» sin partir (espacio duro).
 
 ## Ideas pendientes (por orden de utilidad)
 

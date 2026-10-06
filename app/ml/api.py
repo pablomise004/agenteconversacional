@@ -9,13 +9,14 @@ aplicación (como los puntos de conexión de Azure), con la clave de API del pro
 from __future__ import annotations
 
 import base64
+import csv
 import io
 import secrets
 import threading
 import time
 import traceback
 import zipfile
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
@@ -30,9 +31,11 @@ from .cnn import AUTO_IMAGES, ImageBundle, image_catalog, run_images
 from .codegen import images_script, table_script
 from .metrics import METRICS
 from .png import encode as png_encode
+from .prep import label_of
 from .runner import AUTO, Bundle, Cancelled, JobError, Progress, run_table
 from .store import MAX_CLASSES, MAX_IMAGES, MAX_PROJECTS, SIZE, Limit, MLStore, NotFound
-from .table import MAX_BYTES, MAX_CELLS, MAX_COLUMNS, MAX_ROWS, TableError
+from .table import (MAX_BYTES, MAX_CELLS, MAX_COLUMNS, MAX_ROWS, NUMBER, TableError, format_number, is_missing, read_csv,
+                    to_number)
 
 TAGS = [
     {"name": "ml · proyectos", "description": "Machine learning: un proyecto tiene unos datos (una tabla o imágenes), sus "
@@ -160,9 +163,13 @@ class JobRunner:
         finally:
             snap = progress.snapshot()
             job.update(steps=snap["steps"], log=snap["log"], fraction=snap["fraction"], finishedAt=time.time())
-            store.save_job(pid, job)
-            with self.lock:
-                self.live.pop(jid, None)
+            try:
+                store.save_job(pid, job)
+            except Exception:  # noqa: BLE001 - que no se quede «en marcha» para siempre (saldrá como interrumpido)
+                traceback.print_exc()
+            finally:
+                with self.lock:
+                    self.live.pop(jid, None)
 
     def view(self, store: MLStore, pid: str, jid: str) -> dict:
         job = store.get_job(pid, jid)
@@ -184,6 +191,108 @@ class JobRunner:
             return False
         live["progress"].cancel.set()
         return True
+
+
+def plain(obj):
+    """Lo que devuelve un modelo, con los números de numpy pasados a los de Python (si no, no se puede enviar
+    como JSON: un `numpy.bool` en la explicación de un árbol daba un error 500 al predecir)."""
+    if isinstance(obj, dict):
+        return {k: plain(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [plain(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return plain(obj.tolist())
+    if isinstance(obj, np.generic):
+        return obj.item()
+    return obj
+
+
+BATCH_CHUNK = 2000  # filas por tanda al predecir un CSV entero (la memoria no crece con el tamaño del fichero)
+BATCH_PREVIEW = 20
+
+
+def predict_csv(b: Bundle, raw: bytes) -> dict:
+    """Predice todas las filas de un CSV (lo de «Probar → muchas filas a la vez» y los puntos de conexión por lotes
+    de Azure). Devuelve el mismo CSV, con el mismo separador y la misma coma o punto decimal, y al final las
+    columnas nuevas (la predicción y, al clasificar, la seguridad); además un resumen y las primeras filas. Si el
+    CSV trae la columna que se predice, el resumen dice cuánto acierta."""
+    t = read_csv(raw)
+    names = set(t.names)
+    specs = b.prep.specs
+    missing = [s["name"] for s in specs if s["name"] not in names]
+    if len(missing) == len(specs):
+        raise JobError("El CSV no tiene ninguna de las columnas con las que aprendió el modelo: "
+                       + ", ".join(s["name"] for s in specs) + ".")
+
+    def value(spec, i):
+        if spec["name"] not in names:
+            return None
+        s = t.column(spec["name"]).raw[i]
+        if is_missing(s):
+            return None
+        if spec["kind"] == NUMBER:  # con la coma o el punto decimal de este fichero
+            v = to_number(s, t.decimal)
+            return s if v is None else v
+        return s
+
+    preds = []
+    for start in range(0, t.n_rows, BATCH_CHUNK):
+        records = [{sp["name"]: value(sp, i) for sp in specs} for i in range(start, min(t.n_rows, start + BATCH_CHUNK))]
+        preds += b.predict(records)
+    task, target = b.task, b.report.get("target")
+
+    def num(v: float, digits: int) -> str:
+        text = format_number(round(float(v), digits))
+        return text.replace(".", ",") if t.decimal == "," else text
+
+    def fresh(name: str) -> str:  # que no choque con una columna que ya traiga el fichero
+        out, n = name, 2
+        while out in names:
+            out, n = f"{name} ({n})", n + 1
+        return out
+
+    if task == "clustering":
+        extra = [fresh("grupo")]
+        cells = [[str(p["prediction"])] for p in preds]
+    elif task == "classification":
+        extra = [fresh(f"{target} (predicción)"), fresh("seguridad")]
+        cells = [[str(p["prediction"]), num(p["confidence"], 4)] for p in preds]
+    else:
+        extra = [fresh(f"{target} (predicción)")]
+        cells = [[num(p["prediction"], 3)] for p in preds]
+    header = t.names + extra
+    rows = [r + c for r, c in zip(t.rows(), cells)]
+    out = io.StringIO()
+    w = csv.writer(out, delimiter=t.delimiter, lineterminator="\n")
+    w.writerow(header)
+    w.writerows(rows)
+
+    summary: dict[str, Any] = {"task": task, "target": target}
+    if task in ("classification", "clustering"):
+        counts = Counter(str(p["prediction"]) for p in preds)
+        summary["counts"] = [{"label": k, "count": v} for k, v in counts.most_common()]
+    else:
+        values = np.array([p["prediction"] for p in preds], dtype=float)
+        summary.update(mean=float(values.mean()), min=float(values.min()), max=float(values.max()))
+    if target and target in names:  # el fichero trae la respuesta: se compara
+        real_raw = t.column(target).raw
+        if task == "classification":
+            def as_label(s: str) -> str:
+                v = to_number(s, t.decimal)
+                return label_of(v) if v is not None else s.strip()
+            pairs = [(as_label(s), str(p["prediction"])) for s, p in zip(real_raw, preds) if not is_missing(s)]
+            if pairs:
+                summary["check"] = {"rows": len(pairs), "right": sum(1 for a, b_ in pairs if a == b_)}
+        elif task == "regression":
+            pairs = [(to_number(s, t.decimal), p["prediction"]) for s, p in zip(real_raw, preds) if not is_missing(s)]
+            pairs = [(a, b_) for a, b_ in pairs if a is not None]
+            if pairs:
+                y, yhat = np.array(pairs, dtype=float).T
+                ss = float(((y - y.mean()) ** 2).sum())
+                summary["check"] = {"rows": len(pairs), "mae": float(np.abs(y - yhat).mean()),
+                                    "r2": 1 - float(((y - yhat) ** 2).sum()) / ss if ss > 0 else None}
+    return {"rows": t.n_rows, "columns": header, "newColumns": extra, "preview": rows[:BATCH_PREVIEW],
+            "summary": summary, "missingColumns": missing, "csv": out.getvalue()}
 
 
 def decode_images(items: list[str]) -> np.ndarray:
@@ -258,13 +367,13 @@ def register(app: FastAPI, *, admin: list, space_dep, resolve: Callable[[str, Re
             if len(req.images) > 50:
                 raise HTTPException(400, "Como mucho 50 imágenes por petición")
             arr = decode_images(req.images)
-            return {"modelId": mid, "model": b.report["name"], "predictions": b.predict(arr, explain=req.explain)}
+            return {"modelId": mid, "model": b.report["name"], "predictions": plain(b.predict(arr, explain=req.explain))}
         if not req.rows:
             raise HTTPException(400, "Envía las filas en «rows»: [{\"columna\": valor, …}]")
         if len(req.rows) > 1000:
             raise HTTPException(400, "Como mucho 1000 filas por petición")
         return {"modelId": mid, "model": b.report["name"], "target": b.report.get("target"),
-                "predictions": wrap(lambda: b.predict(req.rows, explain=req.explain))}
+                "predictions": plain(wrap(lambda: b.predict(req.rows, explain=req.explain)))}
 
     def schema_of(store: MLStore, pid: str, mid: str) -> dict:
         b = bundle(store, pid, mid)
@@ -277,6 +386,8 @@ def register(app: FastAPI, *, admin: list, space_dep, resolve: Callable[[str, Re
                 item["values"] = [c for c in spec["categories"] if not c.startswith("(")]
             elif spec["kind"] == "number":
                 item["example"] = spec["fill"]
+            elif spec["kind"] == "date" and spec.get("example"):  # los modelos de antes de la 0.13.1 no la tienen
+                item["example"] = spec["example"]
             cols.append(item)
         return {"kind": "table", "task": b.report["task"], "target": b.report.get("target"),
                 "classes": b.report.get("classes") or [], "columns": cols, "model": b.report["name"]}
@@ -491,6 +602,24 @@ def register(app: FastAPI, *, admin: list, space_dep, resolve: Callable[[str, Re
         """Predicciones de cualquier modelo del proyecto (publicado o no), con su explicación si `explain`."""
         return predict(store_of(sp), pid, mid, req)
 
+    async def batch(store: MLStore, pid: str, mid: str, request: Request) -> dict:
+        raw = await request.body()
+        if len(raw) > MAX_BYTES:
+            raise HTTPException(413, f"El fichero ocupa más de {MAX_BYTES // (1024 * 1024)} MB")
+        b = bundle(store, pid, mid)
+        if isinstance(b, ImageBundle):
+            raise HTTPException(400, "Este modelo es de imágenes: por lotes solo se predicen tablas (CSV)")
+        return plain(wrap(lambda: predict_csv(b, raw)))
+
+    @app.post("/api/ml/projects/{pid}/models/{mid}/batch", tags=["ml · modelos"], dependencies=admin,
+              summary="Predecir un CSV entero (por lotes)")
+    async def batch_model(pid: str, mid: str, request: Request, sp=space_dep):
+        """El cuerpo es un CSV con las columnas del modelo (las que falten se rellenan como los vacíos; las que
+        sobren se dejan tal cual). Devuelve `csv`: el mismo fichero con la predicción al final (y la seguridad, al
+        clasificar), con su separador y su coma o punto decimal; `summary`: cuántas de cada clase o la media (y, si
+        el fichero trae la columna que se predice, cuánto acierta); y `preview`: las primeras filas."""
+        return await batch(store_of(sp), pid, mid, request)
+
     @app.get("/api/ml/projects/{pid}/models/{mid}/code", tags=["ml · modelos"], dependencies=admin,
              summary="Script equivalente en Python")
     def model_code(pid: str, mid: str, sp=space_dep):
@@ -543,6 +672,14 @@ def register(app: FastAPI, *, admin: list, space_dep, resolve: Callable[[str, Re
         envíala en la cabecera `X-Api-Key`."""
         store, pid, mid = published_model(ref, request)
         return predict(store, pid, mid, req)
+
+    @app.post("/api/ml/{ref}/batch", tags=["ml · predicción"], summary="Predecir un CSV entero con el modelo publicado")
+    async def public_batch(ref: str, request: Request):
+        """Como un punto de conexión por lotes de Azure: el cuerpo es un CSV y devuelve el mismo CSV con la predicción
+        de cada fila (en `csv`), un resumen y las primeras filas. Con la clave de API en `X-Api-Key` si el proyecto
+        la tiene."""
+        store, pid, mid = published_model(ref, request)
+        return await batch(store, pid, mid, request)
 
     @app.get("/api/ml/{ref}/schema", tags=["ml · predicción"], summary="Qué espera el modelo publicado")
     def public_schema(ref: str, request: Request):

@@ -4,7 +4,7 @@ import { ml } from "../api.js";
 import { h, icon, toast, errorToast, confirmDialog, pageHead, emptyState, dataTable, timeAgo, fullDate } from "../ui.js";
 import { barList, nf } from "../charts.js";
 import { navigate, projectPath, reloadProject, state } from "../app.js";
-import { fmtMetric, metricName, higherIsBetter, isPct, TASKS } from "../ml-common.js";
+import { fmtMetric, metricName, higherIsBetter, isPct, keepTogether, TASKS } from "../ml-common.js";
 
 export async function render(el) {
   const p = state.project;
@@ -66,13 +66,13 @@ export async function render(el) {
     const table = dataTable({
       sort: { col: 1, dir: hib ? "desc" : "asc" },
       columns: [
-        { label: "Modelo", key: "name", render: (m) => h("div", { class: "lb-name" }, h("a", { href: projectPath("models/" + m.id) }, m.name),
+        { label: "Modelo", key: "name", render: (m) => h("div", { class: "lb-name" }, h("a", { href: projectPath("models/" + m.id) }, keepTogether(m.name)),
           m.id === publishedId ? h("span", { class: "badge live" }, "Publicado") : null,
           m.best ? h("span", { class: "badge primary", title: "El elegido en su entrenamiento" }, icon("sparkle"), "Mejor") : null,
           m.baseline ? h("span", { class: "badge", title: "Siempre dice lo más frecuente" }, "referencia") : null) },
         { label: metricName(metric), value: scoreOf, num: true, desc: hib, render: (m) => h("b", null, fmtMetric(metric, scoreOf(m))) },
         { label: "Validación", value: (m) => (m.cv ? m.cv.mean : null), num: true, render: (m) => (m.cv ? h("span", null, fmtMetric(metric, m.cv.mean),
-          h("span", { class: "pm" }, " ± " + fmtMetric(metric, m.cv.std).replace(" %", ""))) : h("span", { class: "faint" }, "—")) },
+          h("span", { class: "pm" }, " ±\u00a0" + fmtMetric(metric, m.cv.std).replace(/\s%$/, ""))) : h("span", { class: "faint" }, "—")) },
         { label: "Ajustes", key: "paramsText", render: (m) => h("span", { class: "muted small" }, m.paramsText || "—") },
         { label: "Creado", value: (m) => m.createdAt, num: true, render: (m) => h("span", { class: "muted", title: fullDate(m.createdAt) }, timeAgo(m.createdAt)) },
         { label: "", sortable: false, render: (m) => h("div", { class: "row", style: { justifyContent: "flex-end", gap: "4px" } },

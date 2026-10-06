@@ -55,6 +55,8 @@ export async function render(el) {
   page.append(h("div", { class: "card" }, h("div", { class: "card-head" }, icon("code"), h("h2", null, "La dirección")),
     h("div", { class: "card-body col", style: { gap: "10px" } },
       endpoint("POST", `${base}/predict`, "Manda los datos y devuelve la predicción."),
+      p.kind === "images" ? null : endpoint("POST", `${base}/batch`,
+        "Por lotes: manda un CSV entero y devuelve el mismo CSV con la predicción de cada fila (como en «Probar → Muchas filas a la vez»)."),
       endpoint("GET", `${base}/schema`, "Qué columnas espera el modelo (con su tipo y sus valores posibles)."),
       h("p", { class: "muted small", style: { margin: 0 } }, "Se puede llamar desde cualquier web (permite CORS). Todas las rutas, con ejemplos, en la ",
         h("a", { href: "/docs#grupo-ml-prediccion", target: "_blank", rel: "noopener" }, "referencia de la API"), "."))));
@@ -113,7 +115,7 @@ export async function render(el) {
         return;
       }
       const row = Object.fromEntries(sch.columns.map((c) => [c.name, c.kind === "number" ? +(+c.example).toFixed(4)
-        : c.kind === "category" ? (c.values[0] ?? "") : c.kind === "date" ? "2024-05-01" : ""]));
+        : c.kind === "category" ? (c.values[0] ?? "") : c.kind === "date" ? (c.example || "2024-05-01") : ""]));
       const body = { rows: [row] };
       const json = JSON.stringify(body, null, 2);
       examples.append(h("p", { style: { margin: 0 } }, "Manda una o varias filas (hasta 1000) con el valor de cada columna. ",
@@ -148,6 +150,7 @@ export async function render(el) {
         ["Proceso (clúster de cálculo)", "El propio servidor de Lince: no hay que crear nada ni pagar por minutos"],
         ["Modelo registrado", "Cada modelo de la página Modelos"],
         ["Punto de conexión en línea (endpoint)", "Publicar un modelo: la dirección de arriba"],
+        ["Punto de conexión por lotes", "Probar → «Muchas filas a la vez» (un CSV entero), o la dirección …/batch"],
         ["Clave del punto de conexión", "La clave de API (cabecera X-Api-Key)"],
       ].map(([a, b]) => h("tr", null, h("td", null, a), h("td", null, b)))))))));
   return null;

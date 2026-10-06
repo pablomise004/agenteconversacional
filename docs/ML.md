@@ -17,8 +17,8 @@ Se entra con el botón **Machine learning** de arriba de la barra lateral.
    escoges el algoritmo y mueves sus ajustes.
 4. **Modelos.** Cada entrenamiento deja uno o varios modelos. Ábrelos para ver sus resultados, lo que
    han aprendido, cómo se prepararon los datos y su script de Python.
-5. **Probar y API.** Prueba un modelo con una fila escrita a mano (o una imagen) y publícalo para
-   llamarlo desde tu web o tu aplicación.
+5. **Probar y API.** Prueba un modelo con una fila escrita a mano o sacada de los datos (o una
+   imagen), o con un CSV entero de golpe, y publícalo para llamarlo desde tu web o tu aplicación.
 
 ## Qué se puede hacer
 
@@ -59,6 +59,8 @@ Siempre se incluye la **línea base** (decir siempre lo más frecuente, o la med
 tiene que ganarla de sobra. Si un modelo saca mucho más con sus filas que en el examen, lo marca como
 **«memoriza»** (sobreajuste): prueba a hacerlo más sencillo o a darle más datos.
 
+![Un entrenamiento automático con los pingüinos: cada algoritmo con su nota](img/ml-entrenamiento.png)
+
 ## Los algoritmos
 
 - **Regresión lineal / logística**: suman cada columna multiplicada por un peso. Se ven sus pesos.
@@ -72,6 +74,8 @@ tiene que ganarla de sobra. Si un modelo saca mucho más con sus filas que en el
 
 Las fórmulas de cada uno están en **Por dentro** (en *Ayuda*, dentro de Machine learning).
 
+![El árbol de decisión de los pingüinos, en la pestaña «Lo que ha aprendido»](img/ml-arbol.png)
+
 ## Las notas
 
 - **Exactitud**: qué parte del examen acierta. **Exactitud equilibrada** y **F1**: no se dejan engañar
@@ -81,12 +85,30 @@ Las fórmulas de cada uno están en **Por dentro** (en *Ayuda*, dentro de Machin
 - **Silueta** (agrupar): si cada fila está más cerca de los de su grupo que de los del vecino.
 - **Importancia de las columnas**: cuánto empeora el modelo si se barajan los valores de una columna.
 
+## Probar
+
+En **Probar** escribes una fila (o pulsas **Una fila de los datos**, que además te dice la respuesta de
+verdad) y ves la predicción con su porqué: qué columnas han empujado hacia esa respuesta, el camino por
+el árbol o las filas más parecidas. Si cambias un valor, vuelve a predecir al momento.
+
+![Probar una fila de los pingüinos: la predicción y por qué](img/ml-probar.png)
+
+Con imágenes, arrastra una foto, usa la cámara o pulsa **Una imagen de los datos**. Con la red
+convolucional se ve dónde ha mirado para decidir y lo que ve cada una de sus capas.
+
+![Lo que ve la red convolucional con un triángulo](img/ml-red.png)
+
+**Muchas filas a la vez**: sube un CSV con las columnas del modelo y descarga el mismo fichero con la
+predicción de cada fila al final (con su mismo separador y su coma o punto decimal, para que Excel lo
+abra igual). Si el fichero trae la columna que se predice, te dice cuánto acierta.
+
 ## Usar el modelo desde tu web
 
 En la página **API** del proyecto publicas un modelo: responde en
-`POST /api/ml/<dirección>/predict` con las filas (o las imágenes) que le mandes. La dirección no cambia
-aunque publiques otro modelo. Con una **clave de API**, solo responde a quien la mande en la cabecera
-`X-Api-Key`. La página trae ejemplos en curl, JavaScript y Python.
+`POST /api/ml/<dirección>/predict` con las filas (o las imágenes) que le mandes, y en
+`POST /api/ml/<dirección>/batch` con un CSV entero (devuelve el mismo CSV con la predicción de cada
+fila). La dirección no cambia aunque publiques otro modelo. Con una **clave de API**, solo responde a
+quien la mande en la cabecera `X-Api-Key`. La página trae ejemplos en curl, JavaScript y Python.
 
 ## Si vienes de Azure Machine Learning
 
@@ -99,6 +121,7 @@ aunque publiques otro modelo. Con una **clave de API**, solo responde a quien la
 | Proceso (clúster de cálculo) | El propio servidor: no hay que crear nada |
 | Modelo registrado | Cada modelo de la página Modelos |
 | Punto de conexión en línea | Publicar un modelo (página API) |
+| Punto de conexión por lotes | Probar → «Muchas filas a la vez», o `POST …/batch` |
 
 El script de la pestaña **Código** (scikit-learn para tablas, PyTorch para imágenes) hace lo mismo que
 el modelo: sirve para verlo como código, ejecutarlo en tu ordenador o llevarlo a Azure ML.

@@ -163,6 +163,8 @@ function parse(src, display) {
         skip();
         if (src[i] === "_" && !sub) { i++; sub = arg(); } else if (src[i] === "^" && !sup) { i++; sup = arg(); } else break;
       }
+      // max, arg max…: palabras (mi), sin el espacio que llevan los operadores como ∑: lo pone aquí («max n», no «maxn»)
+      const word = base.tagName === "mi" && LIMITS.has(base.textContent);
       if (sub || sup) {
         const limits = display && LIMITS.has(base.textContent);
         if (sub && sup) base = m(limits ? "munderover" : "msubsup", null, base, sub, sup);
@@ -170,6 +172,8 @@ function parse(src, display) {
         else base = m(limits ? "mover" : "msup", null, base, sup);
       }
       out.push(base);
+      skip();
+      if (word && i < src.length && !"({".includes(src[i])) out.push(m("mspace", { width: SPACES[","] }));
     }
     return out;
   }

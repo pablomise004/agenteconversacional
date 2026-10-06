@@ -170,6 +170,7 @@ export const ml = {
   model: (id, modelId) => request("GET", `${P(id)}/models/${enc(modelId)}`),
   deleteModel: (id, modelId) => request("DELETE", `${P(id)}/models/${enc(modelId)}`),
   predict: (id, modelId, body) => request("POST", `${P(id)}/models/${enc(modelId)}/predict`, body),
+  batch: (id, modelId, file) => request("POST", `${P(id)}/models/${enc(modelId)}/batch`, file),
   code: (id, modelId) => request("GET", `${P(id)}/models/${enc(modelId)}/code`, undefined, { raw: true }),
   publish: (id, modelId) => request("POST", `${P(id)}/publish`, { modelId }),
 };

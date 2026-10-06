@@ -291,8 +291,9 @@ Azure Machine Learning:
 - **Modelos**: la nota en el examen final, la matriz de confusión, la curva ROC o lo real frente a lo
   predicho, qué columnas usa, **lo que ha aprendido** (los pesos, el árbol dibujado, los filtros de la
   red…), cómo se prepararon los datos y el **script equivalente** en Python (scikit-learn o PyTorch).
-- **Probar**: una fila escrita a mano (o una imagen) con la predicción al momento y el porqué.
-- **API**: publica un modelo y llámalo con `POST /api/ml/<dirección>/predict`.
+- **Probar**: una fila escrita a mano o sacada de los datos (o una imagen) con la predicción al
+  momento y el porqué, o un CSV entero de golpe: lo descargas con la predicción de cada fila.
+- **API**: publica un modelo y llámalo con `POST /api/ml/<dirección>/predict` (o `…/batch` con un CSV).
 
 Para practicar hay tres ejemplos: *Pingüinos* (clasificar o agrupar), *Alquiler de bicis* (predecir
 un número) y *Formas* (imágenes). Todos los algoritmos están escritos con numpy en `app/ml/`, y la
@@ -477,9 +478,9 @@ Más detalles (fórmulas, decisiones de diseño, formato de datos): [CONTRIBUTIN
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest                            # 162 pruebas: NLU, diálogo, webhook, API, cuentas, seguridad, modelo, hotel
+python -m pytest                            # 184 pruebas: NLU, diálogo, webhook, API, cuentas, seguridad, modelo, hotel, machine learning
 pip install playwright
-python -m pytest tests/e2e -m e2e           # 38 pruebas en navegador real (usa Edge o Chrome instalados)
+python -m pytest tests/e2e -m e2e           # 44 pruebas en navegador real (usa Edge o Chrome instalados)
 python tools/benchmark_massive.py           # acierto con MASSIVE (descarga 260 KB la primera vez)
 python tools/probar_nlu.py "quiero una pizza barbacoa familiar"   # --agente hotel "…" para el grande
 python tools/build_hotel.py                 # regenera examples/hotel.json (y comprueba sus anotaciones)

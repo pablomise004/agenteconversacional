@@ -13,14 +13,23 @@ function ticks(lo, hi, count = 5) {
   const raw = (hi - lo) / count;
   const mag = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((st) => st >= raw) || raw;
-  const start = Math.floor(lo / step) * step;
-  const out = [];
-  for (let v = start; v <= hi + step * 0.5; v += step) out.push(+v.toFixed(10));
+  // de la marca redonda de debajo de lo más bajo a la de encima de lo más alto (antes la última podía quedarse
+  // corta y los puntos más altos se salían del gráfico)
+  const out = [+(Math.floor(lo / step) * step).toFixed(10)];
+  while (out[out.length - 1] < hi - step * 1e-9) out.push(+(out[out.length - 1] + step).toFixed(10));
+  if (out.length < 2) out.push(+(out[0] + step).toFixed(10));
   return out;
 }
 
 export const fmt = (v, digits = 2) => (v == null || !isFinite(v) ? "—" : nf(digits).format(v));
 const compact = (v) => (Math.abs(v) >= 10000 ? nf(0).format(v / 1000) + " mil" : nf(Math.abs(v) < 10 ? 2 : 0).format(v));
+const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
+// «2011-05-02» → «may 2011» (o «2 may» si todas caen en pocos meses)
+function shortDate(iso, long) {
+  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  if (!m) return String(iso);
+  return long ? `${MONTHS[m - 1]} ${y}` : `${d || 1} ${MONTHS[m - 1]}`;
+}
 
 /** Histograma de una columna de números (o barras por valor si son pocos enteros). */
 export function histogram(profile, { label = "" } = {}) {
@@ -32,7 +41,10 @@ export function histogram(profile, { label = "" } = {}) {
   const { edges, counts } = profile.hist;
   const isDate = typeof edges[0] === "string";
   const show = (v) => (isDate ? v : compact(v));
-  const data = counts.map((c, i) => ({ x: show(edges[i]), value: c, title: `${c} filas`, tip: `de ${show(edges[i])} a ${show(edges[i + 1])}` }));
+  // en el eje, las fechas cortas («may 2011»): enteras («2011-05-02») no caben y se pisan; enteras en el tooltip
+  const days = isDate ? (Date.parse(edges[edges.length - 1]) - Date.parse(edges[0])) / 864e5 : 0;
+  const axis = (v) => (isDate ? shortDate(v, days > 75) : compact(v));
+  const data = counts.map((c, i) => ({ x: axis(edges[i]), value: c, title: `${c} filas`, tip: `de ${show(edges[i])} a ${show(edges[i + 1])}` }));
   return columnChart({ data, label, every: Math.max(1, Math.ceil(data.length / 4)), width: 300, height: 120 });
 }
 
@@ -63,13 +75,12 @@ export function xyScatter({ points, xLabel = "", yLabel = "", diagonal = false, 
   svg.append(s("text", { x: m.l + iw / 2, y: height - 6, "text-anchor": "middle", class: "axis-title" }, xLabel));
   svg.append(s("text", { x: 14, y: m.t + ih / 2, "text-anchor": "middle", class: "axis-title",
     transform: `rotate(-90 14 ${m.t + ih / 2})` }, yLabel));
-  if (diagonal) {
-    svg.append(s("line", { x1: X(x0), y1: Y(y0), x2: X(x1), y2: Y(y1), class: "ref-line" }));
-    svg.append(s("text", { x: X(x1) - 6, y: Y(y1) + 16, "text-anchor": "end", class: "ref-label" }, "predicción perfecta"));
-  }
+  if (diagonal) svg.append(s("line", { x1: X(x0), y1: Y(y0), x2: X(x1), y2: Y(y1), class: "ref-line" }));
   const g = s("g", { class: "xy-pts" });
   for (const p of points) g.append(s("circle", { cx: X(p.x), cy: Y(p.y), r: 4, class: "xy-pt" }));
   svg.append(g);
+  // el rótulo, encima de los puntos (con un borde del color del fondo): en esa esquina suelen amontonarse
+  if (diagonal) svg.append(s("text", { x: X(x1) - 6, y: Y(y1) + 16, "text-anchor": "end", class: "ref-label" }, "predicción perfecta"));
   const hover = s("circle", { r: 7, class: "pt-hover", visibility: "hidden" });
   svg.append(hover);
   const box = h("div", { class: "chart" }, svg);
@@ -276,7 +287,9 @@ export function treeDiagram({ tree, task, depth = 3, n }) {
     g.append(s("title", null, nd.question ? questionText(nd.question) + ` (${nd.n} filas)` : `${title} (${nd.n} filas)`));
     const clip = title.length > 24 ? title.slice(0, 23) + "…" : title;
     g.append(s("text", { x: x + 10, y: y + 22, class: "tree-q" }, clip));
-    const sub = cut ? `${nd.n} filas · sigue…` : `${nd.n} filas` + (n ? ` · ${nf(0).format((nd.n / n) * 100)} %` : "");
+    // en una pregunta con clase, a la derecha va «Adelia 44 %»: sin el % de filas, que no cabría al lado
+    const rowsPct = n && (leaf || sum.share == null) ? ` · ${nf(0).format((nd.n / n) * 100)} %` : "";
+    const sub = cut ? `${nd.n} filas · sigue…` : `${nd.n} filas` + rowsPct;
     g.append(s("text", { x: x + 10, y: y + 40, class: "tree-n" }, sub));
     if (sum.share != null) {
       g.append(s("rect", { x: x + 10, y: y + 48, width: W - 20, height: 5, rx: 2.5, class: "tree-track" }));
@@ -286,7 +299,15 @@ export function treeDiagram({ tree, task, depth = 3, n }) {
     }
     boxes.append(g);
   }
-  return h("div", { class: "tree-scroll" }, svg);
+  const box = h("div", { class: "tree-scroll" }, svg);
+  // si no cabe, empieza con la raíz en el centro (no pegado a la izquierda, con media rama fuera)
+  const ro = new ResizeObserver(() => {
+    if (!box.clientWidth) return;
+    ro.disconnect();
+    if (box.scrollWidth > box.clientWidth) box.scrollLeft = px(root) + W / 2 - box.clientWidth / 2;
+  });
+  ro.observe(box);
+  return box;
 }
 
 /** El árbol entero como una lista con sangría: «si aleta ≤ 206,5 → …» (se lee mejor cuando es profundo). */

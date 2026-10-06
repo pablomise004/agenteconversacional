@@ -1077,7 +1077,8 @@ export function segmented({ items, active, onChange, label }) {
     if (!b || !b.offsetWidth) return;
     ind.classList.toggle("anim", anim && !reducedMotion());
     ind.style.width = b.offsetWidth + "px";
-    ind.style.transform = `translateX(${b.offsetLeft}px)`;
+    ind.style.height = getComputedStyle(b).height;  // con las pestañas en dos filas (móvil), también la fila (sin redondear)
+    ind.style.transform = `translate(${b.offsetLeft}px, ${b.offsetTop}px)`;
   };
   function select(key, fire) {
     active = key;

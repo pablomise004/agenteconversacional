@@ -5,7 +5,7 @@ import { h, icon, clear, toast, errorToast, pageHead, fullDate, timeAgo, busy } 
 import { nf } from "../charts.js";
 import { multiLine } from "../ml-charts.js";
 import { projectPath, reloadProject, state } from "../app.js";
-import { statusBadge, isLive, fmtMetric, metricName, higherIsBetter, isPct, fmtDuration, TASKS } from "../ml-common.js";
+import { statusBadge, isLive, fmtMetric, metricName, higherIsBetter, isPct, fmtDuration, keepTogether, TASKS } from "../ml-common.js";
 
 // los pasos que se esperan según la tarea (los títulos los pone el servidor al llegar a cada uno)
 const PLAN = {
@@ -24,15 +24,15 @@ const STEP_HELP = {
   explain: "Métricas, gráficos e importancia de cada columna de cada modelo.",
 };
 
-// curvas de la red neuronal a partir del registro: «Red convolucional (color): vuelta 3: error 0.812, acierta el 61 % … y el 58 % del examen»
-const EPOCH_RE = /^(.*?): vuelta (\d+): error ([\d.]+), acierta el (\d+) %[^\d]*(?:y el (\d+) % del examen)?/;
+// curvas de la red neuronal a partir del registro: «Red convolucional (color): vuelta 3: error 0,812, acierta el 61 % … y el 58 % del examen»
+const EPOCH_RE = /^(.*?): vuelta (\d+): error ([\d.,]+), acierta el (\d+) %[^\d]*(?:y el (\d+) % del examen)?/;
 function epochCurves(log) {
   const by = new Map();
   for (const l of log) {
     const m = EPOCH_RE.exec(l.text);
     if (!m) continue;
     if (!by.has(m[1])) by.set(m[1], []);
-    by.get(m[1]).push({ epoch: +m[2], loss: +m[3], train: +m[4] / 100, test: m[5] != null ? +m[5] / 100 : null });
+    by.get(m[1]).push({ epoch: +m[2], loss: +m[3].replace(",", "."), train: +m[4] / 100, test: m[5] != null ? +m[5] / 100 : null });
   }
   return by;
 }
@@ -193,7 +193,7 @@ function leaderboard(p, j) {
   };
   const overfit = (r) => r.train != null && (isPct(metric) || metric === "r2") && r.train - r.test > 0.12;
   const rows = board.map((r) => {
-    const link = r.modelId ? h("a", { href: projectPath("models/" + r.modelId) }, r.name) : h("span", null, r.name);
+    const link = r.modelId ? h("a", { href: projectPath("models/" + r.modelId) }, keepTogether(r.name)) : h("span", null, keepTogether(r.name));
     const score = scoreOf(r);
     return h("tr", { class: (r.best ? "best" : "") + (r.baseline ? " baseline" : "") },
       h("td", null, h("div", { class: "lb-name" }, link,
@@ -201,11 +201,11 @@ function leaderboard(p, j) {
         r.baseline ? h("span", { class: "badge", title: "Siempre dice lo más frecuente: los demás tienen que ganarle" }, "referencia") : null,
         overfit(r) ? h("span", { class: "badge overfit", title: `En entrenamiento saca ${fmtMetric(metric, r.train)}: se ha aprendido parte de las filas de memoria (sobreajuste)` }, "memoriza") : null)),
       h("td", { class: "num" }, h("div", { class: "lb-score" },
-        h("span", null, h("b", null, fmtMetric(metric, score)), r.cv ? h("div", { class: "pm" }, "± " + fmtMetric(metric, r.cv.std).replace(" %", "")) : null),
+        h("span", null, h("b", null, fmtMetric(metric, score)), r.cv ? h("div", { class: "pm" }, "±\u00a0" + fmtMetric(metric, r.cv.std).replace(/\s%$/, "")) : null),
         h("div", { class: "lb-track" }, h("div", { class: "lb-fill", style: { width: (fill(score) * 100).toFixed(1) + "%" } })))),
       cvShown ? h("td", { class: "num" }, fmtMetric(metric, r.test)) : null,
       clustering ? null : h("td", { class: "num muted" }, fmtMetric(metric, r.train)),
-      h("td", { class: "num muted" }, r.ms != null ? nf(0).format(r.ms) + " ms" : "—"));
+      h("td", { class: "num muted" }, r.ms == null ? "—" : r.ms < 1000 ? nf(0).format(r.ms) + " ms" : fmtDuration(r.ms / 1000)));
   });
   const table = h("table", { class: "table" },
     h("thead", null, h("tr", null,

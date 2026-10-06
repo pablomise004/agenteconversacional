@@ -3,6 +3,27 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.13.1 · 2 de octubre de 2026
+
+**Machine learning, más pulido.**
+
+- **Muchas filas a la vez**: en Probar, sube un CSV y descarga el mismo fichero con la predicción de
+  cada fila. Si trae la respuesta, te dice cuánto acierta. También se puede pedir por la API, como los
+  puntos de conexión por lotes de Azure.
+- **Una imagen de los datos**: con imágenes, Probar coge una al azar del proyecto y te dice si acierta.
+  Con tablas, la fecha ya sale rellena y los números de «Una fila de los datos» llevan coma decimal.
+- **Arreglos**: probar un árbol pidiendo su explicación daba un error; agrupar se paraba en la primera
+  vuelta (ahora los grupos quedan mejor colocados y el script de Python usa los que eligió); al agrupar
+  en automático salía escrito «null»; en Windows, un entrenamiento podía quedarse «Entrenando» para
+  siempre; y agrupar por la API usaba también la columna con la que se comparaban los grupos.
+- **Gráficos más claros**: las fechas del histograma ya no se pisan, los puntos no se salen del
+  gráfico, los errores se cuentan en números redondos con el 0 en medio y los gráficos sueltos ya no
+  salen con letras gigantes. El árbol empieza centrado en la primera pregunta.
+- **En el móvil**: se ven las cuatro pestañas del modelo (en dos filas), el árbol empieza como lista y
+  la tabla «Si vienes de Azure» se lee bien.
+- Coma decimal en todas partes (también en el registro del entrenamiento), «6,8 s» en vez de
+  «6840 ms», el script de Python sin líneas larguísimas y la guía de machine learning con capturas.
+
 ## 0.13.0 · 2 de octubre de 2026
 
 **Machine learning.** Además de chatbots, Lince entrena modelos con tus datos, como un Azure Machine

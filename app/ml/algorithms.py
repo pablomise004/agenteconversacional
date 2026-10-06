@@ -201,7 +201,7 @@ class LogisticRegression(Model):
                 acc = float(np.mean(P.argmax(axis=1) == y))
                 self.history.append({"epoch": ep, "loss": loss, "accuracy": acc})
                 if progress:
-                    progress(ep / epochs, f"vuelta {ep}: error {loss:.3f}")
+                    progress(ep / epochs, f"vuelta {ep}: error {loss:.3f}".replace(".", ","))
             if ep == epochs:
                 break
             G = (P - Y) / n
@@ -472,7 +472,7 @@ class DecisionTree(Model):
         steps = []
         for a, b in zip(path, path[1:]):
             q = question(ctx, int(self.tree.feature[a]), float(self.tree.threshold[a]))
-            went_left = b == self.tree.left[a]
+            went_left = bool(b == self.tree.left[a])  # bool de Python: el de numpy no pasa a JSON
             steps.append({"question": q, "value": float(x[self.tree.feature[a]]), "answer": went_left})
         return {"kind": "path", "steps": steps, "leaf": int(path[-1]), "tree": self.tree.to_json(ctx, highlight=path)}
 
@@ -765,7 +765,8 @@ def kmeans_once(X, k, rng, max_iter=100, tol=1e-6):
         for j in range(k):
             members = X[labels == j]
             C[j] = members.mean(axis=0) if len(members) else X[rng.integers(n)]
-        if prev - inertia <= tol * max(1.0, prev):
+        # parar cuando ya casi no baja (la primera vuelta no cuenta: con prev = inf, «inf ≤ inf» paraba en la primera)
+        if np.isfinite(prev) and prev - inertia <= tol * max(1.0, prev):
             break
         prev = inertia
     d = sq_distances(X, C)
@@ -822,7 +823,7 @@ class KMeans(Model):
             if best is None or (k_param < 2 and sil > best[4]) or k_param >= 2:
                 best = (C, labels, inertia, history, sil, k)
             if progress:
-                progress((idx + 1) / len(ks), f"k = {k}: silueta {sil:.3f}")
+                progress((idx + 1) / len(ks), f"k = {k}: silueta {sil:.3f}".replace(".", ","))
         self.centers, self.labels_, self.inertia, self.history, self.sil, self.k = best
         self.n_classes = self.k
         return self

@@ -72,7 +72,7 @@ IMAGE_CACHE = "public, max-age=2592000"  # iconos e imagen de las vistas previas
 # Rutas que se llaman desde otras webs (el widget, el chat incrustado, tu aplicación): solo en ellas
 # se abre CORS. El resto de la API es de la consola, que va en este mismo origen.
 PUBLIC_ROUTES = re.compile(r"/api/agents/[^/]+/(detect|public|sessions/[^/]+/reset)|/v2/projects/.+:detectIntent|/openapi\.json"
-                           r"|/api/ml/[^/]+/(predict|schema)")
+                           r"|/api/ml/[^/]+/(predict|batch|schema)")
 # lo que otras webs cargan con <script> o <img>: el widget y las imágenes de las vistas previas
 SHARED_FILES = re.compile(r"/widget\.js|/og\.png|/favicon\.(svg|ico)|/icons/[^/]+")
 INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.S)
