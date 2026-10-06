@@ -15,6 +15,10 @@ la conversación y **respuestas**. El bot entiende lo que escribe la gente (con 
 abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada frase**, puedes
 **corregirlo con un clic** y puedes **ver paso a paso cómo aprende** al entrenarlo.
 
+Y además, **machine learning** a la vista: con una tabla (CSV) o con imágenes, entrena modelos para
+clasificar, predecir un número o agrupar, en automático (como el ML automatizado de Azure) o eligiendo
+tú el algoritmo, y mira qué ha aprendido cada uno por dentro.
+
 > **Pruébalo en internet:** <https://linceflow.duckdns.org>. Crea tu cuenta y tendrás tus propios
 > agentes. **¿Estás en el instituto?** La red de Educacyl bloquea los dominios `duckdns.org`, así
 > que seguramente no abrirá: instala Lince en tu ordenador siguiendo la
@@ -32,6 +36,7 @@ abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada fras
 - [Primeros pasos](#primeros-pasos)
 - [Los agentes de ejemplo](#los-agentes-de-ejemplo)
 - [Ver cómo aprende](#ver-cómo-aprende)
+- [Machine learning](#machine-learning)
 - [Conceptos](#conceptos)
 - [Conectarlo a tu web o aplicación](#conectarlo-a-tu-web-o-aplicación)
 - [Migrar desde Dialogflow](#migrar-desde-dialogflow)
@@ -41,7 +46,7 @@ abreviaturas de chat…), te enseña **cómo ha tokenizado y entendido cada fras
 - [Hoja de ruta](#hoja-de-ruta)
 
 Documentación completa: **[Guía de uso](docs/GUIA.md)** (también dentro de la aplicación, en
-*Guía*), **[Arquitectura y guía para desarrolladores](CONTRIBUTING.md)** (pestaña *Contributing*) y
+*Guía*), **[Guía de machine learning](docs/ML.md)**, **[Arquitectura y guía para desarrolladores](CONTRIBUTING.md)** (pestaña *Contributing*) y
 **[Novedades de cada versión](docs/NOVEDADES.md)** (en la aplicación, pulsando el número de versión).
 
 ## Qué incluye
@@ -58,6 +63,7 @@ Documentación completa: **[Guía de uso](docs/GUIA.md)** (también dentro de la
 | **Aprendizaje continuo** | Botones 👍/👎 en el simulador y pantalla de **Revisión** con los mensajes reales para aprobar o corregir; añadir sinónimos y reglas de normalización |
 | **Integraciones** | Widget de chat para cualquier web (una línea, con vista previa de colores), API REST, API compatible con `detectIntent` de Dialogflow ES y webhook con el formato de Dialogflow |
 | **Referencia de la API** | Página propia en `/docs` con el estilo de la consola: cada ruta en español con sus parámetros y ejemplos, botón **Pruébalo** que envía la petición de verdad y **Copiar como curl**. Funciona sin conexión |
+| **Machine learning** | Proyectos con una tabla (CSV) o imágenes: clasificar, predecir un número o agrupar. Entrenamiento automático o eligiendo el algoritmo (regresión lineal y logística, árboles, bosque aleatorio, k vecinos, Naive Bayes, k-medias y una red convolucional), seguido en directo; resultados, lo que ha aprendido cada modelo, el script equivalente en Python y una API para usarlo desde tu web |
 | **Migración** | Importa agentes exportados de Dialogflow ES (ZIP) |
 | **Consola** | Diseño moderno con microanimaciones, tablas ordenables, tema claro y oscuro, búsqueda y atajos con **Ctrl+K**, adaptable a móvil, instalable como aplicación y guía de uso integrada |
 | **Idiomas** | Español (completo) e inglés |
@@ -270,6 +276,28 @@ parámetros, cada uno con su fórmula, qué significa cada símbolo, los número
 que puedes cambiar y dónde está en el código.
 
 ![Por dentro: cómo se suma la puntuación de una intención](docs/img/pordentro.png)
+
+## Machine learning
+
+Con el botón **Machine learning** (arriba de la barra lateral) Lince entrena modelos con tus datos,
+sin servicios de fuera y viendo lo que pasa por dentro. Es una versión sencilla y transparente de
+Azure Machine Learning:
+
+- **Datos**: un CSV (se detectan el separador, el decimal y el tipo de cada columna, con su
+  histograma) o imágenes por clases, subidas o hechas con la cámara.
+- **Entrenar**: clasificar, predecir un número o agrupar. En **automático** prueba varios algoritmos
+  con validación cruzada y se queda con el mejor; **eligiendo tú**, escoges el algoritmo y sus ajustes.
+  Se sigue en directo: los pasos, el registro y la tabla de algoritmos probados.
+- **Modelos**: la nota en el examen final, la matriz de confusión, la curva ROC o lo real frente a lo
+  predicho, qué columnas usa, **lo que ha aprendido** (los pesos, el árbol dibujado, los filtros de la
+  red…), cómo se prepararon los datos y el **script equivalente** en Python (scikit-learn o PyTorch).
+- **Probar**: una fila escrita a mano (o una imagen) con la predicción al momento y el porqué.
+- **API**: publica un modelo y llámalo con `POST /api/ml/<dirección>/predict`.
+
+Para practicar hay tres ejemplos: *Pingüinos* (clasificar o agrupar), *Alquiler de bicis* (predecir
+un número) y *Formas* (imágenes). Todos los algoritmos están escritos con numpy en `app/ml/`, y la
+página **Por dentro** de machine learning explica sus fórmulas. Más en la
+**[guía de machine learning](docs/ML.md)**.
 
 ## Conceptos
 

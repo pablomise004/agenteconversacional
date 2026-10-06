@@ -1,5 +1,5 @@
 // Consola: estado global, enrutado por #hash y estructura de la página.
-import { api, getToken, setToken, getSpaceKey, getUser, setSpace } from "./api.js";
+import { api, ml, getToken, setToken, getSpaceKey, getUser, setSpace } from "./api.js";
 import {
   h, icon, logo, avatar, clear, toast, errorToast, modal, confirmDialog, closePopover, popover, optionList,
   initTooltips, skeletonPage, reducedMotion, syncThemeColor, themeButton,
@@ -11,7 +11,7 @@ import * as agentsPage from "./pages/agents.js";
 
 export const APP_NAME = "Lince";
 // Versión de la consola; debe coincidir con app/__init__.py (lo comprueba tests/test_api.py)
-export const APP_VERSION = "0.12.1";
+export const APP_VERSION = "0.13.0";
 
 export const state = {
   info: null,
@@ -19,6 +19,9 @@ export const state = {
   agents: [],
   agent: null,
   pending: 0,
+  mode: "agents",  // «agents» (chatbots) o «ml» (machine learning, las rutas ml/… y p/…)
+  projects: [],
+  project: null,  // el proyecto de machine learning abierto
 };
 
 // Secciones de un agente, agrupadas según el flujo de trabajo
@@ -41,8 +44,24 @@ export const NAV = [
   { href: "/docs", label: "API", icon: "code", external: true },
 ];
 
+// Secciones de un proyecto de machine learning: los datos, entrenar y usar el modelo
+export const ML_NAV = [
+  { group: "Datos" },
+  { key: "data", label: "Datos", icon: "table" },
+  { group: "Entrenar" },
+  { key: "train", label: "Entrenar", icon: "flask" },
+  { key: "models", label: "Modelos", icon: "chart" },
+  { group: "Usar" },
+  { key: "predict", label: "Probar", icon: "target" },
+  { key: "api", label: "API", icon: "plug" },
+  { group: "Ayuda" },
+  { key: "guide", label: "Guía", icon: "book" },
+  { key: "inside", label: "Por dentro", icon: "cpu" },
+];
+
 const SECTION_TITLES = Object.fromEntries([...NAV.filter((n) => n.key).map((n) => [n.key, n.label]), ["agents", "Agentes"],
-  ["shared", "Agente compartido"]]);
+  ["shared", "Agente compartido"], ["ml", "Machine learning"],
+  ["data", "Datos"], ["train", "Entrenar"], ["jobs", "Entrenamiento"], ["models", "Modelos"], ["predict", "Probar"]]);
 
 // Cada página se descarga la primera vez que se abre: al entrar solo hace falta la lista de agentes
 // (y «Por dentro», la más pesada, solo llega a quien la visita)
@@ -65,6 +84,19 @@ const ROUTES = [
   [/^a\/([^/]+)\/integrations$/, () => import("./pages/integrations.js")],
   [/^a\/([^/]+)\/settings$/, () => import("./pages/settings.js")],
   [/^a\/([^/]+)\/share$/, () => import("./pages/share.js")],
+  // machine learning
+  [/^ml$/, () => import("./pages/ml-home.js")],
+  [/^ml\/inside$/, () => import("./pages/ml-inside.js")],
+  [/^ml\/guide$/, () => import("./pages/guide.js")],
+  [/^p\/([^/]+)\/inside$/, () => import("./pages/ml-inside.js")],
+  [/^p\/([^/]+)\/guide$/, () => import("./pages/guide.js")],
+  [/^p\/([^/]+)\/data$/, () => import("./pages/ml-data.js")],
+  [/^p\/([^/]+)\/train$/, () => import("./pages/ml-train.js")],
+  [/^p\/([^/]+)\/jobs\/([^/]+)$/, () => import("./pages/ml-job.js")],
+  [/^p\/([^/]+)\/models$/, () => import("./pages/ml-models.js")],
+  [/^p\/([^/]+)\/models\/([^/]+)$/, () => import("./pages/ml-model.js")],
+  [/^p\/([^/]+)\/predict$/, () => import("./pages/ml-predict.js")],
+  [/^p\/([^/]+)\/api$/, () => import("./pages/ml-api.js")],
 ];
 
 // La paleta (Ctrl+K) no hace falta para empezar: se descarga en segundo plano en cuanto la consola está
@@ -76,7 +108,7 @@ function openPalette() {
   else loadPalette().then((m) => m.openPalette(), errorToast);
 }
 
-let root, sidebar, mainEl, pageEl, simulator, navEl, topTitle, agentBtn;
+let root, sidebar, mainEl, pageEl, simulator, navEl, topTitle, agentBtn, modeEl;
 let current = null; // página activa {canLeave, destroy, save}
 let currentHash = "";
 let ignoreHash = false;
@@ -91,6 +123,24 @@ export function navigate(hash) {
 
 export function agentPath(sub = "") {
   return `#/a/${encodeURIComponent(state.agent ? state.agent.id : "")}${sub ? "/" + sub : ""}`;
+}
+
+export function projectPath(sub = "") {
+  return `#/p/${encodeURIComponent(state.project ? state.project.id : "")}${sub ? "/" + sub : ""}`;
+}
+
+export async function refreshProjects() {
+  try { state.projects = await ml.projects(); } catch (e) { state.projects = []; }
+  renderAgentSwitch();
+  return state.projects;
+}
+
+/** Vuelve a leer el proyecto abierto (tras entrenar, publicar o cambiar los datos). */
+export async function reloadProject() {
+  if (!state.project) return null;
+  state.project = await ml.project(state.project.id);
+  renderAgentSwitch();
+  return state.project;
 }
 
 export function setPageTitle(...parts) {
@@ -187,11 +237,15 @@ function buildLayout() {
   clear(root);
   navEl = h("nav", { class: "nav", "aria-label": "Secciones" });
   agentBtn = h("button", { class: "agent-switch", type: "button", "aria-haspopup": "listbox", "aria-expanded": "false",
-    title: "Cambiar de agente", onclick: openAgentMenu });
+    title: "Cambiar de agente", onclick: () => (state.mode === "ml" ? openProjectMenu() : openAgentMenu()) });
+  modeEl = h("nav", { class: "mode-switch", "aria-label": "Qué quieres hacer" },
+    h("a", { href: "#/agents", class: "mode-btn", dataset: { mode: "agents" } }, icon("chat"), h("span", null, "Chatbots")),
+    h("a", { href: "#/ml", class: "mode-btn", dataset: { mode: "ml" } }, icon("chart"), h("span", null, "Machine learning")));
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
   sidebar = h("aside", { class: "sidebar" },
     h("a", { class: "brand", href: "#/agents", "aria-label": APP_NAME + ": todos los agentes" }, logo(),
-      h("div", null, h("div", { class: "brand-name" }, APP_NAME), h("div", { class: "brand-sub" }, "Chatbots en español"))),
+      h("div", null, h("div", { class: "brand-name" }, APP_NAME), h("div", { class: "brand-sub" }, "Chatbots y machine learning"))),
+    modeEl,
     agentBtn,
     h("button", { class: "search-btn", type: "button", onclick: () => openPalette(), "aria-label": "Buscar y saltar a cualquier sitio" },
       icon("search"), h("span", null, "Buscar…"), h("kbd", null, isMac ? "⌘ K" : "Ctrl K")),
@@ -208,7 +262,7 @@ function buildLayout() {
       onclick: (e) => { e.stopPropagation(); root.classList.toggle("menu-open"); } }, icon("menu")),
     logo(), topTitle,
     h("button", { class: "btn ghost icon-only", type: "button", "aria-label": "Buscar", onclick: () => openPalette() }, icon("search")),
-    h("button", { class: "btn ghost icon-only", type: "button", "aria-label": "Probar el agente", onclick: () => setSimOpen(true) }, icon("chat")));
+    h("button", { class: "btn ghost icon-only sim-open", type: "button", "aria-label": "Probar el agente", onclick: () => setSimOpen(true) }, icon("chat")));
   pageEl = h("div", { id: "page" });
   mainEl = h("main", { class: "main", onclick: () => root.classList.remove("menu-open") }, topbar, versionNotice(), pageEl);
   mainEl.addEventListener("scroll", () => {
@@ -239,8 +293,56 @@ function setSimOpen(open, remember = true) {
   }
 }
 
-function renderAgentSwitch() {
+function renderMode() {
+  if (!modeEl) return;
+  modeEl.querySelectorAll(".mode-btn").forEach((a) => {
+    const on = a.dataset.mode === state.mode;
+    a.classList.toggle("on", on);
+    if (on) a.setAttribute("aria-current", "true");
+    else a.removeAttribute("aria-current");
+  });
+  root.classList.toggle("ml-mode", state.mode === "ml");
+}
+
+const KIND_META = (p) => (p.kind === "images"
+  ? `Imágenes · ${(p.data && p.data.count) || 0}`
+  : p.data ? `Tabla · ${p.data.rows} filas` : "Tabla · sin datos");
+
+function renderProjectSwitch() {
   clear(agentBtn);
+  agentBtn.title = "Cambiar de proyecto";
+  const p = state.project;
+  if (p) {
+    agentBtn.append(avatar(p.name), h("span", { class: "grow" }, h("div", { class: "name ellipsis" }, p.name),
+      h("div", { class: "meta ellipsis" }, KIND_META(p))), icon("chevUpDown"));
+  } else {
+    const n = state.projects.length;
+    agentBtn.append(h("span", { class: "avatar", style: { "--av1": "#a1a1aa", "--av2": "#71717a" } }, icon("chart")),
+      h("span", { class: "grow" }, h("div", { class: "name" }, "Elige un proyecto"),
+        h("div", { class: "meta ellipsis" }, n ? `${n} ${n === 1 ? "proyecto" : "proyectos"}` : "Machine learning")),
+      icon("chevUpDown"));
+  }
+}
+
+function openProjectMenu() {
+  const option = (p) => ({ label: p.name, value: p.id, avatar: p.name, sub: KIND_META(p),
+    selected: !!state.project && p.id === state.project.id });
+  popover(agentBtn, h("div", { class: "agent-menu" },
+    state.projects.length
+      ? optionList({ groups: [{ title: "Tus proyectos", options: state.projects.map(option) }], placeholder: "Buscar proyecto…",
+        onPick: (id) => { closePopover(); navigate(`#/p/${encodeURIComponent(id)}/data`); } })
+      : h("div", { class: "muted small", style: { padding: "10px 12px" } }, "Todavía no tienes proyectos."),
+    h("div", { class: "pop-sep" }),
+    h("button", { class: "opt", type: "button", onclick: () => { closePopover(); navigate("#/ml"); } }, icon("layers"), "Ver todos los proyectos"),
+    h("button", { class: "opt", type: "button", onclick: () => { closePopover(); navigate("#/ml?nuevo=1"); } }, icon("plus"), "Nuevo proyecto…")),
+  { width: agentBtn.offsetWidth });
+}
+
+function renderAgentSwitch() {
+  renderMode();
+  if (state.mode === "ml") { renderProjectSwitch(); return; }
+  clear(agentBtn);
+  agentBtn.title = "Cambiar de agente";
   const a = state.agent;
   if (a) {
     agentBtn.append(avatar(a.name),
@@ -279,12 +381,19 @@ function renderNav(active) {
   clear(navEl);
   const pill = h("span", { class: "nav-pill", "aria-hidden": "true" });
   navEl.append(pill);
-  const items = state.agent ? NAV : [
-    { key: "agents", label: "Agentes", icon: "layers", href: "#/agents" },
-    { key: "guide", label: "Guía", icon: "book", href: "#/guide" },
-    { key: "inside", label: "Por dentro", icon: "cpu", href: "#/inside" },
-    { href: "/docs", label: "API", icon: "code", external: true },
-  ];
+  const items = state.mode === "ml"
+    ? (state.project ? ML_NAV.map((n) => (n.key === "data" && state.project.kind === "images" ? { ...n, icon: "image" } : n)) : [
+      { key: "ml", label: "Proyectos", icon: "layers", href: "#/ml" },
+      { key: "guide", label: "Guía", icon: "book", href: "#/ml/guide" },
+      { key: "inside", label: "Por dentro", icon: "cpu", href: "#/ml/inside" },
+      { href: "/docs", label: "API", icon: "code", external: true },
+    ])
+    : state.agent ? NAV : [
+      { key: "agents", label: "Agentes", icon: "layers", href: "#/agents" },
+      { key: "guide", label: "Guía", icon: "book", href: "#/guide" },
+      { key: "inside", label: "Por dentro", icon: "cpu", href: "#/inside" },
+      { href: "/docs", label: "API", icon: "code", external: true },
+    ];
   for (const item of items) {
     if (item.group) { navEl.append(h("div", { class: "nav-label" }, item.group)); continue; }
     if (item.accounts && !state.info.accounts) continue;
@@ -292,7 +401,8 @@ function renderNav(active) {
     const badge = item.badge && state.pending
       ? h("span", { class: "badge count" + (state.pending > lastPending ? " pop" : ""), title: "Mensajes pendientes de revisar" }, String(state.pending))
       : null;
-    navEl.append(h("a", { href: item.href || agentPath(item.key), class: on ? "active" : null, "aria-current": on ? "page" : null,
+    const href = item.href || (state.mode === "ml" ? projectPath(item.key) : agentPath(item.key));
+    navEl.append(h("a", { href, class: on ? "active" : null, "aria-current": on ? "page" : null,
       target: item.external ? "_blank" : null, rel: item.external ? "noopener" : null,
       title: item.external ? "Referencia de la API (se abre en otra pestaña)" : null },
     icon(item.icon), item.label, badge, item.external ? icon("external", "ext") : null));
@@ -353,7 +463,28 @@ async function route() {
   const modReady = Promise.resolve(loader());
   modReady.catch(() => {});
   const params = match.slice(1).map(decodeURIComponent);
-  if (path.startsWith("a/")) {
+  const isMl = path === "ml" || path.startsWith("ml/") || path.startsWith("p/");
+  state.mode = isMl ? "ml" : "agents";  // la Guía y «Por dentro» de cada parte tienen su propia ruta
+  if (path.startsWith("p/")) {
+    let project;
+    try {
+      [project] = await Promise.all([ml.project(params[0]), state.projects.length ? null : refreshProjects()]);
+    } catch (e) {
+      if (seq !== routeSeq) return;
+      errorToast(e);
+      state.project = null;
+      navigate("#/ml");
+      return;
+    }
+    if (seq !== routeSeq) return;
+    state.project = project;
+  } else {
+    state.project = null;
+    if (isMl && !state.projects.length) refreshProjects();
+  }
+  if (isMl) {
+    if (state.agent) { state.agent = null; simulator.reset(true); }
+  } else if (path.startsWith("a/")) {
     const id = params[0];
     if (!state.agent || state.agent.id !== id) {
       let agent;
@@ -375,11 +506,13 @@ async function route() {
     state.agent = null;
     simulator.reset(true);
   }
-  const section = path.split("/")[path.startsWith("a/") ? 2 : 0];
+  let section = path.split("/")[path.startsWith("a/") || path.startsWith("p/") ? 2 : 0];
+  if (path.startsWith("ml/")) section = path.slice(3);
   renderAgentSwitch();
-  renderNav(section);
-  topTitle.textContent = state.agent ? state.agent.name : SECTION_TITLES[section] || "Agentes";
-  setPageTitle(SECTION_TITLES[section], state.agent && state.agent.name);
+  renderNav(section === "jobs" ? "train" : section);
+  const owner = state.mode === "ml" ? state.project : state.agent;
+  topTitle.textContent = owner ? owner.name : SECTION_TITLES[section] || (state.mode === "ml" ? "Machine learning" : "Agentes");
+  setPageTitle(SECTION_TITLES[section], owner && owner.name);
   if (current && current.destroy) current.destroy();
   current = null;
   currentHash = location.hash;

@@ -1,7 +1,7 @@
 // Paleta de comandos (Ctrl+K): saltar a cualquier página, intención o entidad,
 // lanzar acciones o probar una frase sin tocar el ratón.
 import { h, icon, avatar, clear, fold, toggleTheme } from "./ui.js";
-import { state, navigate, agentPath, openSimulator } from "./app.js";
+import { state, navigate, agentPath, projectPath, openSimulator } from "./app.js";
 import { createIntent } from "./pages/intents.js";
 import { createEntity } from "./pages/entities.js";
 import { createAgentDialog, splitAgents } from "./pages/agents.js";
@@ -12,6 +12,12 @@ const PAGES = [
   ["integrations", "Integraciones", "plug"], ["share", "Compartir", "share", true], ["settings", "Ajustes", "settings"],
   ["guide", "Guía", "book"],
 ];
+// las de un proyecto de machine learning
+const ML_PAGES = [
+  ["data", "Datos", "table"], ["train", "Entrenar", "flask"], ["models", "Modelos", "chart"], ["predict", "Probar", "target"],
+  ["api", "API", "plug"], ["guide", "Guía de machine learning", "book"], ["inside", "Por dentro del machine learning", "cpu"],
+];
+const newProject = () => import("./pages/ml-home.js").then((m) => m.createProjectDialog());
 
 let isOpen = false;
 
@@ -39,10 +45,14 @@ function groups(raw) {
   const a = state.agent;
   const q = fold(raw.trim());
   const out = [];
-  const nav = a ? PAGES.filter(([, , , accounts]) => !accounts || state.info.accounts)
-    .map(([key, label, ic]) => ({ label, icon: ic, hint: "Ir a", run: () => navigate(agentPath(key)) })) : [
-    { label: "Guía de uso", icon: "book", hint: "Ir a", run: () => navigate("#/guide") }];
-  nav.push({ label: "Todos los agentes", icon: "layers", hint: "Ir a", run: () => navigate("#/agents") });
+  const pr = state.mode === "ml" ? state.project : null;
+  const nav = pr ? ML_PAGES.map(([key, label, ic]) => ({ label, icon: ic, hint: pr.name, run: () => navigate(projectPath(key)) }))
+    : a ? PAGES.filter(([, , , accounts]) => !accounts || state.info.accounts)
+      .map(([key, label, ic]) => ({ label, icon: ic, hint: "Ir a", run: () => navigate(agentPath(key)) })) : [
+      state.mode === "ml" ? { label: "Guía de machine learning", icon: "book", hint: "Ir a", run: () => navigate("#/ml/guide") }
+        : { label: "Guía de uso", icon: "book", hint: "Ir a", run: () => navigate("#/guide") }];
+  nav.push({ label: "Todos los agentes", icon: "layers", hint: "Chatbots", run: () => navigate("#/agents") });
+  nav.push({ label: "Machine learning: proyectos", icon: "chart", hint: "Ir a", run: () => navigate("#/ml") });
   nav.push({ label: "Referencia de la API", icon: "code", hint: "/docs", run: () => window.open("/docs", "_blank", "noopener") });
   out.push({ title: "Ir a", items: nav });
   if (a) {
@@ -53,6 +63,16 @@ function groups(raw) {
     out.push({ title: "Entidades", limit: q ? 6 : 3, items: a.entities.map((e) => ({
       label: "@" + e.name, icon: "tag", hint: `${e.entries.length} valores`,
       run: () => navigate(agentPath("entities/" + encodeURIComponent(e.id))) })) });
+  }
+  if (pr && (pr.models || []).length) {
+    out.push({ title: "Modelos", limit: q ? 6 : 3, items: pr.models.map((m) => ({ label: m.name, icon: "chart", hint: m.paramsText || "Modelo",
+      run: () => navigate(projectPath("models/" + encodeURIComponent(m.id))) })) });
+  }
+  const projects = (state.projects || []).filter((x) => !pr || x.id !== pr.id);
+  if (projects.length) {
+    out.push({ title: "Proyectos de machine learning", limit: q ? 6 : 3, items: projects.map((x) => ({
+      label: x.name, icon: x.kind === "images" ? "image" : "table", hint: x.kind === "images" ? "Imágenes" : "Tabla",
+      run: () => navigate(`#/p/${encodeURIComponent(x.id)}/data`) })) });
   }
   const { mine, examples } = splitAgents(state.agents);
   const others = [...mine, ...examples].filter((x) => !a || x.id !== a.id);
@@ -67,7 +87,9 @@ function groups(raw) {
     actions.push({ label: "Crear entidad", icon: "plus", run: () => createEntity() });
     actions.push({ label: "Abrir el simulador", icon: "message", run: () => openSimulator() });
   }
+  if (pr) actions.push({ label: "Entrenar un modelo", icon: "flask", run: () => navigate(projectPath("train")) });
   actions.push({ label: "Nuevo agente", icon: "plus", run: () => createAgentDialog() });
+  actions.push({ label: "Nuevo proyecto de machine learning", icon: "plus", run: newProject });
   actions.push({ label: "Cambiar tema claro u oscuro", icon: "moon", run: () => toggleTheme() });
   out.push({ title: "Acciones", items: actions });
 

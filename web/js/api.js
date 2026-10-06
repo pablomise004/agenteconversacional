@@ -127,7 +127,7 @@ export const api = {
   model: (id, params = {}) => request("GET", `${A(id)}/model?` + new URLSearchParams(params)),
   explain: (id, text, contexts) => request("POST", A(id) + "/explain", { text, contexts }),
   evaluate: (id, folds = 5) => request("POST", A(id) + "/evaluate", { folds }),
-  guide: () => request("GET", "/guia/GUIA.md", undefined, { raw: true }),
+  guide: (file = "GUIA.md") => request("GET", "/guia/" + file, undefined, { raw: true }),
 
   // servidores con cuentas
   register: (user, password) => request("POST", "/api/accounts", { user, password }),
@@ -140,4 +140,36 @@ export const api = {
   unshare: (id) => request("DELETE", A(id) + "/share"),
   shared: (code) => request("GET", `/api/shared/${enc(code)}`),
   saveShared: (code) => request("POST", `/api/shared/${enc(code)}/save`),
+};
+
+// Machine learning: proyectos con sus datos, entrenamientos y modelos
+const P = (id) => `/api/ml/projects/${enc(id)}`;
+
+export const ml = {
+  info: () => request("GET", "/api/ml/info"),
+  projects: () => request("GET", "/api/ml/projects"),
+  create: (data) => request("POST", "/api/ml/projects", data),
+  project: (id) => request("GET", P(id)),
+  update: (id, changes) => request("PATCH", P(id), changes),
+  remove: (id) => request("DELETE", P(id)),
+  upload: (id, file) => request("POST", `${P(id)}/data?filename=${enc(file.name || "")}`, file),
+  rows: (id, offset = 0, limit = 50) => request("GET", `${P(id)}/rows?offset=${offset}&limit=${limit}`),
+  csv: (id) => request("GET", `${P(id)}/data.csv`, undefined, { raw: true }),
+  images: (id) => request("GET", `${P(id)}/images`),
+  addImages: (id, label, images) => request("POST", `${P(id)}/images`, { label, images }),
+  deleteImage: (id, imageId) => request("DELETE", `${P(id)}/images/${enc(imageId)}`),
+  renameClass: (id, label, name) => request("PATCH", `${P(id)}/classes/${enc(label)}`, { name }),
+  deleteClass: (id, label) => request("DELETE", `${P(id)}/classes/${enc(label)}`),
+  imagesZip: (id) => request("GET", `${P(id)}/images.zip`, undefined, { raw: true }),
+  train: (id, config) => request("POST", `${P(id)}/jobs`, config),
+  jobs: (id) => request("GET", `${P(id)}/jobs`),
+  job: (id, jobId) => request("GET", `${P(id)}/jobs/${enc(jobId)}`),
+  cancel: (id, jobId) => request("POST", `${P(id)}/jobs/${enc(jobId)}/cancel`),
+  deleteJob: (id, jobId) => request("DELETE", `${P(id)}/jobs/${enc(jobId)}`),
+  models: (id) => request("GET", `${P(id)}/models`),
+  model: (id, modelId) => request("GET", `${P(id)}/models/${enc(modelId)}`),
+  deleteModel: (id, modelId) => request("DELETE", `${P(id)}/models/${enc(modelId)}`),
+  predict: (id, modelId, body) => request("POST", `${P(id)}/models/${enc(modelId)}/predict`, body),
+  code: (id, modelId) => request("GET", `${P(id)}/models/${enc(modelId)}/code`, undefined, { raw: true }),
+  publish: (id, modelId) => request("POST", `${P(id)}/publish`, { modelId }),
 };

@@ -109,6 +109,20 @@ const ICONS = {
   keyboard: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M10 13h4M7 16h10"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+  // machine learning
+  table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 15h18M9 4v16"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 15.5 16 10.5 6 20"/>',
+  camera: '<path d="M3 8.5A2 2 0 0 1 5 6.5h2.4L9 4.5h6l1.6 2H19a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/>',
+  flask: '<path d="M9 3h6M10 3v6.2L4.6 18.4A2 2 0 0 0 6.3 21.5h11.4a2 2 0 0 0 1.7-3.1L14 9.2V3M7.2 15h9.6"/>',
+  chart: '<path d="M3 20.5h18M6.5 17v-5M11 17V7.5M15.5 17v-8M20 17v-3.5"/>',
+  tree: '<rect x="9" y="2.5" width="6" height="5" rx="1.3"/><rect x="2.5" y="16.5" width="6" height="5" rx="1.3"/><rect x="15.5" y="16.5" width="6" height="5" rx="1.3"/><path d="M12 7.5V12M5.5 16.5V12h13v4.5"/>',
+  network: '<circle cx="5" cy="6.5" r="2"/><circle cx="5" cy="17.5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="6.5" r="2"/><circle cx="19" cy="17.5" r="2"/><path d="M6.8 7.6 10.3 10.9M6.8 16.4l3.5-3.3M13.7 10.9l3.5-3.3M13.7 13.1l3.5 3.3"/>',
+  dots: '<circle cx="6" cy="7" r="1.7"/><circle cx="9.5" cy="10.5" r="1.7"/><circle cx="5.5" cy="13" r="1.7"/><circle cx="16" cy="13.5" r="1.7"/><circle cx="19" cy="17" r="1.7"/><circle cx="14.5" cy="18.5" r="1.7"/>',
+  shapes: '<circle cx="7" cy="7.5" r="4"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.2"/><path d="M17.2 2.8l4 7h-8z"/><path d="M3.5 21l3.5-6 3.5 6z"/>',
+  bird: '<path d="M16 7h.01M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20M20 7l2 .5-2 .5M10 18v3M14 17.7V21M7 18a6 6 0 0 0 3.8-10.6"/>',
+  bike: '<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="2.2"/>',
+  wand: '<path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>',
 };
 
 export function icon(name, cls = "") {

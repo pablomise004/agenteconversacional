@@ -3,6 +3,23 @@
 Lo que trae cada versión, de la más nueva a la más antigua. En la consola se ven pulsando el número
 de versión (abajo a la izquierda, o arriba en la referencia de la API).
 
+## 0.13.0 · 2 de octubre de 2026
+
+**Machine learning.** Además de chatbots, Lince entrena modelos con tus datos, como un Azure Machine
+Learning sencillo en el que se ve todo por dentro. Está en el botón **Machine learning** de arriba de
+la barra lateral.
+
+- **Proyectos con una tabla (CSV) o con imágenes**: sube el fichero (o haz fotos con la cámara) y
+  revisa el tipo de cada columna con su gráfico.
+- **Entrenar** para clasificar, predecir un número o agrupar: en automático prueba varios algoritmos
+  y elige el mejor; o eliges tú el algoritmo y sus ajustes. Se sigue en directo.
+- **Modelos** con sus notas, la matriz de confusión, lo que ha aprendido cada uno (los pesos, el árbol
+  dibujado, los filtros de la red neuronal…) y su script de Python para llevarlo a Azure.
+- **Probar** con una fila o una imagen y ver por qué ha dicho lo que ha dicho, y una **API** para
+  usar el modelo desde tu web.
+- Tres ejemplos para practicar: pingüinos, alquiler de bicis y formas. Y su propia guía y su página
+  **Por dentro** con las fórmulas.
+
 ## 0.12.1 · 2 de octubre de 2026
 
 - **Ajustes**: el aviso de Compartir va dentro de la tarjeta «Modelo y datos», junto a Exportar y

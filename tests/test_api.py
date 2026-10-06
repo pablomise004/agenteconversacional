@@ -180,13 +180,16 @@ def test_vigia_solo_si_esta_configurado(tmp_path, monkeypatch):
 
 def test_cabeceras_de_seguridad(client):
     """Cabeceras del informe de seguridad: sin adivinar tipos, sin mandar la dirección completa a otras
-    webs, sin cámara ni micrófono, ventana aislada, sin iframes ajenos (salvo el chat, que se incrusta) y
-    HSTS solo cuando se llega por https (detrás de Traefik lo dice X-Forwarded-Proto)."""
+    webs, sin micrófono, la cámara solo para esta web (las fotos de los proyectos de imágenes), ventana
+    aislada, sin iframes ajenos (salvo el chat, que se incrusta) y HSTS solo cuando se llega por https
+    (detrás de Traefik lo dice X-Forwarded-Proto)."""
     for path in ("/", "/docs", "/chat", "/api/info", "/js/app.js", "/offline.html"):
         h = client.get(path).headers
         assert h["x-content-type-options"] == "nosniff", path
         assert h["referrer-policy"] == "strict-origin-when-cross-origin", path
-        assert "camera=()" in h["permissions-policy"] and h["cross-origin-opener-policy"] == "same-origin", path
+        policy = h["permissions-policy"]
+        assert "camera=(self)" in policy and "microphone=()" in policy, path
+        assert h["cross-origin-opener-policy"] == "same-origin", path
         assert "strict-transport-security" not in h, path  # en local, por http
     assert client.get("/", headers={"x-forwarded-proto": "https"}).headers["strict-transport-security"].startswith("max-age=31536000")
     console = client.get("/").headers

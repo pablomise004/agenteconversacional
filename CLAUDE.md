@@ -2,7 +2,9 @@
 
 **Lince** es una alternativa libre y local a **Dialogflow ES** para crear chatbots en español, con
 una consola web que además sirve para **aprender cómo funciona el NLU por dentro** (página
-«Entrenar»). El nombre: «listo como un lince» y «vista de lince» (ver el modelo por dentro); el
+«Entrenar»). Desde la 0.13.0 tiene también **machine learning** (como un Azure ML sencillo y
+transparente): proyectos con una tabla o imágenes, entrenamiento automático o personalizado, modelos
+que se ven por dentro y una API para usarlos. El nombre: «listo como un lince» y «vista de lince» (ver el modelo por dentro); el
 logotipo es la cabeza de un lince ibérico (pinceles negros, barba) sobre el degradado morado
 (`web/favicon.svg`).
 Repositorio: https://github.com/pablomise004/agenteconversacional
@@ -48,6 +50,7 @@ python tools/benchmark_massive.py     # acierto con MASSIVE (referencia: 59 % k=
 python tools/probar_nlu.py "frase"    # prueba rápida del NLU (--agente hotel para el ejemplo grande)
 python tools/build_pizzeria.py        # regenera examples/pizzeria.json desde notación [texto](param)
 python tools/build_hotel.py           # regenera examples/hotel.json y comprueba sus anotaciones
+python tools/build_ml_examples.py     # regenera examples/ml/*.csv (pingüinos y bicis, con sus licencias)
 python tools/capturas_docs.py         # rehace las capturas de docs/img (Playwright)
 python tools/build_icons.py           # rehace favicon.ico, web/icons/*.png y web/og.png desde web/favicon.svg
 python tools/actualizar_vigia.py      # pone al día web/js/vigia.js (la copia de Vigía que sirve Lince)
@@ -101,6 +104,19 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   `js/math.js` fórmulas TeX → MathML sin librerías; `js/charts.js` los gráficos; `js/markdown.js` pinta
   `docs/GUIA.md`. `css/app.css` tiene los colores, la fuente (Inter local, `web/fonts/`) y las
   animaciones; `css/api.css` lo propio de `/docs`.
+- `app/ml/`: el machine learning, todo con numpy (sin scikit-learn). `table.py` lee el CSV y adivina
+  los tipos; `prep.py` prepara las filas (vacíos, fechas, one-hot, escalar); `algorithms.py` los
+  algoritmos (línea base, lineal, logística, árbol, bosque, k vecinos, Naive Bayes, k-medias), cada uno
+  con `learned()` y `explain()`; `metrics.py`; `runner.py` un entrenamiento paso a paso (`AUTO`, el
+  modo automático); `cnn.py` la red convolucional y las líneas base de píxeles; `codegen.py` el script
+  equivalente; `store.py` los proyectos en `<espacio>/ml/<proyecto>/`; `api.py` las rutas `/api/ml/…`
+  (entrenamientos en segundo plano, dos a la vez como mucho). Los ejemplos: `examples.py` y
+  `examples/ml/` (formas dibujadas al vuelo).
+- Consola de machine learning: el botón «Chatbots / Machine learning» de la barra lateral cambia
+  `state.mode`; rutas `#/ml`, `#/ml/guide`, `#/ml/inside` y `#/p/<proyecto>/data|train|jobs/<id>|
+  models|models/<id>|predict|api|guide|inside`. Páginas `pages/ml-*.js`; piezas comunes en
+  `js/ml-common.js` (formatos, imágenes a 64 × 64, cámara), `js/ml-charts.js` (gráficos) y
+  `js/ml-views.js` (el porqué de una predicción, lo que ve la red). Guía: `docs/ML.md`.
 - `examples/pizzeria.json` (pequeño, para aprender) y `examples/hotel.json` (88 intenciones, más de
   2.000 frases, para enseñar el potencial): se copian una vez cada uno al arrancar
   (`server.py:seed_examples`, marca en `data/seeded_examples.json`; un ejemplo borrado no vuelve)
@@ -176,6 +192,17 @@ En Windows el usuario arranca con doble clic en `iniciar.bat` (crea `.venv`, ins
   cambiar las dos y añadir sus notas arriba en `docs/NOVEDADES.md`, en lenguaje sencillo; **fechadas el
   2 de octubre de 2026**, que lo pidió así).
 - No hay Node instalado; la consola no lo necesita.
+
+## Machine learning: detalles que conviene no romper
+
+- Lo que se aprende al preparar (medianas, medias, categorías) sale solo de las filas de
+  entrenamiento y se guarda con el modelo; las filas nuevas se preparan igual (`Preparer`).
+- La columna que se predice nunca es columna para aprender (lo comprueba `runner.check_config`).
+- El modo automático elige por la media de la validación cruzada y siempre incluye la línea base.
+- Con más de tres grupos, los gráficos no usan más colores: todo en gris y el grupo elegido resaltado
+  (solo `--series-1/2/3` están validados para daltonismo de tres en tres).
+- Pendiente: pruebas `tests/test_ml.py` y e2e de las páginas de machine learning, capturas para la
+  guía y una página de predicción por lotes (subir un CSV y descargar las predicciones).
 
 ## Ideas pendientes (por orden de utilidad)
 

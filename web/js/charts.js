@@ -6,16 +6,16 @@ import { h, clear } from "./ui.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 
-function s(tag, attrs = {}, ...children) {
+export function s(tag, attrs = {}, ...children) {
   const el = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, String(v));
   for (const c of children.flat()) if (c != null) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
   return el;
 }
 
-const nf = (digits = 0) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+export const nf = (digits = 0) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: digits, minimumFractionDigits: 0 });
 
-function niceTicks(max, count = 4) {
+export function niceTicks(max, count = 4) {
   if (!(max > 0)) return [0];
   const raw = max / count;
   const mag = 10 ** Math.floor(Math.log10(raw));
@@ -27,7 +27,7 @@ function niceTicks(max, count = 4) {
 }
 
 // Tooltip compartido dentro de un contenedor con position:relative
-function tooltip(container) {
+export function tooltip(container) {
   const tip = h("div", { class: "chart-tip", role: "status" });
   container.append(tip);
   return {
@@ -136,7 +136,8 @@ export function barList({ items, max, format = (v) => nf(2).format(v), color = "
 }
 
 /** Barras divergentes: lo que suma (azul) a la derecha y lo que resta (rojo) a la izquierda. */
-export function divergingBars({ items, format = (v) => (v > 0 ? "+" : "") + nf(3).format(v), labelWidth = 160 }) {
+export function divergingBars({ items, format = (v) => (v > 0 ? "+" : "") + nf(3).format(v), labelWidth = 160,
+  legend = ["empuja hacia esta intención", "le resta"] }) {
   const box = h("div", { class: "bars diverging" });
   if (!items.length) return h("div", { class: "muted small" }, "Sin datos");
   const top = Math.max(...items.map((i) => Math.abs(i.value)), 1e-9);
@@ -159,8 +160,8 @@ export function divergingBars({ items, format = (v) => (v > 0 ? "+" : "") + nf(3
     box.append(row);
   }
   box.append(h("div", { class: "legend" },
-    h("span", null, h("i", { class: "swatch", style: { background: "var(--series-1)" } }), "empuja hacia esta intención"),
-    h("span", null, h("i", { class: "swatch", style: { background: "var(--series-neg)" } }), "le resta")));
+    h("span", null, h("i", { class: "swatch", style: { background: "var(--series-1)" } }), legend[0]),
+    h("span", null, h("i", { class: "swatch", style: { background: "var(--series-neg)" } }), legend[1])));
   return box;
 }
 
@@ -225,11 +226,18 @@ export function scatter({ points, a, b, names = {}, probe, width = 640, height =
  * con más, un mapa compacto en SVG que cabe a lo ancho, sin números: grupos por prefijo
  * («reserva», «charla»…) y el detalle al pasar el ratón o con las flechas.
  */
-export function heatmap({ labels, counts }) {
+// las palabras de la matriz: de frases e intenciones (por defecto) o de filas y clases (machine learning)
+const HEAT_WORDS = { one: "frase", many: "frases", ok: "bien entendidas", as: "entendidas como", corner: "Real ↓ · Entendida →",
+  items: "intenciones" };
+export const HEAT_WORDS_ML = { one: "fila", many: "filas", ok: "bien clasificadas", as: "clasificadas como", corner: "Real ↓ · Predicha →",
+  items: "clases" };
+
+export function heatmap({ labels, counts, words = HEAT_WORDS }) {
   const n = labels.length;
-  const wrap = n > 24 ? heatmapCompact(labels, counts) : heatmapTable(labels, counts);
+  labels = labels.map((l) => (typeof l === "string" ? { name: l } : l));
+  const wrap = n > 24 ? heatmapCompact(labels, counts, words) : heatmapTable(labels, counts, words);
   return h("div", null, wrap, h("div", { class: "heatmap-legend small muted" },
-    h("span", { class: "legend-key a" }), "bien entendidas (la diagonal)",
+    h("span", { class: "legend-key a" }), `${words.ok} (la diagonal)`,
     h("span", { class: "legend-key b" }), "confusiones",
     n > 24 ? h("span", { class: "faint" }, " · pasa el ratón (o usa las flechas) para ver cada casilla") : null));
 }
@@ -245,15 +253,15 @@ function heatAlpha(counts) {
   return (c, i, j) => (c ? 0.22 + 0.78 * Math.sqrt(c / (i === j ? diag : off)) : 0);
 }
 
-const cellText = (labels, i, j, c) => [`${c} ${c === 1 ? "frase" : "frases"}`,
-  i === j ? `«${labels[i].name}» bien entendidas` : `de «${labels[i].name}» entendidas como «${labels[j].name}»`];
+const cellText = (labels, i, j, c, w) => [`${c} ${c === 1 ? w.one : w.many}`,
+  i === j ? `«${labels[i].name}» ${w.ok}` : `de «${labels[i].name}» ${w.as} «${labels[j].name}»`];
 
-function heatmapTable(labels, counts) {
+function heatmapTable(labels, counts, words) {
   const alpha = heatAlpha(counts);
   const wrap = h("div", { class: "heatmap-wrap" });
   const tip = tooltip(wrap);
   const table = h("table", { class: "heatmap" });
-  table.append(h("thead", null, h("tr", null, h("th", { class: "corner" }, "Real ↓ · Entendida →"),
+  table.append(h("thead", null, h("tr", null, h("th", { class: "corner" }, words.corner),
     labels.map((l, j) => h("th", { title: l.name, scope: "col" }, String(j + 1))))));
   const body = h("tbody");
   labels.forEach((l, i) => {
@@ -268,7 +276,7 @@ function heatmapTable(labels, counts) {
       if (i === j && a > 0.55) td.classList.add("ink-light");
       const show = () => {
         const rb = td.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
-        tip.show(rb.left - wb.left + rb.width / 2 + wrap.scrollLeft, rb.top - wb.top, ...cellText(labels, i, j, c));
+        tip.show(rb.left - wb.left + rb.width / 2 + wrap.scrollLeft, rb.top - wb.top, ...cellText(labels, i, j, c, words));
       };
       if (c) {
         td.addEventListener("pointerenter", show);
@@ -287,7 +295,7 @@ function heatmapTable(labels, counts) {
 
 let heatmapIds = 0;
 
-function heatmapCompact(labels, counts) {
+function heatmapCompact(labels, counts, words) {
   const n = labels.length;
   const alpha = heatAlpha(counts);
   const W = 880, LW = 116, TOP = 2;  // medidas en unidades del viewBox (≈ píxeles a 880 de ancho)
@@ -296,7 +304,7 @@ function heatmapCompact(labels, counts) {
   const wrap = h("div", { class: "heatmap-wrap" });
   const tip = tooltip(wrap);
   const svg = s("svg", { viewBox: `0 0 ${W} ${TOP + n * c + 2}`, class: "heatmap-svg", role: "img", tabindex: "0",
-    "aria-label": `Matriz de confusión de ${n} intenciones; con las flechas se recorren sus casillas` });
+    "aria-label": `Matriz de confusión de ${n} ${words.items}; con las flechas se recorren sus casillas` });
   // casillas vacías: un patrón en vez de miles de rectángulos
   const pid = `hm${++heatmapIds}`;
   const tile = (x, y, cls, extra = {}) => s("rect", { x: x + c * 0.08, y: y + c * 0.08, width: c * 0.84, height: c * 0.84,
@@ -340,7 +348,7 @@ function heatmapCompact(labels, counts) {
     for (const el of [rowBand, colBand, focusBox]) el.setAttribute("visibility", "visible");
     const sb = svg.getBoundingClientRect(), wb = wrap.getBoundingClientRect(), k = sb.width / W;
     tip.show(sb.left - wb.left + (X(j) + c / 2) * k + wrap.scrollLeft, sb.top - wb.top + Y(i) * k,
-      ...cellText(labels, i, j, counts[i][j]));
+      ...cellText(labels, i, j, counts[i][j], words));
   };
   const hide = () => {
     cur = null;

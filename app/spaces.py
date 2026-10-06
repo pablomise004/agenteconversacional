@@ -27,6 +27,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .dialog import DialogManager, EngineCache
+from .ml.store import MLStore
 from .nlu.engine import NLUEngine
 from .storage import Storage
 
@@ -82,7 +83,7 @@ class ModelPool:
 
 
 class Space:
-    """Los agentes de alguien con sus modelos, su diálogo y sus exámenes."""
+    """Los agentes de alguien con sus modelos, su diálogo y sus exámenes, y sus proyectos de machine learning."""
 
     def __init__(self, data_dir: Path, pool: ModelPool | None = None, public_id: str = ""):
         self.dir = Path(data_dir)
@@ -91,6 +92,7 @@ class Space:
         self.engines = EngineCache(self.storage, pool)
         self.dialog = DialogManager(self.storage, self.engines)
         self.evaluations: dict[str, dict] = {}  # último examen por agente
+        self.ml = MLStore(self.dir)
 
     def ref(self, agent_id: str) -> str:
         """Dirección pública de un agente (widget, chat y API de conversación)."""

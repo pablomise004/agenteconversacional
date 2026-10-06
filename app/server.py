@@ -32,6 +32,7 @@ from . import __version__
 from .agents import blank_agent, new_id, normalize_entity, normalize_intent, normalize_phrase, slugify, summary
 from .dialog import analysis_dict
 from .importer import ImportError_, import_bytes
+from .ml import api as ml_api
 from .nlu import insights
 from .nlu.languages import SUPPORTED_LANGUAGES
 from .nlu.sys_entities import SYSTEM_ENTITIES
@@ -70,7 +71,8 @@ LONG_CACHE = "public, max-age=31536000, immutable"
 IMAGE_CACHE = "public, max-age=2592000"  # iconos e imagen de las vistas previas: 30 días
 # Rutas que se llaman desde otras webs (el widget, el chat incrustado, tu aplicación): solo en ellas
 # se abre CORS. El resto de la API es de la consola, que va en este mismo origen.
-PUBLIC_ROUTES = re.compile(r"/api/agents/[^/]+/(detect|public|sessions/[^/]+/reset)|/v2/projects/.+:detectIntent|/openapi\.json")
+PUBLIC_ROUTES = re.compile(r"/api/agents/[^/]+/(detect|public|sessions/[^/]+/reset)|/v2/projects/.+:detectIntent|/openapi\.json"
+                           r"|/api/ml/[^/]+/(predict|schema)")
 # lo que otras webs cargan con <script> o <img>: el widget y las imágenes de las vistas previas
 SHARED_FILES = re.compile(r"/widget\.js|/og\.png|/favicon\.(svg|ico)|/icons/[^/]+")
 INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.S)
@@ -189,9 +191,12 @@ ACCOUNT_TAGS = [
 MAX_AGENTS_PER_ACCOUNT = 50
 
 DESCRIPTION = (
-    "API REST de Lince, la alternativa libre y local a Dialogflow para crear chatbots en español.\n\n"
+    "API REST de Lince, la alternativa libre y local a Dialogflow para crear chatbots en español, y para "
+    "entrenar modelos de machine learning con tus tablas o tus imágenes.\n\n"
     "- **Conversación** (`/detect`, `:detectIntent`): no necesita el token de administración; si el agente "
     "tiene clave de API hay que enviarla en la cabecera `X-Api-Key`.\n"
+    "- **Predicción** (`/api/ml/<dirección>/predict`): el modelo publicado de un proyecto de machine learning; "
+    "tampoco necesita el token, solo la clave de API del proyecto (`X-Api-Key`) si la tiene.\n"
     "- **Administración** (todo lo demás): si el servidor se arrancó con `AGENTE_ADMIN_TOKEN`, cada petición "
     "debe llevar `Authorization: Bearer <token>`.\n"
     "- Los errores devuelven `{\"detail\": \"mensaje\"}` con el código HTTP correspondiente."
@@ -393,7 +398,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         title=APP_NAME,
         version=__version__,
         description=DESCRIPTION,
-        openapi_tags=TAGS + (ACCOUNT_TAGS if accounts else []),
+        openapi_tags=TAGS + ml_api.TAGS + (ACCOUNT_TAGS if accounts else []),
         docs_url=None,  # la referencia de la API es una página propia (/docs), sin depender de un CDN
         redoc_url=None,
     )
@@ -422,7 +427,8 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
         la guía, las notas de la versión, la API) va con «no-cache»: el navegador guarda su copia pero
         pregunta antes de usarla (un 304 si no ha cambiado), así que tras actualizar el servidor no se
         queda con lo de antes. Seguridad: sin adivinar tipos (nosniff), sin mandar la dirección completa
-        a otras webs, sin cámara ni micrófono, ventana aislada (COOP), ficheros solo para esta web salvo
+        a otras webs, sin micrófono, la cámara solo para esta web (fotos de los proyectos de imágenes),
+        ventana aislada (COOP), ficheros solo para esta web salvo
         los que se incrustan en otras (CORP), solo https una vez visto por https (HSTS) y, en las páginas
         que no son de incrustar, sin iframes ajenos (las páginas llevan su propia CSP, ver page())."""
         response = await call_next(request)
@@ -431,7 +437,7 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
             headers["Cache-Control"] = IMAGE_CACHE if SHARED_FILES.fullmatch(path) and path != "/widget.js" else "no-cache"
         headers["X-Content-Type-Options"] = "nosniff"
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"
         headers["Cross-Origin-Opener-Policy"] = "same-origin"
         headers.setdefault("Cross-Origin-Resource-Policy", "cross-origin" if SHARED_FILES.fullmatch(path) else "same-origin")
         if is_https(request):
@@ -1163,6 +1169,21 @@ def create_app(data_dir: Path | None = None, accounts: bool | None = None) -> Fa
             wh = r["webhook"]
             out["webhookStatus"] = {"code": 0 if wh["ok"] else 2, "message": wh.get("error") or "OK"}
         return out
+
+    # ----------------------------------------------------- machine learning
+    def resolve_project(ref: str, request: Request) -> tuple[Space, str]:
+        """Espacio e id de un proyecto de ML en sus rutas públicas: «<espacio>.<proyecto>» con cuentas."""
+        if not accounts:
+            return single, ref
+        sid, dot, pid = ref.partition(".")
+        sp = spaces.get(sid) if dot else spaces.by_key(request.headers.get("x-space-key", ""))
+        if sp is None:
+            raise HTTPException(404, "No existe ese proyecto")
+        return sp, pid if dot else ref
+
+    # la clave de API de un proyecto solo se la salta quien tiene el token de administración (como en los agentes)
+    app.state.ml_jobs = ml_api.register(app, admin=ADMIN, space_dep=SPACE, resolve=resolve_project,
+                                        is_admin=lambda request: bool(admin_token) and is_admin(request))
 
     # ------------------------------------------------------- web estática
     def origin(request: Request) -> str:
